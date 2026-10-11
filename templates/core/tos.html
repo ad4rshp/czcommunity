@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    .legal-container {
+        max-width: 800px;
+        margin: 60px auto;
+        padding: 40px;
+        background-color: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        color: var(--text-primary);
+        line-height: 1.6;
+    }
+    
+    .legal-container h1 {
+        margin-bottom: 20px;
+        color: var(--accent);
+    }
+    
+    .legal-container h2 {
+        margin-top: 30px;
+        margin-bottom: 15px;
+        color: var(--text-primary);
+        font-size: 1.2rem;
+    }
+    
+    .legal-container p {
+        margin-bottom: 15px;
+        color: var(--text-secondary);
+    }
+    
+    .legal-container ul {
+        margin-left: 20px;
+        margin-bottom: 15px;
+        color: var(--text-secondary);
+    }
+    
+    .back-btn {
+        display: inline-block;
+        margin-bottom: 20px;
+        color: var(--text-muted);
+        text-decoration: none;
+        transition: color var(--transition-fast);
+    }
+    
+    .back-btn:hover {
+        color: var(--text-primary);
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="legal-container">
+    <a href="javascript:history.back()" class="back-btn">← Back</a>
+    
+    <h1>Terms of Service</h1>
+    <p>Last updated: October 2026</p>
+    
+    <h2>1. Acceptance of Terms</h2>
+    <p>By accessing and using CHILL ZONE, you accept and agree to be bound by the terms and provision of this agreement.</p>
+    
+    <h2>2. Age Requirements</h2>
+    <p>You must be at least 14 years old to use CHILL ZONE. By creating an account, you represent and warrant that you are 14 years of age or older.</p>
+    
+    <h2>3. User Conduct</h2>
+    <p>You agree to not use the service to:</p>
+    <ul>
+        <li>Harass, abuse, or harm another person</li>
+        <li>Transmit any content that is unlawful, harmful, or objectionable</li>
+        <li>Impersonate any person or entity</li>
+        <li>Spam or solicit other users</li>
+    </ul>
+    
+    <h2>4. Content</h2>
+    <p>We reserve the right to remove any content or ban any user that violates these terms, at our sole discretion, without prior notice.</p>
+    
+    <h2>5. Modifications to Service</h2>
+    <p>We reserve the right to modify or discontinue, temporarily or permanently, the service with or without notice.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% extends 'authenticated_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/chat.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="chat-layout">
+    {% include 'community/sidebar.html' %}
+
+    <div class="chat-main" style="padding: 30px; display: flex; align-items: center; justify-content: center; background: var(--bg-primary);">
+        <div style="width: 100%; max-width: 480px; background: var(--bg-surface); padding: 30px; border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.25);">
+            <h3 style="margin: 0 0 25px 0; display: flex; align-items: center; gap: 8px; font-size: 1.1rem;">
+                <i class="ph ph-gear" style="color: var(--accent);"></i> Manage — {{ category.name }}
+            </h3>
+            
+            <form method="post">
+                {% csrf_token %}
+                <div style="display: flex; flex-direction: column; gap: 18px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">CATEGORY NAME</label>
+                        {{ form.name }}
+                    </div>
+
+                    <!-- Channels in this category -->
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">CHANNELS ({{ category.channels.count }})</label>
+                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                            {% for channel in category.channels.all %}
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--bg-elevated); border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                                <span style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="ph ph-hash" style="color: var(--text-muted);"></i> {{ channel.name }}
+                                </span>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <!-- Move channel dropdown -->
+                                    <select name="move_channel_{{ channel.id }}" style="padding: 4px 8px; font-size: 0.75rem; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-secondary); cursor: pointer;">
+                                        <option value="">Move to...</option>
+                                        {% for cat in categories %}
+                                        {% if cat.id != category.id %}
+                                        <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" name="delete_channel" value="{{ channel.id }}" style="background: none; border: none; color: #ff5252; cursor: pointer; padding: 4px; display: flex;" title="Delete Channel" onclick="return confirm('Delete #{{ channel.name }}?')">
+                                        <i class="ph ph-trash" style="font-size: 1rem;"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div style="padding: 15px; text-align: center; color: var(--text-muted); font-style: italic; font-size: 0.85rem;">No channels in this category</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px; padding-top: 15px; border-top: 1px solid var(--border);">
+                        <button type="submit" name="delete" class="btn btn-secondary" style="color: #ff5252; border-color: rgba(255,82,82,0.3);" onclick="return confirm('Delete the entire {{ category.name }} category? All channels inside will be lost.')">
+                            <i class="ph ph-trash" style="margin-right: 5px;"></i> Delete Category
+                        </button>
+                        <div style="display: flex; gap: 10px;">
+                            <a href="{% url 'chat' %}" class="btn btn-secondary">Back</a>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

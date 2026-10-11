@@ -1,0 +1,16 @@
+[Unit]
+Description=Daphne ASGI daemon for Chillzone Community
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/chillzone
+Environment="DJANGO_SETTINGS_MODULE=config.settings"
+Environment="DEBUG=False"
+ExecStart=/var/www/chillzone/venv/bin/daphne -b 127.0.0.1 -p 8000 config.asgi:application
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

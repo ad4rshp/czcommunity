@@ -1,0 +1,23 @@
+{% extends 'authenticated_base.html' %}
+{% load static %}
+
+{% block content %}
+<div style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: var(--bg-primary);">
+    <div style="background: var(--bg-surface); padding: 40px; border-radius: var(--radius-lg); border: 1px solid var(--border); max-width: 400px; text-align: center;">
+        <i class="ph ph-warning" style="font-size: 3rem; color: #F44336; margin-bottom: 20px;"></i>
+        <h2 style="margin: 0 0 15px 0;">Delete Server?</h2>
+        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 25px; line-height: 1.5;">
+            Are you absolutely sure you want to delete <strong>{{ community.name }}</strong>? This action will permanently wipe all channels, messages, roles, and media. This cannot be undone.
+        </p>
+        
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="delete_community_confirm">
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <a href="{% url 'community_settings' %}" class="btn" style="background: var(--bg-elevated); color: var(--text-primary);">Cancel</a>
+                <button type="submit" class="btn" style="background: #F44336; color: white; border: none;">Yes, Delete Server</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

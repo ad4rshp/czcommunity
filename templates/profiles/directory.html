@@ -1,0 +1,34 @@
+{% extends 'authenticated_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/profiles.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="profile-container" style="max-width: 1000px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+            <h2 style="margin: 0; font-size: 1.8rem;"><i class="ph ph-users" style="color: var(--accent);"></i> Members</h2>
+            <p style="color: var(--text-muted); margin: 5px 0 0 0;">Connect with the community.</p>
+        </div>
+        <a href="{% url 'community' %}" class="btn btn-secondary"><i class="ph ph-x"></i> Close</a>
+    </div>
+
+    <div class="directory-list">
+        {% for user in users %}
+        <div class="member-list-item">
+            <a href="{% url 'profile' user.username %}" class="member-info">
+                <img src="{{ user.profile.get_avatar_url }}" alt="Avatar" class="member-avatar-small" style="object-fit: cover;">
+                <span class="member-name">{{ user.username }}</span>
+            </a>
+            {% if user.profile.favorite_game %}
+            <div class="member-game"><i class="ph ph-game-controller"></i> {{ user.profile.favorite_game }}</div>
+            {% endif %}
+        </div>
+        {% empty %}
+        <p>No members found.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

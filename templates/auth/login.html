@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/auth.css' %}">
+{% endblock %}
+
+{% block body %}
+<div class="auth-page">
+    <div class="back-nav">
+        <a href="{% url 'home' %}">
+            <span>←</span> Home
+        </a>
+    </div>
+
+    <div class="auth-bg-glow"></div>
+    
+    <div class="auth-card">
+        <div class="auth-header">
+            <h2>Welcome back.</h2>
+            <p>Sign in to continue to CHILL ZONE.</p>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="errorlist" style="margin-bottom: 15px; text-align: center;">
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+
+            {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                <span class="helptext">{{ field.help_text }}</span>
+                {% endif %}
+                {% if field.errors %}
+                {{ field.errors }}
+                {% endif %}
+            </div>
+            {% endfor %}
+            
+            <button type="submit" class="auth-btn">Sign In</button>
+        </form>
+        
+        <div class="auth-footer">
+            <p>Don't have an account? <a href="{% url 'register' %}">Create account</a></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Add form-control class to all inputs
+    document.querySelectorAll('input').forEach(input => {
+        if (input.type !== 'submit' && input.type !== 'hidden' && input.type !== 'checkbox') {
+            input.classList.add('form-control');
+        }
+    });
+</script>
+{% endblock %}

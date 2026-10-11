@@ -1,0 +1,131 @@
+{% extends base_template|default:'authenticated_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/profiles.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <div class="premium-profile-card">
+        <!-- Banner with glowing gradient -->
+        <div class="profile-banner" style="background: linear-gradient(135deg, {% if profile_user.id|divisibleby:2 %}#c26176 0%, #a24b61{% elif profile_user.id|divisibleby:3 %}#5b7290 0%, #3b4a5d{% elif profile_user.id|divisibleby:5 %}#6d5b90 0%, #4b3b5d{% else %}#2b2d31 0%, #1e1f22{% endif %} 100%);">
+            <!-- Top Right Action Buttons -->
+            <div class="banner-actions">
+                {% if request.user == profile_user %}
+                <a href="{% url 'profile_edit' %}" class="btn-banner-icon" title="Edit Profile"><i class="ph ph-pencil-simple"></i></a>
+                {% else %}
+                <button class="btn-banner-icon" title="Server Profile"><i class="ph ph-user-circle"></i></button>
+                <button class="btn-banner-icon" title="More Options"><i class="ph ph-dots-three"></i></button>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="profile-header-content">
+            <!-- Avatar overlapping banner -->
+            <div class="profile-avatar-wrapper" onclick="openLightbox('{{ profile_user.profile.get_avatar_url }}')">
+                <img src="{{ profile_user.profile.get_avatar_url }}" alt="Avatar" class="profile-avatar-inner" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                <div class="avatar-hover-overlay">View</div>
+                
+                <div class="profile-status-indicator">
+                    {% if profile_user.profile.status_setting == 'online' %}
+                        <div style="width: 14px; height: 14px; border-radius: 50%; background: #4CAF50;"></div>
+                    {% elif profile_user.profile.status_setting == 'idle' %}
+                        <i class="ph-fill ph-moon" style="color: #FFC107; font-size: 14px;"></i>
+                    {% elif profile_user.profile.status_setting == 'dnd' %}
+                        <div style="width: 14px; height: 14px; border-radius: 50%; background: #F44336; position: relative;">
+                            <div style="position: absolute; top: 6px; left: 3px; width: 8px; height: 2px; background: #232428;"></div>
+                        </div>
+                    {% else %}
+                        <div style="width: 14px; height: 14px; border-radius: 50%; background: #80848e; border: 2px solid #232428;"></div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="profile-name-section">
+                <!-- Large Display Name -->
+                <h1 class="profile-display-name">{{ profile_user.username }}</h1>
+                
+                <!-- Smaller Username -->
+                <div class="profile-username">
+                    {{ profile_user.username }}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Inner Profile Body (Darker background) -->
+        <div class="profile-body">
+            <div class="profile-bio">
+                {% if profile_user.profile.bio %}
+                <div class="profile-bio-text">{{ profile_user.profile.bio|linebreaksbr }}</div>
+                {% else %}
+                <div class="profile-bio-text" style="opacity: 0.5; font-style: italic;">No bio set.</div>
+                {% endif %}
+            </div>
+            
+            <div style="font-size: 0.85rem; font-weight: 600; color: #dbdee1; margin-bottom: 16px; cursor: pointer;">
+                View Full Bio
+            </div>
+            
+            {% if community and membership %}
+            <div class="profile-roles-container">
+                {% for role in membership.roles.all %}
+                    {% if role.name != '@everyone' %}
+                    <div class="premium-role-pill">
+                        <div class="premium-role-dot" style="background: {{ role.color }};"></div>
+                        <span>{{ role.name }}</span>
+                        {% if all_roles %}
+                        <form class="role-action-form" method="post" action="{% url 'profile_card_fragment' profile_user.username %}?c={{ community.slug }}" style="display: inline; margin: 0; padding: 0; height: 12px;">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="remove_role">
+                            <input type="hidden" name="role_action" value="remove_role">
+                            <input type="hidden" name="role_id" value="{{ role.id }}">
+                            <input type="hidden" name="community_id" value="{{ community.id }}">
+                            <button type="submit" class="premium-role-remove"><i class="ph ph-x"></i></button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if all_roles %}
+                <div style="position: relative; display: inline-block;">
+                    <button type="button" onclick="document.getElementById('roleDropdown').style.display = document.getElementById('roleDropdown').style.display === 'none' ? 'block' : 'none';" class="btn-add-role" title="Assign Role">
+                        <i class="ph ph-plus"></i>
+                    </button>
+                    <div id="roleDropdown" style="display: none; position: absolute; top: 100%; left: 0; margin-top: 5px; background: #2b2d31; border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; padding: 10px; z-index: 100; min-width: 200px; box-shadow: 0 8px 16px rgba(0,0,0,0.5);">
+                        <div style="font-size: 0.75rem; font-weight: bold; color: var(--text-muted); margin-bottom: 8px;">ASSIGN ROLE</div>
+                        {% for role in available_roles %}
+                        <form class="role-action-form" method="post" action="{% url 'profile_card_fragment' profile_user.username %}?c={{ community.slug }}" style="margin: 0; margin-bottom: 2px;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="assign_role">
+                                <input type="hidden" name="role_action" value="assign_role">
+                                <input type="hidden" name="role_id" value="{{ role.id }}">
+                                <input type="hidden" name="community_id" value="{{ community.id }}">
+                                <button type="submit" style="width: 100%; text-align: left; background: none; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: {{ role.color }}; display: flex; align-items: center; gap: 8px; font-weight: 500;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
+                                    <div class="premium-role-dot" style="background: {{ role.color }};"></div>
+                                    {{ role.name }}
+                                </button>
+                            </form>
+                        {% empty %}
+                            <div style="font-size: 0.8rem; color: var(--text-muted); padding: 5px;">No eligible roles.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Footer Input -->
+        {% if request.user != profile_user %}
+        <a href="{% url 'dm_chat' profile_user.username %}" style="text-decoration: none;">
+            <div class="profile-footer-input">
+                <span>Message @{{ profile_user.username }}</span>
+                <i class="ph-fill ph-smiley" style="font-size: 1.2rem;"></i>
+            </div>
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

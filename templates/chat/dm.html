@@ -1,0 +1,114 @@
+{% extends 'authenticated_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/chat.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="chat-layout">
+    <div class="channel-sidebar" id="channelDrawer">
+        <div class="drawer-header mobile-only">
+            <h3>DIRECT MESSAGES</h3>
+            <button type="button" id="closeDrawerBtn">×</button>
+        </div>
+        
+        <div class="community-header" style="cursor: default; border-bottom: 1px solid var(--border);">
+            <h2>Direct Messages</h2>
+        </div>
+        <div class="category">
+            <div class="category-header">
+                <span class="category-title"><i class="ph ph-user"></i> DIRECT MESSAGES</span>
+            </div>
+            <div class="category-channels" style="display: block; margin-top: 5px;">
+                <a href="{% url 'friends' %}" class="channel-link">
+                    <i class="ph ph-users" style="margin-right: 5px;"></i> Friends
+                </a>
+                {% for s in dm_sessions %}
+                    {% if s.user1 == request.user %}
+                    <a href="{% url 'dm_chat' s.user2.username %}" class="channel-link {% if s.user2 == target_user %}active{% endif %}" style="display: flex; align-items: center; gap: 8px;">
+                        <img src="{{ s.user2.profile.get_avatar_url }}" alt="{{ s.user2.username }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
+                        {{ s.user2.username }}
+                    </a>
+                    {% else %}
+                    <a href="{% url 'dm_chat' s.user1.username %}" class="channel-link {% if s.user1 == target_user %}active{% endif %}" style="display: flex; align-items: center; gap: 8px;">
+                        <img src="{{ s.user1.profile.get_avatar_url }}" alt="{{ s.user1.username }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
+                        {{ s.user1.username }}
+                    </a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-main">
+        <div class="chat-header">
+            <button type="button" id="openDrawerBtn" class="mobile-only">☰</button>
+            <div class="channel-info" style="display: flex; align-items: center; gap: 10px;">
+                <img src="{{ target_user.profile.get_avatar_url }}" alt="{{ target_user.username }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
+                <div>
+                    <strong style="font-size: 1.1rem;">@{{ target_user.username }}</strong>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Direct Message</div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a href="{% url 'profile' target_user.username %}" title="View Profile" style="color: var(--text-muted);"><i class="ph ph-user" style="font-size: 1.2rem;"></i></a>
+            </div>
+        </div>
+
+        <div class="message-area" id="messageArea">
+            {% if not chat_messages %}
+            <div class="empty-state">
+                <img src="{{ target_user.profile.get_avatar_url }}" alt="{{ target_user.username }}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 20px;" onerror="this.src='/static/img/default_avatar.svg'">
+                <h3>{{ target_user.username }}</h3>
+                <p>This is the beginning of your direct message history with @{{ target_user.username }}.</p>
+            </div>
+            {% endif %}
+            
+            {% for message in chat_messages %}
+            <div class="message-group" id="msg-{{ message.id }}" data-raw-content="{{ message.content }}">
+                <div class="message-avatar">
+                    <img src="{{ message.author.profile.get_avatar_url }}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
+                </div>
+                <div class="message-content-wrapper">
+                    <div class="message-meta">
+                        <span class="author">{{ message.author.username }}</span>
+                        <span class="timestamp">{{ message.created_at|date:"h:i A" }}</span>
+                    </div>
+                    <div class="message-text markdown-content">
+                        {{ message.content }}
+                        {% if message.edited_at %}
+                        <span class="edited-tag">(edited)</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="message-actions">
+                    {% if message.author == request.user %}
+                    <button type="button" onclick="startEdit({{ message.id }})">Edit</button>
+                    <button type="button" onclick="deleteMessage({{ message.id }})">Delete</button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="composer-area">
+            <div id="typingIndicator" class="typing-indicator"></div>
+            <form id="chatForm">
+                <input type="file" id="fileInput" style="display: none;">
+                <button type="button" class="attach-btn" onclick="document.getElementById('fileInput').click();" title="Upload File"><i class="ph ph-plus-circle"></i></button>
+                <button type="button" class="attach-btn" id="gifBtn" title="Send GIF" style="margin-left: -5px;"><i class="ph ph-gif"></i></button>
+                <textarea id="messageInput" placeholder="Message @{{ target_user.username }}..." rows="1" autofocus></textarea>
+                <button type="submit" class="send-btn" title="Send (Enter)">➤</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ session.id|json_script:"session-id" }}
+{{ request.user.username|json_script:"current-username" }}
+<script id="community-data" type="application/json">{"users": [], "channels": []}</script>
+<script src="{% static 'js/chat.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends 'authenticated_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/chat.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="chat-layout">
+    {% include 'community/sidebar.html' %}
+
+    <div class="chat-main" style="padding: 30px; display: flex; align-items: center; justify-content: center; background: var(--bg-primary);">
+        <div style="width: 100%; max-width: 480px; background: var(--bg-surface); padding: 30px; border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: 0 8px 32px rgba(0,0,0,0.25);">
+            <h3 style="margin: 0 0 25px 0; display: flex; align-items: center; gap: 8px; font-size: 1.1rem;">
+                <i class="ph ph-plus" style="color: var(--accent);"></i> Create Channel in {{ category.name|upper }}
+            </h3>
+            
+            <form method="post">
+                {% csrf_token %}
+                <div style="display: flex; flex-direction: column; gap: 18px;" x-data="{ type: 'text' }" x-init="type = document.querySelector('[name=channel_type]').value; document.querySelector('[name=channel_type]').addEventListener('change', e => type = e.target.value)">
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">CHANNEL NAME</label>
+                        {{ form.name }}
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">CHANNEL TYPE</label>
+                        {{ form.channel_type }}
+                    </div>
+                    <div x-show="type === 'text' || type === 'announcement'">
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">COOLDOWN (SLOWMODE) <span style="color: var(--text-muted); font-weight: 400;">(seconds)</span></label>
+                        {{ form.cooldown }}
+                    </div>
+                    <div x-show="type === 'voice'">
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">USER LIMIT <span style="color: var(--text-muted); font-weight: 400;">(0 for unlimited)</span></label>
+                        {{ form.user_limit }}
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">DESCRIPTION <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+                        {{ form.description }}
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 5px; padding-top: 15px; border-top: 1px solid var(--border);">
+                        <a href="{% url 'chat' %}" class="btn btn-secondary">Back</a>
+                        <button type="submit" class="btn btn-primary">Create Channel</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

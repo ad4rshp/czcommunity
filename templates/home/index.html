@@ -1,0 +1,506 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Chillzone — Where Your Community Hangs Out{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/home.css' %}?v=4">
+{% endblock %}
+
+{% block body %}
+<div class="landing-page" x-data="{ mobileMenuOpen: false, activeFaq: null }">
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    
+    <!-- Top Sticky Navbar -->
+    <nav class="sticky-nav">
+        <div class="nav-container">
+            <div class="nav-left">
+                <a href="{% url 'home' %}" class="logo" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text-primary);">
+                    <img src="{% static 'img/chillzone_logo.svg' %}" alt="Chillzone" style="width: 34px; height: 34px; object-fit: contain;">
+                    <span style="font-weight: 800; font-size: 1.15rem; letter-spacing: 0.5px;">CHILL ZONE</span>
+                    {% if site_settings and site_settings.show_beta_warning %}
+                    <span class="beta-tag-outline">BETA</span>
+                    {% endif %}
+                </a>
+            </div>
+            
+            <div class="nav-center desktop-only">
+                <a href="#features" class="nav-link">Features</a>
+                <a href="#showcase" class="nav-link">Live Preview</a>
+                <a href="#voice" class="nav-link">Voice & Sound</a>
+                <a href="#faq" class="nav-link">FAQ</a>
+            </div>
+            
+            <div class="nav-right desktop-only">
+                <a href="{% url 'login' %}" class="btn btn-secondary">Log In</a>
+                <a href="{% url 'register' %}" class="btn btn-primary">
+                    <span>Join Free</span>
+                    <i class="ph-bold ph-arrow-right" style="margin-left: 6px;"></i>
+                </a>
+            </div>
+            
+            <!-- Mobile Toggle -->
+            <div class="nav-mobile-toggle mobile-only">
+                <button aria-label="Toggle navigation menu" class="icon-btn" @click="mobileMenuOpen = !mobileMenuOpen">
+                    <i :class="mobileMenuOpen ? 'ph ph-x' : 'ph ph-list'"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Drawer Menu -->
+        <div class="mobile-drawer" x-show="mobileMenuOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-100 translate-y-0" style="display: none;">
+            <a href="#features" class="mobile-link" @click="mobileMenuOpen = false">Features</a>
+            <a href="#showcase" class="mobile-link" @click="mobileMenuOpen = false">Live Preview</a>
+            <a href="#voice" class="mobile-link" @click="mobileMenuOpen = false">Voice & Sound</a>
+            <a href="#faq" class="mobile-link" @click="mobileMenuOpen = false">FAQ</a>
+            <div class="mobile-drawer-actions">
+                <a href="{% url 'login' %}" class="btn btn-secondary" style="width: 100%;">Log In</a>
+                <a href="{% url 'register' %}" class="btn btn-primary" style="width: 100%;">Join Community</a>
+            </div>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-container">
+                <div class="hero-content">
+                    {% if site_settings and site_settings.show_beta_warning %}
+                    <div class="beta-warning-card">
+                        <i class="ph-fill ph-warning-circle"></i>
+                        <div>
+                            <strong>Beta Version:</strong> Chill Zone is currently in beta. You may experience some instability as we add features.
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="hero-badge">
+                        <span class="badge-dot"></span>
+                        <span>NEXT-GEN SOCIAL SPACES • 100% FREE</span>
+                    </div>
+                    
+                    <h1 class="hero-headline">
+                        Where your friends<br>
+                        <span class="gradient-text">actually hang out.</span>
+                    </h1>
+                    
+                    <p class="hero-subtitle">
+                        Drop into crystal-clear low latency voice rooms, chat in organized spaces, share music, and build a community you love. Fast, modern, and effortless.
+                    </p>
+                    
+                    <div class="hero-actions">
+                        <a href="{% url 'register' %}" class="btn btn-primary btn-lg">
+                            <span>Get Started Free</span>
+                            <i class="ph-bold ph-arrow-right" style="margin-left: 8px;"></i>
+                        </a>
+                        <a href="#showcase" class="btn btn-secondary btn-lg">
+                            <i class="ph-fill ph-play-circle" style="margin-right: 8px; color: var(--accent);"></i>
+                            <span>Explore Platform</span>
+                        </a>
+                    </div>
+
+                    <!-- Trust indicators -->
+                    <div class="hero-perks">
+                        <div class="perk-item">
+                            <i class="ph-fill ph-shield-check"></i>
+                            <span>Zero Lag WebRTC</span>
+                        </div>
+                        <div class="perk-item">
+                            <i class="ph-fill ph-sparkle"></i>
+                            <span>Rich Markdown & GIFs</span>
+                        </div>
+                        <div class="perk-item">
+                            <i class="ph-fill ph-device-mobile"></i>
+                            <span>Mobile & Desktop</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive Hero Visual: Live App Showcase Card -->
+                <div class="hero-visual desktop-only" x-data="{ micActive: true, isSpeaking: true }">
+                    <div class="hero-mockup-card">
+                        <div class="mockup-top-bar">
+                            <div class="mockup-dots">
+                                <span></span><span></span><span></span>
+                            </div>
+                            <div class="mockup-title">
+                                <i class="ph-fill ph-seal-check" style="color: #4CAF50;"></i> Chillzone Official
+                            </div>
+                            <span class="mockup-status">Live</span>
+                        </div>
+
+                        <!-- Active Voice Room Pill -->
+                        <div class="mockup-voice-box">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="ph-fill ph-speaker-high" style="color: #23A55A; font-size: 1.2rem;"></i>
+                                    <span style="font-weight: 700; font-size: 0.95rem; color: #fff;">Chill Lounge VC</span>
+                                </div>
+                                <span style="font-size: 0.75rem; color: #23A55A; font-weight: 600; background: rgba(35,165,90,0.15); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(35,165,90,0.3);">
+                                    RTC 18ms
+                                </span>
+                            </div>
+
+                            <div class="mockup-voice-members">
+                                <div class="vc-pill-member">
+                                    <div class="vc-avatar-wrap">
+                                        <img src="{% static 'img/default_avatar_orange.svg' %}" alt="Alex" class="vc-avatar speaking-pulse">
+                                    </div>
+                                    <div style="display: flex; flex-direction: column;">
+                                        <span style="font-size: 0.85rem; font-weight: 600; color: #fff;">Alex (You)</span>
+                                        <span style="font-size: 0.72rem; color: #23A55A;">Speaking...</span>
+                                    </div>
+                                    <div class="audio-wave">
+                                        <span></span><span></span><span></span><span></span>
+                                    </div>
+                                </div>
+                                <div class="vc-pill-member">
+                                    <div class="vc-avatar-wrap">
+                                        <img src="{% static 'img/default_avatar_blue.svg' %}" alt="Maya" class="vc-avatar">
+                                    </div>
+                                    <div style="display: flex; flex-direction: column;">
+                                        <span style="font-size: 0.85rem; font-weight: 600; color: #fff;">Maya</span>
+                                        <span style="font-size: 0.72rem; color: var(--text-muted);">Listening</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Message Stream -->
+                        <div class="mockup-chat-stream">
+                            <div class="mockup-message">
+                                <img src="{% static 'img/default_avatar_purple.svg' %}" alt="Liam" class="mockup-msg-avatar">
+                                <div class="mockup-msg-body">
+                                    <div class="mockup-msg-header">
+                                        <span class="mockup-author">Liam</span>
+                                        <span class="mockup-time">Today at 11:24 AM</span>
+                                    </div>
+                                    <p class="mockup-msg-text">The new voice channels are ridiculously fast! Ready for the session? 🎧</p>
+                                    <div class="mockup-reactions">
+                                        <span class="reaction-tag active">🔥 14</span>
+                                        <span class="reaction-tag">✨ 8</span>
+                                        <span class="reaction-tag">🙌 5</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Floating Quick Controls -->
+                        <div class="mockup-bottom-dock">
+                            <button class="mockup-dock-btn on" title="Mic Status">
+                                <i class="ph-fill ph-microphone"></i>
+                            </button>
+                            <button class="mockup-dock-btn on" title="Audio Status">
+                                <i class="ph-fill ph-headphones"></i>
+                            </button>
+                            <button class="mockup-dock-btn active" title="Noise Cancellation">
+                                <i class="ph-fill ph-ear"></i>
+                            </button>
+                            <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: auto;">Krisp Active</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Social Proof Metrics Bar -->
+        <section class="metrics-bar">
+            <div class="metrics-container">
+                <div class="metric-item">
+                    <span class="metric-val">{{ users_count|default:"1,500+" }}</span>
+                    <span class="metric-label">Community Members</span>
+                </div>
+                <div class="metric-divider"></div>
+                <div class="metric-item">
+                    <span class="metric-val">100%</span>
+                    <span class="metric-label">Free Forever</span>
+                </div>
+                <div class="metric-divider"></div>
+                <div class="metric-item">
+                    <span class="metric-val">&lt; 25ms</span>
+                    <span class="metric-label">WebRTC Voice Latency</span>
+                </div>
+                <div class="metric-divider"></div>
+                <div class="metric-item">
+                    <span class="metric-val">99.9%</span>
+                    <span class="metric-label">Uptime & Reliability</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Live Platform Showcase (Show, Don't Tell) -->
+        <section id="showcase" class="showcase-section">
+            <div class="section-container">
+                <div class="section-header">
+                    <span class="section-kicker">BUILT FOR EVERYONE</span>
+                    <h2>A complete social hub in your browser.</h2>
+                    <p>Designed with zero clutter. Jump into organized spaces, switch text and voice channels seamlessly, and interact with rich media.</p>
+                </div>
+
+                <div class="app-showcase-window">
+                    <!-- Showcase Window Header -->
+                    <div class="window-chrome">
+                        <div class="window-controls">
+                            <span class="dot red"></span>
+                            <span class="dot yellow"></span>
+                            <span class="dot green"></span>
+                        </div>
+                        <div class="window-url-bar">
+                            <i class="ph ph-lock-simple" style="color: #4CAF50;"></i>
+                            <span>chillzone.app / community / official</span>
+                        </div>
+                        <div class="window-meta desktop-only">
+                            <span class="online-pill"><i class="ph-fill ph-circle"></i> Connected</span>
+                        </div>
+                    </div>
+
+                    <!-- Showcase Window Body -->
+                    <div class="window-body">
+                        <!-- Left Server Bar Mock -->
+                        <div class="showcase-server-rail">
+                            <div class="rail-icon active" title="Chillzone Official">
+                                <img src="{% static 'img/chillzone_logo.svg' %}" alt="Chillzone">
+                            </div>
+                            <div class="rail-icon" title="Gaming Lounge">
+                                <img src="{% static 'img/default_server.svg' %}" alt="Gaming">
+                            </div>
+                            <div class="rail-icon add" title="Create Server">
+                                <i class="ph ph-plus"></i>
+                            </div>
+                        </div>
+
+                        <!-- Sidebar Channels Mock -->
+                        <div class="showcase-channels-rail desktop-only">
+                            <div class="rail-header">
+                                <strong>CHILLZONE OFFICIAL</strong>
+                                <i class="ph-fill ph-seal-check" style="color: #4CAF50;"></i>
+                            </div>
+                            <div class="channel-group-title">TEXT CHANNELS</div>
+                            <div class="mock-channel active"><i class="ph ph-hash"></i> welcome-rules</div>
+                            <div class="mock-channel"><i class="ph ph-hash"></i> general-chat</div>
+                            <div class="mock-channel"><i class="ph ph-hash"></i> memes-media</div>
+                            <div class="channel-group-title" style="margin-top: 15px;">VOICE ROOMS</div>
+                            <div class="mock-channel voice active"><i class="ph ph-speaker-high"></i> Chill Lounge (3)</div>
+                            <div class="mock-channel voice"><i class="ph ph-speaker-high"></i> Music Room</div>
+                        </div>
+
+                        <!-- Main Chat & Voice Stage -->
+                        <div class="showcase-content-area">
+                            <div class="stage-chat-header">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="ph ph-hash" style="color: var(--text-muted); font-size: 1.2rem;"></i>
+                                    <strong style="color: #fff;">welcome-rules</strong>
+                                    <span style="font-size: 0.8rem; color: var(--text-muted);" class="desktop-only">— Read the guidelines & start vibing</span>
+                                </div>
+                                <div style="display: flex; gap: 10px; color: var(--text-muted);">
+                                    <i class="ph ph-bell"></i>
+                                    <i class="ph ph-users"></i>
+                                    <i class="ph ph-magnifying-glass"></i>
+                                </div>
+                            </div>
+
+                            <div class="stage-messages-list">
+                                <div class="stage-message-row">
+                                    <img src="{% static 'img/default_avatar_orange.svg' %}" alt="Adarsh" class="stage-avatar">
+                                    <div class="stage-msg-content">
+                                        <div class="stage-author-bar">
+                                            <span class="stage-author-name">Adarsh</span>
+                                            <span class="role-badge-pill" style="background: rgba(255,107,43,0.15); color: var(--accent); border: 1px solid var(--accent);">FOUNDER</span>
+                                            <span class="stage-time">10:45 AM</span>
+                                        </div>
+                                        <p class="stage-text">Welcome to CHILL ZONE! Grab a cup of coffee, customize your profile in settings, and jump into voice! ☕🎉</p>
+                                    </div>
+                                </div>
+
+                                <div class="stage-message-row">
+                                    <img src="{% static 'img/default_avatar_green.svg' %}" alt="Sarah" class="stage-avatar">
+                                    <div class="stage-msg-content">
+                                        <div class="stage-author-bar">
+                                            <span class="stage-author-name">Sarah</span>
+                                            <span class="role-badge-pill" style="background: rgba(76,175,80,0.15); color: #4CAF50; border: 1px solid #4CAF50;">MOD</span>
+                                            <span class="stage-time">10:48 AM</span>
+                                        </div>
+                                        <p class="stage-text">Audio sounds pristine on the new WebRTC engine. Love the instant theme switching too!</p>
+                                        <div class="stage-attachment-pill">
+                                            <i class="ph-fill ph-file-audio" style="color: var(--accent);"></i>
+                                            <span>chillzone_intro.mp3 (320kbps stereo)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="stage-input-dock">
+                                <div class="stage-input-field">
+                                    <i class="ph ph-plus-circle" style="color: var(--text-muted); font-size: 1.2rem;"></i>
+                                    <span style="color: var(--text-muted); font-size: 0.9rem;">Message #welcome-rules...</span>
+                                    <div style="margin-left: auto; display: flex; gap: 12px; color: var(--text-muted);">
+                                        <i class="ph ph-gif"></i>
+                                        <i class="ph ph-smiley"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Grid (The 4 Core Pillars) -->
+        <section id="features" class="features-section">
+            <div class="section-container">
+                <div class="section-header">
+                    <span class="section-kicker">POWERFUL & SIMPLE</span>
+                    <h2>Everything you need. Nothing you don't.</h2>
+                    <p>Designed from the ground up for modern communities that value speed, aesthetics, and privacy.</p>
+                </div>
+
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon-wrap" style="background: rgba(35, 165, 90, 0.12); color: #23A55A; border-color: rgba(35, 165, 90, 0.3);">
+                            <i class="ph-fill ph-speaker-high"></i>
+                        </div>
+                        <h3>Low-Latency Voice Rooms</h3>
+                        <p>Instant peer-to-peer WebRTC voice channels with active speaking detection, Krisp noise reduction, and mute/deafen controls.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon-wrap" style="background: rgba(255, 107, 43, 0.12); color: var(--accent); border-color: rgba(255, 107, 43, 0.3);">
+                            <i class="ph-fill ph-chat-circle-dots"></i>
+                        </div>
+                        <h3>Modern Rich Chat</h3>
+                        <p>Express yourself with full Markdown formatting, code block syntax highlighting, Klipy GIF picker, emoji reactions, and image lightboxes.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon-wrap" style="background: rgba(88, 101, 242, 0.12); color: #5865F2; border-color: rgba(88, 101, 242, 0.3);">
+                            <i class="ph-fill ph-shield-star"></i>
+                        </div>
+                        <h3>Custom Spaces & Roles</h3>
+                        <p>Create your own servers with category organization, role colors, fine-grained channel permissions, audit logs, and instant invite codes.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon-wrap" style="background: rgba(235, 69, 158, 0.12); color: #EB459E; border-color: rgba(235, 69, 158, 0.3);">
+                            <i class="ph-fill ph-user-circle-plus"></i>
+                        </div>
+                        <h3>Friends & Direct Messaging</h3>
+                        <p>Add friends by username, see who's online, send private 1-on-1 messages, and receive real-time notification alerts with zero hassle.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Voice & Audio Feature Deep Dive Banner -->
+        <section id="voice" class="voice-spotlight-section">
+            <div class="section-container">
+                <div class="voice-spotlight-card">
+                    <div class="voice-spotlight-text">
+                        <span class="spotlight-tag">
+                            <i class="ph-fill ph-broadcast"></i> ZERO-CONFIG AUDIO
+                        </span>
+                        <h2>Voice channels that just work.</h2>
+                        <p>No clunky third-party apps to install. Click a voice channel, connect immediately, and talk with friends. Features real-time speaking pulses, microphone testing, and automatic background noise filtering.</p>
+                        <div class="voice-checks">
+                            <div><i class="ph-bold ph-check"></i> High fidelity audio stream</div>
+                            <div><i class="ph-bold ph-check"></i> Krisp-style noise cancellation</div>
+                            <div><i class="ph-bold ph-check"></i> Direct in-sidebar participant view</div>
+                        </div>
+                    </div>
+                    <div class="voice-spotlight-visual">
+                        <div class="pulse-ring"></div>
+                        <img src="{% static 'img/default_avatar_orange.svg' %}" alt="Voice Speaker" class="spotlight-avatar">
+                        <div class="sound-wave-bars">
+                            <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ Accordion Section -->
+        <section id="faq" class="faq-section">
+            <div class="section-container">
+                <div class="section-header">
+                    <span class="section-kicker">GOT QUESTIONS?</span>
+                    <h2>Frequently Asked Questions</h2>
+                    <p>Everything you need to know about getting started with Chillzone.</p>
+                </div>
+
+                <div class="faq-list">
+                    <div class="faq-item" :class="activeFaq === 1 ? 'open' : ''">
+                        <button class="faq-question" @click="activeFaq = activeFaq === 1 ? null : 1">
+                            <span>Is Chillzone completely free to use?</span>
+                            <i :class="activeFaq === 1 ? 'ph-bold ph-minus' : 'ph-bold ph-plus'"></i>
+                        </button>
+                        <div class="faq-answer" x-show="activeFaq === 1" x-transition>
+                            <p>Yes, 100%! You can create unlimited servers, invite friends, use high-quality voice channels, and send messages without any paywalls or subscriptions.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item" :class="activeFaq === 2 ? 'open' : ''">
+                        <button class="faq-question" @click="activeFaq = activeFaq === 2 ? null : 2">
+                            <span>Do I need to download or install any software?</span>
+                            <i :class="activeFaq === 2 ? 'ph-bold ph-minus' : 'ph-bold ph-plus'"></i>
+                        </button>
+                        <div class="faq-answer" x-show="activeFaq === 2" x-transition>
+                            <p>No installation required. Chillzone runs smoothly in any modern web browser on Windows, Mac, Linux, iOS, and Android.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item" :class="activeFaq === 3 ? 'open' : ''">
+                        <button class="faq-question" @click="activeFaq = activeFaq === 3 ? null : 3">
+                            <span>How do I invite my friends to my space?</span>
+                            <i :class="activeFaq === 3 ? 'ph-bold ph-minus' : 'ph-bold ph-plus'"></i>
+                        </button>
+                        <div class="faq-answer" x-show="activeFaq === 3" x-transition>
+                            <p>You can create an instant invite code from your server settings tab, or add friends directly via their username in the Social / Friends menu.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- High-Impact CTA Section -->
+        <section class="cta-section">
+            <div class="cta-card">
+                <div class="cta-glow"></div>
+                <h2>Ready to hang out?</h2>
+                <p>Join the Chillzone community today. Setup takes less than 10 seconds.</p>
+                <div class="cta-buttons">
+                    <a href="{% url 'register' %}" class="btn btn-primary btn-lg">
+                        <span>Join Chillzone Free</span>
+                        <i class="ph-bold ph-arrow-right" style="margin-left: 8px;"></i>
+                    </a>
+                    <a href="{% url 'login' %}" class="btn btn-secondary btn-lg">
+                        <span>Log In</span>
+                    </a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-brand">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <img src="{% static 'img/chillzone_logo.svg' %}" alt="Logo" style="width: 24px; height: 24px;">
+                    <h3 style="margin: 0; font-weight: 800; font-size: 1.1rem; color: #fff;">CHILL ZONE</h3>
+                </div>
+                <p>The modern community platform built for seamless hangouts.</p>
+            </div>
+            <div class="footer-links">
+                <a href="#features">Features</a>
+                <a href="{% url 'community' %}">Spaces</a>
+                <a href="{% url 'tos' %}">Terms</a>
+                <a href="{% url 'privacy' %}">Privacy</a>
+                <a href="{% url 'login' %}">Log In</a>
+            </div>
+            <div class="footer-copyright">
+                <p>© CHILL ZONE. Built for the community with speed & care.</p>
+            </div>
+        </div>
+    </footer>
+</div>
+{% endblock %}

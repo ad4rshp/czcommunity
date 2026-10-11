@@ -1,0 +1,1472 @@
+    <div class="channel-sidebar" id="channelDrawer">
+        <div class="drawer-header mobile-only">
+            <h3>CHANNELS</h3>
+            <button type="button" id="closeDrawerBtn">×</button>
+        </div>
+        
+        <div class="community-header" style="padding: 14px 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; background: {% if community.is_verified %}linear-gradient(135deg, rgba(255,107,43,0.12), rgba(0,0,0,0.2)){% else %}transparent{% endif %}; border-radius: var(--radius-md); margin: 6px 10px 14px 10px;">
+            <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+                <img src="{{ community.get_icon_url }}" alt="{{ community.name }}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.3);" onerror="this.src='/static/img/default_server.svg'">
+                <div style="display: flex; flex-direction: column; overflow: hidden;">
+                    <h3 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;">
+                        <span>{{ community.name }}</span>
+                        {% if community.is_verified %}
+                        <span style="display: inline-flex; align-items: center; gap: 3px; background: rgba(76, 175, 80, 0.15); color: #4CAF50; padding: 2px 6px; border-radius: 10px; font-size: 0.68rem; font-weight: 700; border: 1px solid rgba(76, 175, 80, 0.3);">
+                            <i class="ph-fill ph-seal-check"></i> OFFICIAL
+                        </span>
+                        {% endif %}
+                    </h3>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                {% if can_manage_roles or can_manage_channels or request.user == community.owner %}
+                <a href="{% url 'community_settings' %}?c={{ community.slug }}" style="color: var(--text-muted); padding: 5px; border-radius: 4px; transition: all 0.2s; display: flex; align-items: center;" onmouseover="this.style.color='var(--text-primary)'; this.style.background='rgba(255,255,255,0.06)';" onmouseout="this.style.color='var(--text-muted)'; this.style.background='transparent';">
+                    <i class="ph ph-gear" title="Server Settings" style="font-size: 1.15rem;"></i>
+                </a>
+                {% endif %}
+                
+                {% if request.user != community.owner %}
+                <form method="POST" action="{% url 'leave_community' community.id %}" onsubmit="return confirm('Are you sure you want to leave this server?');" style="margin:0;">
+                    {% csrf_token %}
+                    <button type="submit" style="background: none; border: none; color: #F44336; cursor: pointer; padding: 5px; border-radius: 4px; display: flex; align-items: center; transition: all 0.2s;" onmouseover="this.style.background='rgba(244,67,54,0.1)'" onmouseout="this.style.background='transparent'" title="Leave Server">
+                        <i class="ph ph-sign-out" style="font-size: 1.15rem;"></i>
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+
+        {% for category in categories %}
+        <div class="category" data-category-id="{{ category.id }}">
+            <div class="category-header" onclick="toggleCategory(this)" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 5px 15px;">
+                <span class="category-title" style="flex: 1; display: flex; align-items: center; gap: 5px;">
+                    <i class="ph ph-caret-down collapse-icon" style="transition: transform 0.2s;"></i> {{ category.name|upper }}
+                </span>
+                <div class="category-actions" style="display: flex; gap: 8px; color: var(--text-muted);" onclick="event.stopPropagation();">
+                    {% if can_manage_channels %}
+                    <a href="{% url 'add_channel' category.id %}" style="color: inherit;"><i class="ph ph-plus" title="Add Channel" style="cursor: pointer;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'"></i></a>
+                    <a href="{% url 'manage_category' category.id %}" style="color: inherit;"><i class="ph ph-gear" title="Manage Category" style="cursor: pointer;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'"></i></a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="category-channels" style="display: block;">
+                {% for channel in category.channels.all %}
+                <div class="channel-item-wrapper" style="position: relative;" x-data="{ menuOpen: false }">
+                    <a href="{% url 'chat_channel' channel.slug %}" 
+                       class="channel-link {% if active_channel and active_channel.id == channel.id %}active{% endif %}" 
+                       draggable="true" 
+                       data-channel-id="{{ channel.id }}" 
+                       data-channel-slug="{{ channel.slug }}"
+                       @contextmenu.prevent="menuOpen = true">
+                        
+                        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                            <div style="display: flex; align-items: center; gap: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                {% if channel.channel_type == 'text' %}
+                                <i class="ph ph-hash"></i>
+                                {% else %}
+                                <i class="ph ph-speaker-high"></i>
+                                {% endif %}
+                                {{ channel.name }}
+                            </div>
+                            
+                            {% if can_manage_channels %}
+                            <i class="ph-fill ph-gear channel-edit-icon" @click.prevent="openEditModal('{{ channel.slug }}', '{{ channel.name }}', '{{ channel.channel_type }}', '{{ channel.cooldown }}', '{{ channel.user_limit }}')" style="font-size: 14px; opacity: 0; transition: opacity 0.2s; cursor: pointer;" title="Edit Channel"></i>
+                            {% endif %}
+                        </div>
+                    </a>
+
+                    {% if channel.channel_type == 'voice' %}
+                    <!-- Connected Voice Users List -->
+                    <div x-show="$store.voice.connected && '{{ active_channel.id }}' == '{{ channel.id }}'" style="display: flex; flex-direction: column; gap: 2px; padding: 2px 0 6px 24px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; border-radius: var(--radius-sm); background: rgba(255,255,255,0.03); transition: background 0.15s;">
+                            <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                                <div style="position: relative; width: 22px; height: 22px; flex-shrink: 0;">
+                                    <img src="{{ request.user.profile.get_avatar_url }}" alt="{{ request.user.username }}" 
+                                         :style="$store.voice.isSpeaking && !$store.voice.muted && !$store.voice.deafened ? 'outline: 2px solid #23A55A;' : ''"
+                                         style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
+                                </div>
+                                <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    {{ request.user.username }}
+                                </span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 14px;">
+                                <i x-show="$store.voice.muted || $store.voice.testingMic" class="ph-fill ph-microphone-slash" style="color: #F44336;"></i>
+                                <i x-show="$store.voice.deafened" class="ph-fill ph-speaker-slash" style="color: #F44336;" title="Deafened"></i>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Context Menu -->
+                    <div x-show="menuOpen" @click.away="menuOpen = false" style="position: absolute; top: 100%; left: 10px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 5px; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.5); min-width: 180px; display: none;">
+                        <div style="padding: 8px 12px; font-size: 0.85rem; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 8px;" class="menu-item" @click="menuOpen = false; openEditModal('{{ channel.slug }}', '{{ channel.name }}', '{{ channel.channel_type }}', '{{ channel.cooldown }}', '{{ channel.user_limit }}')">
+                            <i class="ph ph-pencil-simple"></i> Edit Channel
+                        </div>
+                        <div style="padding: 8px 12px; font-size: 0.85rem; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 8px;" class="menu-item" @click="menuOpen = false; navigator.clipboard.writeText('{{ channel.id }}');">
+                            <i class="ph ph-copy"></i> Copy ID
+                        </div>
+                        <div style="padding: 8px 12px; font-size: 0.85rem; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 8px; color: #F44336;" class="menu-item menu-danger" @click="menuOpen = false; if(confirm('Delete channel?')) { document.getElementById('delete-form-{{ channel.id }}').submit(); }">
+                            <i class="ph ph-trash"></i> Delete Channel
+                        </div>
+                        <form id="delete-form-{{ channel.id }}" action="{% url 'delete_channel' channel.slug %}" method="POST" style="display: none;">
+                            {% csrf_token %}
+                        </form>
+                    </div>
+                </div>
+                {% empty %}
+                <div style="padding: 5px 15px; font-size: 0.85rem; color: var(--text-muted); font-style: italic;">No channels yet</div>
+                {% endfor %}
+            </div>
+        </div>
+        {% empty %}
+        <div style="padding: 20px 15px; text-align: center; color: var(--text-muted);">
+            No categories yet.
+        </div>
+        {% endfor %}
+
+    </div>
+    
+    <style>
+        .channel-link:hover .channel-edit-icon { opacity: 1 !important; }
+        .menu-item:hover { background: var(--bg-elevated); }
+        .menu-danger:hover { background: #F44336 !important; color: white !important; }
+        
+        /* ChillZone Channel Settings Modal & Segmented Controls */
+        .cz-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(6, 8, 14, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            box-sizing: border-box;
+            animation: czFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes czFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .cz-settings-modal {
+            background: radial-gradient(circle at 10% 15%, rgba(55, 25, 12, 0.45) 0%, rgba(15, 17, 24, 0.98) 100%);
+            width: 100%;
+            height: 100%;
+            max-width: 1120px;
+            max-height: 86vh;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 107, 43, 0.22);
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.75), 0 0 40px rgba(255, 107, 43, 0.12);
+            display: flex;
+            position: relative;
+            overflow: hidden;
+            animation: czModalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes czModalPop {
+            0% { transform: scale(0.96); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .cz-sidebar-nav {
+            width: 240px;
+            background: rgba(10, 12, 18, 0.75);
+            padding: 28px 16px 20px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex-shrink: 0;
+            border-right: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .cz-nav-item {
+            padding: 11px 14px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 500;
+            color: #94a3b8;
+            transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+        }
+        .cz-nav-item:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateX(2px);
+        }
+        .cz-nav-item.active {
+            color: #ffffff;
+            background: linear-gradient(90deg, rgba(255, 107, 43, 0.22) 0%, rgba(224, 83, 21, 0.08) 100%);
+            border-left: 3px solid var(--accent, #ff6b2b);
+            box-shadow: inset 0 0 12px rgba(255, 107, 43, 0.15);
+            font-weight: 600;
+        }
+        .cz-nav-item.danger {
+            color: #f87171;
+            margin-top: auto;
+        }
+        .cz-nav-item.danger:hover {
+            background: rgba(239, 68, 68, 0.12);
+            color: #ef4444;
+        }
+        .cz-esc-badge {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 6px 14px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1;
+            font-size: 0.8rem;
+            font-weight: 600;
+            z-index: 50;
+            transition: all 0.2s ease;
+        }
+        .cz-esc-badge:hover {
+            background: rgba(255, 255, 255, 0.14);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: scale(1.04);
+        }
+        /* ChillZone 3-State Permission Segmented Control */
+        .perm-tristate-group {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(8, 10, 16, 0.65);
+            border-radius: 10px;
+            overflow: hidden;
+            height: 34px;
+            flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.4);
+            padding: 2px;
+            gap: 3px;
+        }
+        .tristate-btn {
+            border: none;
+            background: transparent;
+            color: #64748b;
+            padding: 0 12px;
+            height: 100%;
+            cursor: pointer;
+            font-size: 0.92rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            outline: none;
+            border-radius: 7px;
+        }
+        .tristate-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.07);
+            color: #ffffff;
+        }
+        .tristate-btn.deny.active {
+            background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 12px rgba(244, 63, 94, 0.5);
+        }
+        .tristate-btn.inherit.active {
+            background: rgba(255, 255, 255, 0.15) !important;
+            color: #f1f5f9 !important;
+        }
+        .tristate-btn.allow.active {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+        }
+        .cz-override-item {
+            padding: 9px 12px;
+            border-radius: 9px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 0.88rem;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            color: #94a3b8;
+            border: 1px solid transparent;
+        }
+        .cz-override-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: #ffffff;
+        }
+        .cz-override-item.selected {
+            background: rgba(255, 107, 43, 0.18);
+            color: #ffffff;
+            font-weight: 600;
+            border-color: rgba(255, 107, 43, 0.4);
+            box-shadow: 0 0 12px rgba(255, 107, 43, 0.15);
+        }
+        .cz-remove-btn {
+            opacity: 0;
+            background: none;
+            border: none;
+            color: #f87171;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 4px;
+            transition: opacity 0.15s;
+        }
+        .cz-override-item:hover .cz-remove-btn {
+            opacity: 1;
+        }
+        /* Picker Modal for Adding Roles & Members */
+        .cz-override-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 7, 12, 0.78);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 10050;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            animation: czFadeIn 0.15s ease;
+        }
+        .cz-picker-card {
+            background: linear-gradient(170deg, #1b1e2a 0%, #11131c 100%);
+            border: 1px solid rgba(255, 107, 43, 0.28);
+            border-radius: 16px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 35px rgba(255, 107, 43, 0.18);
+            width: 100%;
+            max-width: 480px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: czModalPop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .cz-picker-search {
+            width: 100%;
+            padding: 11px 16px 11px 40px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(9, 11, 16, 0.65);
+            color: #ffffff;
+            font-size: 0.92rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .cz-picker-search:focus {
+            border-color: var(--accent, #ff6b2b);
+            box-shadow: 0 0 0 3px rgba(255, 107, 43, 0.25);
+        }
+        .cz-filter-pill {
+            padding: 5px 13px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.04);
+            color: #94a3b8;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .cz-filter-pill:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .cz-filter-pill.active {
+            background: var(--accent, #ff6b2b);
+            color: #ffffff;
+            border-color: var(--accent, #ff6b2b);
+            box-shadow: 0 2px 10px rgba(255, 107, 43, 0.4);
+        }
+        .cz-picker-row {
+            padding: 9px 12px;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+            border: 1px solid transparent;
+        }
+        .cz-picker-row:hover {
+            background: rgba(255, 107, 43, 0.14);
+            border-color: rgba(255, 107, 43, 0.25);
+            transform: translateX(2px);
+        }
+        .cz-save-floating-bar {
+            position: sticky;
+            bottom: -20px;
+            margin: 24px -24px -20px -24px;
+            background: rgba(15, 17, 26, 0.94);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 107, 43, 0.3);
+            border-radius: 12px;
+            padding: 12px 22px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.7), 0 0 24px rgba(255, 107, 43, 0.15);
+            z-index: 95;
+            animation: czSlideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes czSlideUp {
+            from { transform: translateY(16px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Mobile Header - hidden on desktop */
+        .cz-mobile-header {
+            display: none;
+        }
+
+        /* Mobile Responsiveness for Edit Channel Modal */
+        @media (max-width: 768px) {
+            .cz-modal-backdrop {
+                padding: 0 !important;
+                align-items: stretch !important;
+                justify-content: stretch !important;
+            }
+            .cz-settings-modal {
+                max-width: 100vw !important;
+                max-height: 100vh !important;
+                height: 100vh !important;
+                width: 100vw !important;
+                border-radius: 0 !important;
+                border: none !important;
+                flex-direction: column !important;
+            }
+            .cz-esc-badge {
+                display: none !important;
+            }
+            .cz-mobile-header {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                padding: 12px 16px !important;
+                background: rgba(10, 12, 18, 0.98) !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+                flex-shrink: 0 !important;
+                z-index: 60 !important;
+            }
+            .cz-mobile-title {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 0.95rem;
+                font-weight: 700;
+                color: #ffffff;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .cz-mobile-close-btn {
+                width: 36px;
+                height: 36px;
+                border-radius: 8px;
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                color: #e2e8f0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                cursor: pointer;
+                font-size: 1.15rem;
+                flex-shrink: 0;
+                transition: background 0.15s ease;
+            }
+            .cz-mobile-close-btn:active {
+                background: rgba(255, 255, 255, 0.18);
+            }
+            .cz-sidebar-nav {
+                width: 100% !important;
+                padding: 8px 12px !important;
+                flex-direction: row !important;
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                border-right: none !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+                gap: 6px !important;
+                align-items: center !important;
+                flex-shrink: 0 !important;
+                background: rgba(13, 16, 24, 0.96) !important;
+            }
+            .cz-sidebar-nav::-webkit-scrollbar {
+                display: none;
+            }
+            .cz-channel-pill {
+                display: none !important;
+            }
+            .cz-nav-item {
+                padding: 8px 14px !important;
+                font-size: 0.84rem !important;
+                white-space: nowrap !important;
+                border-left: none !important;
+                border-radius: 8px !important;
+                gap: 6px !important;
+                flex-shrink: 0 !important;
+            }
+            .cz-nav-item.active {
+                border-left: none !important;
+                background: rgba(255, 107, 43, 0.28) !important;
+                border-bottom: 2px solid var(--accent, #ff6b2b) !important;
+                border-radius: 8px 8px 0 0 !important;
+            }
+            .cz-nav-item.danger {
+                margin-top: 0 !important;
+                margin-left: auto !important;
+            }
+            .cz-modal-content {
+                padding: 16px 14px 110px 14px !important;
+            }
+            .cz-perms-header {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 12px !important;
+                padding: 14px 16px !important;
+            }
+            .cz-perms-header button {
+                width: 100% !important;
+                justify-content: center !important;
+            }
+            .cz-perms-layout {
+                flex-direction: column !important;
+                gap: 16px !important;
+            }
+            .cz-overrides-col {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            .cz-overrides-list {
+                display: flex !important;
+                flex-direction: row !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                gap: 6px !important;
+                padding-bottom: 6px !important;
+            }
+            .cz-overrides-list::-webkit-scrollbar {
+                height: 4px;
+            }
+            .cz-overrides-list::-webkit-scrollbar-thumb {
+                background: rgba(255,255,255,0.15);
+                border-radius: 2px;
+            }
+            .cz-override-item {
+                flex-shrink: 0 !important;
+                white-space: nowrap !important;
+                padding: 8px 12px !important;
+            }
+            .cz-remove-btn {
+                opacity: 0.75 !important;
+                padding: 4px !important;
+            }
+            .cz-matrix-col {
+                width: 100% !important;
+                padding: 16px 14px !important;
+            }
+            .cz-perm-card {
+                padding: 12px 10px !important;
+                flex-wrap: wrap !important;
+                gap: 12px !important;
+            }
+            .cz-perm-card-info {
+                width: 100% !important;
+                padding-right: 0 !important;
+            }
+            .cz-perm-card-ctrl {
+                width: 100% !important;
+                display: flex !important;
+                justify-content: flex-end !important;
+            }
+            .perm-tristate-group {
+                height: 38px !important;
+                min-width: 150px !important;
+            }
+            .tristate-btn {
+                flex: 1 !important;
+                padding: 0 14px !important;
+                font-size: 1rem !important;
+            }
+            .cz-save-floating-bar {
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                margin: 0 !important;
+                border-radius: 0 !important;
+                padding: 12px 16px !important;
+                z-index: 10020 !important;
+                background: rgba(12, 14, 22, 0.98) !important;
+                border-top: 1px solid rgba(255, 107, 43, 0.35) !important;
+                box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.7) !important;
+            }
+            .cz-override-modal-backdrop {
+                padding: 0 !important;
+                align-items: flex-end !important;
+            }
+            .cz-picker-card {
+                max-width: 100% !important;
+                max-height: 82vh !important;
+                border-radius: 20px 20px 0 0 !important;
+            }
+            .cz-channel-type-row {
+                flex-wrap: wrap !important;
+                gap: 8px !important;
+            }
+            .cz-channel-type-lock {
+                width: 100% !important;
+                margin-left: 0 !important;
+            }
+        }
+        @media (max-width: 480px) {
+            .cz-nav-item span {
+                font-size: 0.8rem !important;
+            }
+            .cz-save-floating-bar {
+                flex-direction: column !important;
+                gap: 10px !important;
+                align-items: stretch !important;
+            }
+            .cz-save-actions {
+                width: 100% !important;
+                display: flex !important;
+                gap: 8px !important;
+            }
+            .cz-save-actions button {
+                flex: 1 !important;
+                justify-content: center !important;
+                padding: 9px 12px !important;
+            }
+        }
+    </style>
+    
+    <!-- AlpineJS Edit Channel Modal State -->
+    <div x-data="{ 
+        editModalOpen: false, 
+        activeTab: 'overview',
+        editSlug: '', editName: '', editTopic: '', editType: 'text', editCooldown: 0, editLimit: 0, editBitrate: 64000,
+        channelOwner: '',
+        deleteUrl: '',
+        rolesData: [],
+        allRolesList: [],
+        allMembersList: [],
+        showAddOverrideModal: false,
+        overrideSearch: '',
+        overrideTab: 'all',
+        selectedRoleIndex: 0,
+        advancedOpen: true,
+        hasChanges: false,
+        isLoading: false,
+        saveStatus: '',
+        get selectedRole() {
+            return (this.rolesData && this.rolesData.length > this.selectedRoleIndex) ? this.rolesData[this.selectedRoleIndex] : null;
+        },
+        get filteredAvailableRoles() {
+            const query = this.overrideSearch.toLowerCase().trim();
+            const existingRoleIds = new Set(this.rolesData.filter(r => r.role_id).map(r => r.role_id));
+            return this.allRolesList.filter(r => {
+                const matches = !query || r.role_name.toLowerCase().includes(query);
+                return matches && !existingRoleIds.has(r.role_id);
+            });
+        },
+        get filteredAvailableMembers() {
+            const query = this.overrideSearch.toLowerCase().trim();
+            const existingMemberIds = new Set(this.rolesData.filter(r => r.user_id).map(r => r.user_id));
+            return this.allMembersList.filter(m => {
+                const matches = !query || m.username.toLowerCase().includes(query);
+                return matches && !existingMemberIds.has(m.user_id);
+            });
+        },
+        addRoleOverride(role) {
+            const newRoleObj = {
+                role_id: role.role_id,
+                role_name: role.role_name,
+                color: role.color || '#99AAB5',
+                has_overrides: true,
+                is_member: false,
+                perms: {
+                    view_channel: null,
+                    manage_channel: null,
+                    manage_permissions: null,
+                    send_messages: null,
+                    send_embeds: null,
+                    attach_files: null,
+                    connect_voice: null,
+                    speak_voice: null
+                }
+            };
+            this.rolesData.push(newRoleObj);
+            this.selectedRoleIndex = this.rolesData.length - 1;
+            this.showAddOverrideModal = false;
+            this.overrideSearch = '';
+            this.hasChanges = true;
+        },
+        addMemberOverride(member) {
+            const newMemberObj = {
+                user_id: member.user_id,
+                role_name: member.username,
+                avatar: member.avatar,
+                color: member.color || '#99AAB5',
+                has_overrides: true,
+                is_member: true,
+                perms: {
+                    view_channel: null,
+                    manage_channel: null,
+                    manage_permissions: null,
+                    send_messages: null,
+                    send_embeds: null,
+                    attach_files: null,
+                    connect_voice: null,
+                    speak_voice: null
+                }
+            };
+            this.rolesData.push(newMemberObj);
+            this.selectedRoleIndex = this.rolesData.length - 1;
+            this.showAddOverrideModal = false;
+            this.overrideSearch = '';
+            this.hasChanges = true;
+        },
+        removeOverride(idx) {
+            if (this.rolesData.length <= 1) return;
+            this.rolesData.splice(idx, 1);
+            if (this.selectedRoleIndex >= this.rolesData.length) {
+                this.selectedRoleIndex = Math.max(0, this.rolesData.length - 1);
+            }
+            this.hasChanges = true;
+        },
+        openEditModal(slug, name, type, cooldown, limit) {
+            this.editSlug = slug;
+            this.editName = name;
+            this.editType = type || 'text';
+            this.editCooldown = cooldown || 0;
+            this.editLimit = limit || 0;
+            this.activeTab = 'overview';
+            this.rolesData = [];
+            this.allRolesList = [];
+            this.allMembersList = [];
+            this.showAddOverrideModal = false;
+            this.overrideSearch = '';
+            this.overrideTab = 'all';
+            this.selectedRoleIndex = 0;
+            this.hasChanges = false;
+            this.saveStatus = '';
+            this.isLoading = true;
+            this.editModalOpen = true;
+            
+            fetch('/community/chat/channel/' + slug + '/permissions/')
+                .then(r => r.json())
+                .then(data => {
+                    this.rolesData = data.roles || [];
+                    this.allRolesList = data.all_roles || [];
+                    this.allMembersList = data.members || [];
+                    if (data.channel) {
+                        this.editName = data.channel.name;
+                        this.editTopic = data.channel.topic || '';
+                        this.editType = data.channel.channel_type || 'text';
+                        this.editCooldown = data.channel.cooldown || 0;
+                        this.editLimit = data.channel.user_limit || 0;
+                        this.editBitrate = data.channel.bitrate || 64000;
+                        this.channelOwner = data.channel.owner_username || '';
+                        this.deleteUrl = data.channel.delete_url || '';
+                    }
+                    this.isLoading = false;
+                })
+                .catch(err => {
+                    console.error('Error fetching channel permissions:', err);
+                    this.isLoading = false;
+                });
+        },
+        saveChannel() {
+            const formData = new FormData();
+            formData.append('name', this.editName);
+            formData.append('topic', this.editTopic || '');
+            formData.append('channel_type', this.editType);
+            formData.append('cooldown', this.editCooldown);
+            formData.append('user_limit', this.editLimit);
+            formData.append('bitrate', this.editBitrate);
+            formData.append('permissions_json', JSON.stringify(this.rolesData));
+            
+            const csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (csrfEl) formData.append('csrfmiddlewaretoken', csrfEl.value);
+            
+            this.saveStatus = 'saving';
+            fetch('/community/chat/channel/' + this.editSlug + '/edit/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    this.saveStatus = 'saved';
+                    this.hasChanges = false;
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 400);
+                } else {
+                    this.saveStatus = 'error';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                this.saveStatus = 'error';
+            });
+        },
+        deleteChannel() {
+            if (confirm('Are you sure you want to delete #' + this.editName + '? This action cannot be undone.')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = this.deleteUrl || ('/community/chat/channel/' + this.editSlug + '/delete/');
+                const csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+                if (csrfEl) {
+                    const csrf = document.createElement('input');
+                    csrf.type = 'hidden';
+                    csrf.name = 'csrfmiddlewaretoken';
+                    csrf.value = csrfEl.value;
+                    form.appendChild(csrf);
+                }
+                document.body.appendChild(form);
+                form.submit();
+            }
+        },
+        clearOverrides(role) {
+            if (!role || !role.perms) return;
+            for (let k in role.perms) {
+                role.perms[k] = null;
+            }
+            this.hasChanges = true;
+        }
+    }" 
+    @keydown.window.escape="if(editModalOpen) editModalOpen = false"
+    @open-edit-modal.window="openEditModal($event.detail.slug, $event.detail.name, $event.detail.type, $event.detail.cooldown, $event.detail.limit)">
+        
+        <!-- Global Function to trigger modal -->
+        <script>
+            function openEditModal(slug, name, type, cooldown, limit) {
+                window.dispatchEvent(new CustomEvent('open-edit-modal', { detail: { slug, name, type, cooldown, limit }}));
+            }
+        </script>
+        
+        <!-- Channel Settings Fullscreen Modal -->
+        <div x-show="editModalOpen" class="cz-modal-backdrop" style="display: none;">
+            <div @click.away="editModalOpen = false" class="cz-settings-modal">
+                
+                <!-- Close Button (ESC) in Top-Right (Desktop) -->
+                <div @click="editModalOpen = false" class="cz-esc-badge">
+                    <span>ESC</span>
+                    <i class="ph ph-x" style="font-size: 1rem;"></i>
+                </div>
+
+                <!-- Mobile Top Header Bar (Visible <= 768px, hidden on PC) -->
+                <div class="cz-mobile-header">
+                    <div class="cz-mobile-title">
+                        <i :class="editType === 'voice' ? 'ph ph-speaker-high' : 'ph ph-hash'" style="color: var(--accent);"></i>
+                        <span x-text="'#' + editName"></span>
+                    </div>
+                    <button type="button" @click="editModalOpen = false" class="cz-mobile-close-btn" aria-label="Close">
+                        <i class="ph ph-x"></i>
+                    </button>
+                </div>
+
+                <!-- Left Sidebar -->
+                <div class="cz-sidebar-nav">
+                    <div class="cz-channel-pill" style="font-size: 0.75rem; font-weight: 800; color: #fed7aa; text-transform: uppercase; letter-spacing: 0.8px; padding: 6px 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: rgba(255, 107, 43, 0.12); border-radius: 6px;">
+                        <i :class="editType === 'voice' ? 'ph ph-speaker-high' : 'ph ph-hash'" style="color: var(--accent, #ff6b2b);"></i>
+                        <span x-text="editName"></span>
+                    </div>
+
+                    <div @click="activeTab = 'overview'" class="cz-nav-item" :class="activeTab === 'overview' ? 'active' : ''">
+                        <i class="ph ph-sliders-horizontal"></i>
+                        <span>Overview</span>
+                    </div>
+
+                    <div @click="activeTab = 'permissions'" class="cz-nav-item" :class="activeTab === 'permissions' ? 'active' : ''">
+                        <i class="ph ph-lock-key"></i>
+                        <span>Permissions</span>
+                    </div>
+
+                    <div @click="activeTab = 'invites'" class="cz-nav-item" :class="activeTab === 'invites' ? 'active' : ''">
+                        <i class="ph ph-user-plus"></i>
+                        <span>Invites</span>
+                    </div>
+
+                    <div style="height: 1px; background: rgba(255,255,255,0.06); margin: 12px 0;" class="cz-channel-pill"></div>
+
+                    <div @click="deleteChannel()" class="cz-nav-item danger">
+                        <i class="ph ph-trash"></i>
+                        <span>Delete Channel</span>
+                    </div>
+                </div>
+
+                <!-- Right Content Area -->
+                <div class="cz-modal-content" style="flex: 1; padding: 40px 50px; overflow-y: auto; background: rgba(18, 20, 26, 0.55); color: #e2e8f0; position: relative;">
+                    
+                    <!-- Loading State -->
+                    <div x-show="isLoading" style="display: flex; align-items: center; justify-content: center; height: 300px; color: #949ba4; gap: 10px;">
+                        <i class="ph ph-spinner ph-spin" style="font-size: 2rem; color: var(--accent, #ff6b2b);"></i>
+                        <span>Loading channel settings...</span>
+                    </div>
+
+                    <!-- TAB 1: OVERVIEW -->
+                    <div x-show="!isLoading && activeTab === 'overview'" style="max-width: 650px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px;">
+                            <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(255, 107, 43, 0.2); display: flex; align-items: center; justify-content: center; color: var(--accent, #ff6b2b);">
+                                <i class="ph ph-sliders-horizontal" style="font-size: 1.3rem;"></i>
+                            </div>
+                            <div>
+                                <h2 style="font-size: 1.3rem; font-weight: 700; color: #ffffff; margin: 0;">Channel Overview</h2>
+                                <p style="font-size: 0.82rem; color: #94a3b8; margin: 2px 0 0 0;">Configure channel identity, speed limits, and limits.</p>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 24px;">
+                            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #cbd5e1; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">CHANNEL NAME</label>
+                            <input type="text" x-model="editName" @input="hasChanges = true" style="width: 100%; padding: 11px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.3); color: #f8fafc; font-size: 0.95rem; box-sizing: border-box; outline: none; transition: border-color 0.15s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+                        </div>
+
+                        <div style="margin-bottom: 24px;">
+                            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #cbd5e1; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">CHANNEL TYPE</label>
+                            <div class="cz-channel-type-row" style="display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.06);">
+                                <i :class="editType === 'voice' ? 'ph ph-speaker-high' : 'ph ph-hash'" style="font-size: 1.15rem; color: var(--accent);"></i>
+                                <span style="font-weight: 600; color: #f8fafc; text-transform: capitalize;" x-text="editType + ' Channel'"></span>
+                                <span class="cz-channel-type-lock" style="font-size: 0.75rem; color: #94a3b8; margin-left: auto; display: flex; align-items: center; gap: 4px;">
+                                    <i class="ph ph-lock-simple"></i> Cannot be changed after creation
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 24px;">
+                            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #cbd5e1; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">CHANNEL TOPIC</label>
+                            <textarea x-model="editTopic" @input="hasChanges = true" rows="3" placeholder="Tell members what this channel is for..." style="width: 100%; padding: 11px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.3); color: #f8fafc; font-size: 0.95rem; resize: vertical; box-sizing: border-box; outline: none; transition: border-color 0.15s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"></textarea>
+                        </div>
+
+                        <div style="margin-bottom: 24px;">
+                            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #cbd5e1; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">SLOWMODE RATE LIMIT</label>
+                            <div style="display: flex; align-items: center; gap: 16px; background: rgba(0,0,0,0.2); padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                                <input type="range" x-model="editCooldown" @input="hasChanges = true" min="0" max="120" step="5" style="flex: 1; cursor: pointer; accent-color: var(--accent);">
+                                <span style="font-size: 0.92rem; font-weight: 700; color: var(--accent); min-width: 60px; text-align: right;" x-text="editCooldown > 0 ? editCooldown + 's' : 'Off'"></span>
+                            </div>
+                            <span style="font-size: 0.78rem; color: #94a3b8; display: block; margin-top: 6px;">Members will be restricted to sending one message per interval.</span>
+                        </div>
+
+                        <div x-show="editType === 'voice'" style="margin-bottom: 24px;">
+                            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #cbd5e1; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">VOICE USER LIMIT</label>
+                            <div style="display: flex; align-items: center; gap: 16px; background: rgba(0,0,0,0.2); padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                                <input type="range" x-model="editLimit" @input="hasChanges = true" min="0" max="99" style="flex: 1; cursor: pointer; accent-color: var(--accent);">
+                                <span style="font-size: 0.92rem; font-weight: 700; color: var(--accent); min-width: 80px; text-align: right;" x-text="editLimit > 0 ? editLimit + ' Users' : 'Infinity'"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: PERMISSIONS -->
+                    <div x-show="!isLoading && activeTab === 'permissions'">
+                        
+                        <!-- Header banner -->
+                        <div class="cz-perms-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; background: rgba(255, 107, 43, 0.08); border: 1px solid rgba(255, 107, 43, 0.2); border-radius: 12px; padding: 16px 22px;">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(255, 107, 43, 0.22); display: flex; align-items: center; justify-content: center; color: var(--accent, #ff6b2b); font-size: 1.25rem;">
+                                    <i class="ph ph-shield-check"></i>
+                                </div>
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #ffffff;">Channel Access & Overrides</h3>
+                                    <p style="margin: 3px 0 0 0; font-size: 0.82rem; color: #94a3b8;">Customize permission overrides for specific roles or individual members.</p>
+                                </div>
+                            </div>
+                            <button type="button" @click="showAddOverrideModal = true; overrideTab = 'all'; overrideSearch = ''" style="background: var(--accent-gradient, linear-gradient(135deg, #ff6b2b 0%, #e05315 100%)); color: white; border: none; border-radius: 8px; padding: 9px 18px; font-weight: 600; font-size: 0.86rem; cursor: pointer; display: flex; align-items: center; gap: 7px; box-shadow: 0 4px 15px rgba(255, 107, 43, 0.35); transition: all 0.15s ease;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 20px rgba(255, 107, 43, 0.45)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(255, 107, 43, 0.35)'">
+                                <i class="ph ph-plus" style="font-size: 1rem;"></i>
+                                <span>Add Role or Member</span>
+                            </button>
+                        </div>
+
+                        <!-- Main 2-column layout for permissions -->
+                        <div class="cz-perms-layout" style="display: flex; gap: 24px; align-items: flex-start;">
+                            
+                            <!-- Left Column: ROLES & MEMBERS OVERRIDES -->
+                            <div class="cz-overrides-col" style="width: 240px; flex-shrink: 0; background: rgba(9, 11, 17, 0.55); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 4px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 6px;">
+                                    <span style="font-size: 0.72rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.6px;">ACTIVE OVERRIDES</span>
+                                    <button type="button" @click="showAddOverrideModal = true; overrideTab = 'all'; overrideSearch = ''" style="background: rgba(255, 107, 43, 0.15); border: 1px solid rgba(255, 107, 43, 0.3); color: #ffedd5; border-radius: 6px; padding: 3px 7px; cursor: pointer; font-size: 0.82rem; display: flex; align-items: center; transition: all 0.15s ease;" onmouseover="this.style.background='rgba(255, 107, 43, 0.3)'; this.style.color='#fff';" onmouseout="this.style.background='rgba(255, 107, 43, 0.15)'; this.style.color='#ffedd5';" title="Add Role or Member Override">
+                                        <i class="ph ph-plus"></i>
+                                    </button>
+                                </div>
+
+                                <div class="cz-overrides-list" style="display: flex; flex-direction: column; gap: 4px;">
+                                    <template x-for="(item, idx) in rolesData" :key="item.role_id ? 'role_' + item.role_id : 'user_' + item.user_id">
+                                        <div @click="selectedRoleIndex = idx" 
+                                             class="cz-override-item"
+                                             :class="selectedRoleIndex === idx ? 'selected' : ''">
+                                            <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                                                <template x-if="item.is_member && item.avatar">
+                                                    <img :src="item.avatar" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.12);">
+                                                </template>
+                                                <template x-if="item.is_member && !item.avatar">
+                                                    <div style="width: 20px; height: 20px; border-radius: 50%; background: #374151; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700; color: #fff; flex-shrink: 0;" x-text="item.role_name.charAt(0).toUpperCase()"></div>
+                                                </template>
+                                                <template x-if="!item.is_member">
+                                                    <div style="width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;" :style="'background:' + (item.color || '#99AAB5')"></div>
+                                                </template>
+                                                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.88rem;" x-text="item.role_name"></span>
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 4px;">
+                                                <span x-show="item.is_member" style="font-size: 0.65rem; background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.25); padding: 1px 5px; border-radius: 4px; font-weight: 600;">User</span>
+                                                <template x-if="item.role_name !== '@everyone'">
+                                                    <button type="button" class="cz-remove-btn" @click.stop="removeOverride(idx)" title="Remove override">
+                                                        <i class="ph ph-x"></i>
+                                                    </button>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Right Column: Permission Matrix -->
+                            <div class="cz-matrix-col" style="flex: 1; min-width: 0; background: rgba(9, 11, 17, 0.55); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 22px 26px;" x-show="selectedRole">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); flex-wrap: wrap; gap: 10px;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <template x-if="selectedRole.is_member && selectedRole.avatar">
+                                            <img :src="selectedRole.avatar" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">
+                                        </template>
+                                        <template x-if="!selectedRole.is_member">
+                                            <div style="width: 14px; height: 14px; border-radius: 50%;" :style="'background:' + (selectedRole.color || '#99AAB5')"></div>
+                                        </template>
+                                        <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #ffffff;">
+                                            <span x-text="selectedRole.role_name"></span>
+                                            <span style="font-size: 0.8rem; font-weight: 500; color: #ff7e42; margin-left: 6px;" x-text="selectedRole.is_member ? '(Member Override)' : '(Role Override)'"></span>
+                                        </h4>
+                                    </div>
+                                    <button type="button" @click="clearOverrides(selectedRole)" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; border-radius: 6px; padding: 5px 12px; font-size: 0.78rem; font-weight: 500; cursor: pointer; transition: all 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+                                        Reset to Default
+                                    </button>
+                                </div>
+
+                                <!-- SECTION: GENERAL PERMISSIONS -->
+                                <div style="font-size: 0.72rem; font-weight: 700; color: #ff9a62; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; display: flex; align-items: center; gap: 6px;">
+                                    <i class="ph ph-gear-six"></i>
+                                    <span>General Channel Permissions</span>
+                                </div>
+
+                                <!-- 1. View Channel -->
+                                <div class="cz-perm-card" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 14px; margin-bottom: 12px; border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">
+                                    <div class="cz-perm-card-info" style="padding-right: 20px; flex: 1; min-width: 0;">
+                                        <div style="font-weight: 600; font-size: 0.95rem; color: #f8fafc; margin-bottom: 3px; display: flex; align-items: center; gap: 8px;">
+                                            <i class="ph ph-eye" style="color: #ff7e42;"></i>
+                                            <span>View Channel</span>
+                                        </div>
+                                        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;">Allows members to view this channel. Disabling this for @everyone creates a private channel.</div>
+                                    </div>
+                                    <div class="cz-perm-card-ctrl">
+                                        <div class="perm-tristate-group">
+                                            <button type="button" class="tristate-btn deny" :class="selectedRole.perms.view_channel === false ? 'active' : ''" @click="selectedRole.perms.view_channel = false; hasChanges = true" title="Deny"><i class="ph ph-x"></i></button>
+                                            <button type="button" class="tristate-btn inherit" :class="selectedRole.perms.view_channel === null ? 'active' : ''" @click="selectedRole.perms.view_channel = null; hasChanges = true" title="Inherit">/</button>
+                                            <button type="button" class="tristate-btn allow" :class="selectedRole.perms.view_channel === true ? 'active' : ''" @click="selectedRole.perms.view_channel = true; hasChanges = true" title="Allow"><i class="ph ph-check"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 2. Manage Channel -->
+                                <div class="cz-perm-card" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 14px; margin-bottom: 12px; border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">
+                                    <div class="cz-perm-card-info" style="padding-right: 20px; flex: 1; min-width: 0;">
+                                        <div style="font-weight: 600; font-size: 0.95rem; color: #f8fafc; margin-bottom: 3px; display: flex; align-items: center; gap: 8px;">
+                                            <i class="ph ph-sliders-horizontal" style="color: #ff7e42;"></i>
+                                            <span>Manage Channel</span>
+                                        </div>
+                                        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;">Allows members to edit channel details, topic, rate limits, or delete this channel.</div>
+                                    </div>
+                                    <div class="cz-perm-card-ctrl">
+                                        <div class="perm-tristate-group">
+                                            <button type="button" class="tristate-btn deny" :class="selectedRole.perms.manage_channel === false ? 'active' : ''" @click="selectedRole.perms.manage_channel = false; hasChanges = true" title="Deny"><i class="ph ph-x"></i></button>
+                                            <button type="button" class="tristate-btn inherit" :class="selectedRole.perms.manage_channel === null ? 'active' : ''" @click="selectedRole.perms.manage_channel = null; hasChanges = true" title="Inherit">/</button>
+                                            <button type="button" class="tristate-btn allow" :class="selectedRole.perms.manage_channel === true ? 'active' : ''" @click="selectedRole.perms.manage_channel = true; hasChanges = true" title="Allow"><i class="ph ph-check"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 3. Manage Permissions -->
+                                <div class="cz-perm-card" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 14px; margin-bottom: 16px; border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">
+                                    <div class="cz-perm-card-info" style="padding-right: 20px; flex: 1; min-width: 0;">
+                                        <div style="font-weight: 600; font-size: 0.95rem; color: #f8fafc; margin-bottom: 3px; display: flex; align-items: center; gap: 8px;">
+                                            <i class="ph ph-lock-key" style="color: #ff7e42;"></i>
+                                            <span>Manage Permissions</span>
+                                        </div>
+                                        <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;">Allows members to configure permission overrides for this channel.</div>
+                                    </div>
+                                    <div class="cz-perm-card-ctrl">
+                                        <div class="perm-tristate-group">
+                                            <button type="button" class="tristate-btn deny" :class="selectedRole.perms.manage_permissions === false ? 'active' : ''" @click="selectedRole.perms.manage_permissions = false; hasChanges = true" title="Deny"><i class="ph ph-x"></i></button>
+                                            <button type="button" class="tristate-btn inherit" :class="selectedRole.perms.manage_permissions === null ? 'active' : ''" @click="selectedRole.perms.manage_permissions = null; hasChanges = true" title="Inherit">/</button>
+                                            <button type="button" class="tristate-btn allow" :class="selectedRole.perms.manage_permissions === true ? 'active' : ''" @click="selectedRole.perms.manage_permissions = true; hasChanges = true" title="Allow"><i class="ph ph-check"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SECTION: TEXT CHANNEL PERMISSIONS -->
+                                <div x-show="editType === 'text' || editType === 'announcement'">
+                                    <div style="font-size: 0.72rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.8px; margin: 20px 0 14px 0; display: flex; align-items: center; gap: 6px;">
+                                        <i class="ph ph-chat-circle-dots"></i>
+                                        <span>Text Chat Permissions</span>
+                                    </div>
+
+                                    <!-- 4. Send Messages -->
+                                    <div class="cz-perm-card" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 14px; margin-bottom: 12px; border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">
+                                        <div class="cz-perm-card-info" style="padding-right: 20px; flex: 1; min-width: 0;">
+                                            <div style="font-weight: 600; font-size: 0.95rem; color: #f8fafc; margin-bottom: 3px; display: flex; align-items: center; gap: 8px;">
+                                                <i class="ph ph-paper-plane-tilt" style="color: #38bdf8;"></i>
+                                                <span>Send Messages</span>
+                                            </div>
+                                            <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;">Allows members to compose and send messages into this channel.</div>
+                                        </div>
+                                        <div class="cz-perm-card-ctrl">
+                                            <div class="perm-tristate-group">
+                                                <button type="button" class="tristate-btn deny" :class="selectedRole.perms.send_messages === false ? 'active' : ''" @click="selectedRole.perms.send_messages = false; hasChanges = true" title="Deny"><i class="ph ph-x"></i></button>
+                                                <button type="button" class="tristate-btn inherit" :class="selectedRole.perms.send_messages === null ? 'active' : ''" @click="selectedRole.perms.send_messages = null; hasChanges = true" title="Inherit">/</button>
+                                                <button type="button" class="tristate-btn allow" :class="selectedRole.perms.send_messages === true ? 'active' : ''" @click="selectedRole.perms.send_messages = true; hasChanges = true" title="Allow"><i class="ph ph-check"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 5. Attach Files -->
+                                    <div class="cz-perm-card" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 14px; margin-bottom: 12px; border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">
+                                        <div class="cz-perm-card-info" style="padding-right: 20px; flex: 1; min-width: 0;">
+                                            <div style="font-weight: 600; font-size: 0.95rem; color: #f8fafc; margin-bottom: 3px; display: flex; align-items: center; gap: 8px;">
+                                                <i class="ph ph-paperclip" style="color: #38bdf8;"></i>
+                                                <span>Attach Files</span>
+                                            </div>
+                                            <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;">Allows members to upload images, videos, and media files.</div>
+                                        </div>
+                                        <div class="cz-perm-card-ctrl">
+                                            <div class="perm-tristate-group">
+                                                <button type="button" class="tristate-btn deny" :class="selectedRole.perms.attach_files === false ? 'active' : ''" @click="selectedRole.perms.attach_files = false; hasChanges = true" title="Deny"><i class="ph ph-x"></i></button>
+                                                <button type="button" class="tristate-btn inherit" :class="selectedRole.perms.attach_files === null ? 'active' : ''" @click="selectedRole.perms.attach_files = null; hasChanges = true" title="Inherit">/</button>
+                                                <button type="button" class="tristate-btn allow" :class="selectedRole.perms.attach_files === true ? 'active' : ''" @click="selectedRole.perms.attach_files = true; hasChanges = true" title="Allow"><i class="ph ph-check"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SECTION: VOICE CHANNEL PERMISSIONS -->
+                                <div x-show="editType === 'voice'">
+                                    <div style="font-size: 0.72rem; font-weight: 700; color: #34d399; text-transform: uppercase; letter-spacing: 0.8px; margin: 20px 0 14px 0; display: flex; align-items: center; gap: 6px;">
+                                        <i class="ph ph-speaker-high"></i>
+                                        <span>Voice Channel Permissions</span>
+                                    </div>
+
+                                    <!-- 6. Connect Voice -->
+                                    <div class="cz-perm-card" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 14px; margin-bottom: 12px; border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">
+                                        <div class="cz-perm-card-info" style="padding-right: 20px; flex: 1; min-width: 0;">
+                                            <div style="font-weight: 600; font-size: 0.95rem; color: #f8fafc; margin-bottom: 3px; display: flex; align-items: center; gap: 8px;">
+                                                <i class="ph ph-headphones" style="color: #34d399;"></i>
+                                                <span>Connect</span>
+                                            </div>
+                                            <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;">Allows members to join and listen in this voice lounge.</div>
+                                        </div>
+                                        <div class="cz-perm-card-ctrl">
+                                            <div class="perm-tristate-group">
+                                                <button type="button" class="tristate-btn deny" :class="selectedRole.perms.connect_voice === false ? 'active' : ''" @click="selectedRole.perms.connect_voice = false; hasChanges = true" title="Deny"><i class="ph ph-x"></i></button>
+                                                <button type="button" class="tristate-btn inherit" :class="selectedRole.perms.connect_voice === null ? 'active' : ''" @click="selectedRole.perms.connect_voice = null; hasChanges = true" title="Inherit">/</button>
+                                                <button type="button" class="tristate-btn allow" :class="selectedRole.perms.connect_voice === true ? 'active' : ''" @click="selectedRole.perms.connect_voice = true; hasChanges = true" title="Allow"><i class="ph ph-check"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 7. Speak Voice -->
+                                    <div class="cz-perm-card" style="display: flex; justify-content: space-between; align-items: flex-start; padding: 14px; margin-bottom: 12px; border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='rgba(255,255,255,0.02)'">
+                                        <div class="cz-perm-card-info" style="padding-right: 20px; flex: 1; min-width: 0;">
+                                            <div style="font-weight: 600; font-size: 0.95rem; color: #f8fafc; margin-bottom: 3px; display: flex; align-items: center; gap: 8px;">
+                                                <i class="ph ph-microphone" style="color: #34d399;"></i>
+                                                <span>Speak</span>
+                                            </div>
+                                            <div style="font-size: 0.8rem; color: #94a3b8; line-height: 1.4;">Allows members to talk and transmit audio in this voice channel.</div>
+                                        </div>
+                                        <div class="cz-perm-card-ctrl">
+                                            <div class="perm-tristate-group">
+                                                <button type="button" class="tristate-btn deny" :class="selectedRole.perms.speak_voice === false ? 'active' : ''" @click="selectedRole.perms.speak_voice = false; hasChanges = true" title="Deny"><i class="ph ph-x"></i></button>
+                                                <button type="button" class="tristate-btn inherit" :class="selectedRole.perms.speak_voice === null ? 'active' : ''" @click="selectedRole.perms.speak_voice = null; hasChanges = true" title="Inherit">/</button>
+                                                <button type="button" class="tristate-btn allow" :class="selectedRole.perms.speak_voice === true ? 'active' : ''" @click="selectedRole.perms.speak_voice = true; hasChanges = true" title="Allow"><i class="ph ph-check"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: INVITES -->
+                    <div x-show="!isLoading && activeTab === 'invites'" style="max-width: 650px;">
+                        <h2 style="font-size: 1.25rem; font-weight: 700; color: #f2f3f5; margin-bottom: 12px;">Server Invites</h2>
+                        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 24px;">Manage and generate community invitation links for your server.</p>
+                        <a href="{% url 'community_settings' %}?tab=invites" class="btn btn-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; font-weight: 600; padding: 10px 18px;">
+                            <i class="ph ph-user-plus"></i> Open Server Invites Settings
+                        </a>
+                    </div>
+
+                    <!-- CHILLZONE FLOATING SAVE CAPSULE -->
+                    <div x-show="hasChanges" class="cz-save-floating-bar">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent, #ff6b2b); box-shadow: 0 0 10px var(--accent, #ff6b2b); animation: pulse 1.5s infinite;"></div>
+                            <span style="font-size: 0.9rem; font-weight: 600; color: #f8fafc;">Unsaved changes pending</span>
+                        </div>
+                        <div class="cz-save-actions" style="display: flex; gap: 10px; align-items: center;">
+                            <button type="button" @click="editModalOpen = false" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; border-radius: 8px; padding: 7px 16px; font-size: 0.84rem; font-weight: 500; cursor: pointer; transition: all 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.12)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+                                Discard
+                            </button>
+                            <button type="button" @click="saveChannel()" style="background: var(--accent-gradient, linear-gradient(135deg, #ff6b2b 0%, #e05315 100%)); color: white; border: none; border-radius: 8px; padding: 7px 20px; font-weight: 600; font-size: 0.86rem; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(255, 107, 43, 0.4); transition: all 0.15s;" onmouseover="this.style.opacity='0.92'" onmouseout="this.style.opacity='1'">
+                                <i x-show="saveStatus === 'saving'" class="ph ph-spinner ph-spin"></i>
+                                <span x-text="saveStatus === 'saving' ? 'Saving...' : (saveStatus === 'saved' ? 'Saved!' : 'Save Changes')"></span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- CHILLZONE ADD ROLE OR MEMBER OVERRIDE MODAL DIALOG -->
+                <div x-show="showAddOverrideModal" class="cz-override-modal-backdrop" style="display: none;" @keydown.escape.stop="showAddOverrideModal = false">
+                    <div @click.away="showAddOverrideModal = false" class="cz-picker-card">
+                        <!-- Header -->
+                        <div style="padding: 18px 22px 14px 22px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 34px; height: 34px; border-radius: 9px; background: rgba(255, 107, 43, 0.22); display: flex; align-items: center; justify-content: center; color: var(--accent, #ff6b2b);">
+                                    <i class="ph ph-shield-plus" style="font-size: 1.2rem;"></i>
+                                </div>
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #ffffff;">Add Role or Member</h3>
+                                    <p style="margin: 2px 0 0 0; font-size: 0.76rem; color: #94a3b8;">Choose a role or member to customize channel permissions.</p>
+                                </div>
+                            </div>
+                            <button type="button" @click="showAddOverrideModal = false" style="background: rgba(255,255,255,0.06); border: none; color: #94a3b8; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s;" onmouseover="this.style.color='#fff'; this.style.background='rgba(255,255,255,0.12)'" onmouseout="this.style.color='#94a3b8'; this.style.background='rgba(255,255,255,0.06)'">
+                                <i class="ph ph-x"></i>
+                            </button>
+                        </div>
+
+                        <!-- Search & Category Filters -->
+                        <div style="padding: 14px 20px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.04);">
+                            <div style="position: relative;">
+                                <i class="ph ph-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 1rem;"></i>
+                                <input type="text" x-model="overrideSearch" placeholder="Search roles or members..." class="cz-picker-search" autofocus>
+                                <button type="button" x-show="overrideSearch" @click="overrideSearch = ''" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer;">
+                                    <i class="ph ph-x-circle"></i>
+                                </button>
+                            </div>
+
+                            <div style="display: flex; gap: 8px;">
+                                <button type="button" class="cz-filter-pill" :class="overrideTab === 'all' ? 'active' : ''" @click="overrideTab = 'all'">
+                                    All (<span x-text="filteredAvailableRoles.length + filteredAvailableMembers.length"></span>)
+                                </button>
+                                <button type="button" class="cz-filter-pill" :class="overrideTab === 'roles' ? 'active' : ''" @click="overrideTab = 'roles'">
+                                    Roles (<span x-text="filteredAvailableRoles.length"></span>)
+                                </button>
+                                <button type="button" class="cz-filter-pill" :class="overrideTab === 'members' ? 'active' : ''" @click="overrideTab = 'members'">
+                                    Members (<span x-text="filteredAvailableMembers.length"></span>)
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- List Body -->
+                        <div style="padding: 12px 16px; overflow-y: auto; max-height: 320px; display: flex; flex-direction: column; gap: 6px;">
+                            
+                            <!-- Roles Section -->
+                            <template x-if="(overrideTab === 'all' || overrideTab === 'roles') && filteredAvailableRoles.length > 0">
+                                <div>
+                                    <div style="font-size: 0.7rem; font-weight: 700; color: #ff7e42; text-transform: uppercase; letter-spacing: 0.8px; padding: 4px 8px 4px 8px;">
+                                        Roles
+                                    </div>
+                                    <template x-for="r in filteredAvailableRoles" :key="'avail_role_' + r.role_id">
+                                        <div class="cz-picker-row" @click="addRoleOverride(r)">
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <div style="width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;" :style="'background:' + (r.color || '#99AAB5')"></div>
+                                                <div>
+                                                    <div style="font-weight: 600; font-size: 0.9rem; color: #ffffff;" x-text="r.role_name"></div>
+                                                </div>
+                                            </div>
+                                            <span style="font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 12px; background: rgba(255, 107, 43, 0.15); color: #fed7aa; border: 1px solid rgba(255, 107, 43, 0.3);">
+                                                Role
+                                            </span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <!-- Members Section -->
+                            <template x-if="(overrideTab === 'all' || overrideTab === 'members') && filteredAvailableMembers.length > 0">
+                                <div style="margin-top: 6px;">
+                                    <div style="font-size: 0.7rem; font-weight: 700; color: #34d399; text-transform: uppercase; letter-spacing: 0.8px; padding: 4px 8px 4px 8px;">
+                                        Members
+                                    </div>
+                                    <template x-for="m in filteredAvailableMembers" :key="'avail_member_' + m.user_id">
+                                        <div class="cz-picker-row" @click="addMemberOverride(m)">
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <template x-if="m.avatar">
+                                                    <img :src="m.avatar" style="width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1);">
+                                                </template>
+                                                <template x-if="!m.avatar">
+                                                    <div style="width: 26px; height: 26px; border-radius: 50%; background: #374151; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: #fff;" x-text="m.username.charAt(0).toUpperCase()"></div>
+                                                </template>
+                                                <div>
+                                                    <div style="font-weight: 600; font-size: 0.9rem; color: #ffffff;" x-text="m.username"></div>
+                                                </div>
+                                            </div>
+                                            <span style="font-size: 0.72rem; font-weight: 600; padding: 2px 8px; border-radius: 12px; background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.25);">
+                                                Member
+                                            </span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <!-- Empty State -->
+                            <div x-show="((overrideTab === 'all' || overrideTab === 'roles') && filteredAvailableRoles.length === 0) && ((overrideTab === 'all' || overrideTab === 'members') && filteredAvailableMembers.length === 0)" style="padding: 28px 16px; text-align: center; color: #64748b;">
+                                <i class="ph ph-magnifying-glass" style="font-size: 1.8rem; margin-bottom: 6px; display: block; opacity: 0.5;"></i>
+                                <span style="font-size: 0.88rem;">No roles or members found</span>
+                            </div>
+
+                        </div>
+
+                        <!-- Footer -->
+                        <div style="padding: 12px 20px; background: rgba(0,0,0,0.3); border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: flex-end;">
+                            <button type="button" @click="showAddOverrideModal = false" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; border-radius: 8px; padding: 6px 14px; font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: all 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.14)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <!-- Global Voice Player UI (Visible when connected) -->
+        <div x-data x-show="$store.voice.connected" style="margin-top: auto; padding: 10px; background: var(--bg-elevated); border-top: 1px solid var(--border); display: none; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-size: 0.85rem; font-weight: bold; color: #4CAF50; display: flex; align-items: center; gap: 4px;">
+                        <i class="ph-fill ph-check-circle"></i> Voice Connected
+                    </span>
+                    <span style="font-size: 0.7rem; color: var(--text-muted);" x-text="$store.voice.rtcStatus + ' • ' + $store.voice.ping + 'ms'"></span>
+                </div>
+                <button @click="$store.voice.disconnectVoice()" title="Disconnect" style="background: none; border: none; color: #F44336; cursor: pointer; padding: 5px; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='rgba(244,67,54,0.1)'" onmouseout="this.style.background='none'">
+                    <i class="ph-fill ph-phone-x" style="font-size: 1.2rem;"></i>
+                </button>
+            </div>
+            
+            <div style="display: flex; gap: 5px; margin-top: 5px;">
+                <button @click="$store.voice.toggleMute()" :style="$store.voice.muted ? 'background: rgba(244,67,54,0.1); color: #F44336;' : 'background: rgba(255,255,255,0.05); color: var(--text-primary);'" style="flex: 1; border: 1px solid var(--border); border-radius: 4px; padding: 5px; cursor: pointer; transition: all 0.2s;">
+                    <i :class="$store.voice.muted ? 'ph-fill ph-microphone-slash' : 'ph-fill ph-microphone'" style="font-size: 1.1rem;"></i>
+                </button>
+                <button @click="$store.voice.toggleDeafen()" :style="$store.voice.deafened ? 'background: rgba(244,67,54,0.1); color: #F44336;' : 'background: rgba(255,255,255,0.05); color: var(--text-primary);'" style="flex: 1; border: 1px solid var(--border); border-radius: 4px; padding: 5px; cursor: pointer; transition: all 0.2s;" :title="$store.voice.deafened ? 'Undeafen' : 'Deafen'">
+                    <i :class="$store.voice.deafened ? 'ph-fill ph-speaker-slash' : 'ph-fill ph-headphones'" style="font-size: 1.1rem;"></i>
+                </button>
+                <button @click="$store.voice.toggleNoiseCancellation()" :style="$store.voice.noiseCancellation ? 'background: rgba(76,175,80,0.1); color: #4CAF50;' : 'background: rgba(255,255,255,0.05); color: var(--text-primary);'" style="flex: 1; border: 1px solid var(--border); border-radius: 4px; padding: 5px; cursor: pointer; transition: all 0.2s;" title="Noise Cancellation">
+                    <i class="ph-fill ph-ear" style="font-size: 1.1rem;"></i>
+                </button>
+            </div>
+        </div>
+
+    </div>
+    <script>
+    // Desktop-only drag and drop for channels
+    if (window.innerWidth >= 769) {
+        let draggedEl = null;
+
+        document.querySelectorAll('.channel-link[draggable="true"]').forEach(el => {
+            el.addEventListener('dragstart', e => {
+                draggedEl = el;
+                el.style.opacity = '0.4';
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', el.dataset.channelId);
+            });
+
+            el.addEventListener('dragend', () => {
+                el.style.opacity = '1';
+                document.querySelectorAll('.drag-over, .drag-over-category').forEach(d => {
+                    d.classList.remove('drag-over', 'drag-over-category');
+                });
+                draggedEl = null;
+            });
+
+            el.addEventListener('dragover', e => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                el.classList.add('drag-over');
+            });
+
+            el.addEventListener('dragleave', () => {
+                el.classList.remove('drag-over');
+            });
+
+            el.addEventListener('drop', e => {
+                e.preventDefault();
+                el.classList.remove('drag-over');
+                if (draggedEl && draggedEl !== el) {
+                    const targetCategory = el.closest('.category');
+                    const targetCatId = targetCategory.dataset.categoryId;
+                    const channelId = draggedEl.dataset.channelId;
+                    
+                    // Visual reorder
+                    el.parentNode.insertBefore(draggedEl, el);
+
+                    // POST to server
+                    fetch(`/chat/channel/${channelId}/move/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken')
+                        },
+                        body: `category_id=${targetCatId}`
+                    });
+                }
+            });
+        });
+
+        // Also allow dropping on category containers
+        document.querySelectorAll('.category[data-category-id]').forEach(cat => {
+            cat.addEventListener('dragover', e => {
+                e.preventDefault();
+                cat.classList.add('drag-over-category');
+            });
+
+            cat.addEventListener('dragleave', () => {
+                cat.classList.remove('drag-over-category');
+            });
+
+            cat.addEventListener('drop', e => {
+                e.preventDefault();
+                cat.classList.remove('drag-over-category');
+                if (draggedEl) {
+                    const channelsContainer = cat.querySelector('.category-channels');
+                    const targetCatId = cat.dataset.categoryId;
+                    const channelId = draggedEl.dataset.channelId;
+                    
+                    channelsContainer.appendChild(draggedEl);
+
+                    fetch(`/chat/channel/${channelId}/move/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken')
+                        },
+                        body: `category_id=${targetCatId}`
+                    });
+                }
+            });
+        });
+
+        function getCookie(name) {
+            let v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+            return v ? v[2] : null;
+        }
+    }
+    </script>

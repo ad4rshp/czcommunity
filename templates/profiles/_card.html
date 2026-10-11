@@ -1,0 +1,131 @@
+<div class="premium-profile-card profile-popout">
+    <!-- Banner with glowing gradient -->
+    <div class="profile-banner" style="background: linear-gradient(135deg, {% if profile_user.id|divisibleby:2 %}#c26176 0%, #a24b61{% elif profile_user.id|divisibleby:3 %}#5b7290 0%, #3b4a5d{% elif profile_user.id|divisibleby:5 %}#6d5b90 0%, #4b3b5d{% else %}#2b2d31 0%, #1e1f22{% endif %} 100%);">
+        <!-- Top Right Action Buttons -->
+        <div class="banner-actions">
+            {% if request.user == profile_user %}
+            <a href="{% url 'profile_edit' %}" class="btn-banner-icon" title="Edit Profile"><i class="ph ph-pencil-simple"></i></a>
+            {% else %}
+            <div style="position: relative; display: inline-block;">
+                <button class="btn-banner-icon" title="More Options" onclick="document.getElementById('profileMoreOptions-{{ profile_user.id }}').style.display = document.getElementById('profileMoreOptions-{{ profile_user.id }}').style.display === 'none' ? 'block' : 'none';"><i class="ph ph-dots-three"></i></button>
+                <div id="profileMoreOptions-{{ profile_user.id }}" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 5px; background: #111214; border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; padding: 8px; z-index: 100; min-width: 180px; box-shadow: 0 8px 16px rgba(0,0,0,0.5);">
+                    <a href="{% url 'profile' profile_user.username %}{% if community %}?c={{ community.slug }}{% endif %}" style="display: block; padding: 8px 10px; color: var(--text-primary); text-decoration: none; border-radius: 4px; font-size: 0.85rem;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">View Full Profile</a>
+                    
+                    {% if not friendship %}
+                    <form method="post" action="{% url 'friend_action' profile_user.username %}" style="margin: 0;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="add">
+                        <button type="submit" style="width: 100%; text-align: left; display: block; padding: 8px 10px; color: var(--text-primary); text-decoration: none; border-radius: 4px; border: none; background: none; cursor: pointer; font-size: 0.85rem;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">Add Friend</button>
+                    </form>
+                    {% endif %}
+                    
+                    <button style="width: 100%; text-align: left; display: block; padding: 8px 10px; color: #F44336; text-decoration: none; border-radius: 4px; border: none; background: none; cursor: pointer; font-size: 0.85rem;" onmouseover="this.style.background='rgba(244,67,54,0.1)'" onmouseout="this.style.background='none'">Block</button>
+                    <button onclick="navigator.clipboard.writeText('{{ profile_user.id }}'); document.getElementById('profileMoreOptions-{{ profile_user.id }}').style.display = 'none';" style="width: 100%; text-align: left; display: block; padding: 8px 10px; color: var(--text-primary); text-decoration: none; border-radius: 4px; border: none; background: none; cursor: pointer; font-size: 0.85rem;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">Copy ID</button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="profile-header-content">
+        <!-- Avatar overlapping banner -->
+        <div class="profile-avatar-wrapper" onclick="openLightbox('{{ profile_user.profile.get_avatar_url }}')">
+            <img src="{{ profile_user.profile.get_avatar_url }}" alt="Avatar" class="profile-avatar-inner" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+            <div class="avatar-hover-overlay">View</div>
+            
+            <div class="profile-status-indicator">
+                {% if profile_user.profile.status_setting == 'online' %}
+                    <div style="width: 14px; height: 14px; border-radius: 50%; background: #4CAF50;"></div>
+                {% elif profile_user.profile.status_setting == 'idle' %}
+                    <i class="ph-fill ph-moon" style="color: #FFC107; font-size: 14px;"></i>
+                {% elif profile_user.profile.status_setting == 'dnd' %}
+                    <div style="width: 14px; height: 14px; border-radius: 50%; background: #F44336; position: relative;">
+                        <div style="position: absolute; top: 6px; left: 3px; width: 8px; height: 2px; background: #232428;"></div>
+                    </div>
+                {% else %}
+                    <div style="width: 14px; height: 14px; border-radius: 50%; background: #80848e; border: 2px solid #232428;"></div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="profile-name-section">
+            <!-- Large Display Name -->
+            <h1 class="profile-display-name">{{ profile_user.username }}</h1>
+            
+            <!-- Smaller Username -->
+            <div class="profile-username">
+                {{ profile_user.username }}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Inner Profile Body (Darker background) -->
+    <div class="profile-body">
+        <div class="profile-bio">
+            {% if profile_user.profile.bio %}
+            <div class="profile-bio-text">{{ profile_user.profile.bio|linebreaksbr }}</div>
+            {% else %}
+            <div class="profile-bio-text" style="opacity: 0.5; font-style: italic;">No bio set.</div>
+            {% endif %}
+        </div>
+        
+        {% if membership %}
+        <div class="profile-roles-container">
+            {% for role in membership.roles.all %}
+                {% if role.name != '@everyone' %}
+                <div class="premium-role-pill" title="{{ role.name }}">
+                    <div class="premium-role-dot" style="background: {{ role.color }};"></div>
+                    <span>{{ role.name }}</span>
+                    {% if all_roles %}
+                    <form class="role-action-form" method="post" action="{% url 'profile_card_fragment' profile_user.username %}?c={{ community.slug }}" hx-post="{% url 'profile_card_fragment' profile_user.username %}?c={{ community.slug }}" hx-target="closest .profile-popout" hx-swap="outerHTML" style="display: inline-flex; align-items: center; margin: 0; padding: 0;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="remove_role">
+                        <input type="hidden" name="role_action" value="remove_role">
+                        <input type="hidden" name="role_id" value="{{ role.id }}">
+                        <input type="hidden" name="community_id" value="{{ community.id }}">
+                        <button type="submit" class="premium-role-remove" title="Remove {{ role.name }}" style="background:none; border:none; cursor:pointer; color:inherit; font-size: 0.8rem; padding: 0 2px 0 4px; display: flex; align-items: center;"><i class="ph ph-x"></i></button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endif %}
+            {% endfor %}
+            
+            {% if all_roles %}
+            <div style="position: relative; display: inline-block;">
+                <button type="button" onclick="const dd = document.getElementById('roleDropdown-card'); dd.style.display = dd.style.display === 'none' ? 'block' : 'none';" class="btn-add-role" title="Assign Role" style="background: rgba(255,255,255,0.06); border: 1px dashed rgba(255,255,255,0.25); border-radius: 4px; padding: 4px 8px; cursor: pointer; color: var(--text-muted); font-size: 0.8rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                    <i class="ph ph-plus"></i>
+                </button>
+                <div id="roleDropdown-card" style="display: none; position: absolute; bottom: calc(100% + 6px); left: 0; background: #232428; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px; z-index: 1000; min-width: 200px; max-height: 200px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.6);">
+                    <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; padding: 0 4px;">ASSIGN ROLE</div>
+                    {% for role in available_roles %}
+                    <form class="role-action-form" method="post" action="{% url 'profile_card_fragment' profile_user.username %}?c={{ community.slug }}" hx-post="{% url 'profile_card_fragment' profile_user.username %}?c={{ community.slug }}" hx-target="closest .profile-popout" hx-swap="outerHTML" style="margin: 0; margin-bottom: 2px;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="assign_role">
+                        <input type="hidden" name="role_action" value="assign_role">
+                        <input type="hidden" name="role_id" value="{{ role.id }}">
+                        <input type="hidden" name="community_id" value="{{ community.id }}">
+                        <button type="submit" style="width: 100%; text-align: left; background: none; border: none; padding: 6px 8px; border-radius: 4px; cursor: pointer; color: {{ role.color }}; display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.85rem;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='none'">
+                            <div class="premium-role-dot" style="background: {{ role.color }};"></div>
+                            {{ role.name }}
+                        </button>
+                    </form>
+                    {% empty %}
+                    <div style="font-size: 0.75rem; color: var(--text-muted); padding: 6px 8px;">No eligible roles to assign</div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Footer Input -->
+    {% if request.user != profile_user %}
+    <a href="{% url 'dm_chat' profile_user.username %}" style="text-decoration: none;">
+        <div class="profile-footer-input">
+            <span>Message @{{ profile_user.username }}</span>
+            <i class="ph-fill ph-smiley" style="font-size: 1.2rem;"></i>
+        </div>
+    </a>
+    {% endif %}
+</div>

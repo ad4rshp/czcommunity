@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <defs>
+    <!-- Background Circle Gradient -->
+    <linearGradient id="bgGradOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF8A48"/>
+      <stop offset="50%" stop-color="#FF6B2B"/>
+      <stop offset="100%" stop-color="#E05315"/>
+    </linearGradient>
+
+    <!-- Headphone Arc -->
+    <linearGradient id="hpBand" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#14161A"/>
+      <stop offset="50%" stop-color="#282B33"/>
+      <stop offset="100%" stop-color="#14161A"/>
+    </linearGradient>
+
+    <!-- Cheek Blush -->
+    <radialGradient id="blushGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF3366" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#FF3366" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="eyeSparkle" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="#FFFFFF" flood-opacity="0.9"/>
+    </filter>
+  </defs>
+
+  <!-- Avatar Circle Background -->
+  <circle cx="60" cy="60" r="58" fill="url(#bgGradOrange)"/>
+
+  <!-- Sleek Headphone Band -->
+  <path d="M 23 58 C 21 23, 99 23, 97 58" 
+        fill="none" 
+        stroke="url(#hpBand)" 
+        stroke-width="7" 
+        stroke-linecap="round"/>
+
+  <!-- Ear Cups -->
+  <rect x="13" y="48" width="12" height="25" rx="6" fill="#1C1E23" stroke="#111215" stroke-width="1.5"/>
+  <rect x="15.5" y="52" width="3.5" height="17" rx="1.7" fill="#FF7E42"/>
+
+  <rect x="95" y="48" width="12" height="25" rx="6" fill="#1C1E23" stroke="#111215" stroke-width="1.5"/>
+  <rect x="101" y="52" width="3.5" height="17" rx="1.7" fill="#FF7E42"/>
+
+  <!-- Soft Cheek Blush Glows -->
+  <circle cx="36" cy="68" r="8" fill="url(#blushGlow)"/>
+  <circle cx="84" cy="68" r="8" fill="url(#blushGlow)"/>
+
+  <!-- Big Sparkling Cute Eyes (Only eyes - no mouth/nose) -->
+  <g class="cz-eye-left">
+    <ellipse cx="44" cy="57" rx="9" ry="11" fill="#14161B"/>
+    <ellipse cx="44" cy="58" rx="8" ry="9.5" fill="#242834"/>
+    <circle cx="41.5" cy="53.5" r="3.6" fill="#FFFFFF" filter="url(#eyeSparkle)"/>
+    <circle cx="46.5" cy="62" r="1.8" fill="#FFE0B2"/>
+    <circle cx="43" cy="63" r="1" fill="#FFFFFF" opacity="0.9"/>
+  </g>
+
+  <g class="cz-eye-right">
+    <ellipse cx="76" cy="57" rx="9" ry="11" fill="#14161B"/>
+    <ellipse cx="76" cy="58" rx="8" ry="9.5" fill="#242834"/>
+    <circle cx="73.5" cy="53.5" r="3.6" fill="#FFFFFF" filter="url(#eyeSparkle)"/>
+    <circle cx="78.5" cy="62" r="1.8" fill="#FFE0B2"/>
+    <circle cx="75" cy="63" r="1" fill="#FFFFFF" opacity="0.9"/>
+  </g>
+
+  <!-- Forehead Star Mark -->
+  <path d="M 60 34 L 61.4 38.5 L 65.8 40 L 61.4 41.5 L 60 46 L 58.6 41.5 L 54.2 40 L 58.6 38.5 Z" 
+        fill="#FFFFFF" 
+        opacity="0.95"/>
+</svg>

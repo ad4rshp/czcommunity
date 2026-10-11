@@ -1,0 +1,387 @@
+{% extends base_template|default:'authenticated_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/profiles.css' %}">
+<link rel="stylesheet" href="{% static 'css/auth.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="settings-container" x-data="{ activeTab: 'profile' }" style="display: flex; max-width: 1000px; margin: 40px auto; background: rgba(35, 36, 40, 0.7); backdrop-filter: blur(16px); border-radius: 12px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05); height: 85vh; min-height: 600px;">
+    
+    <!-- Settings Sidebar -->
+    <div class="settings-sidebar" style="width: 280px; background: rgba(0,0,0,0.2); padding: 30px 20px; border-right: 1px solid rgba(255,255,255,0.05);">
+        <h3 style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; padding-left: 10px;">User Settings</h3>
+        
+        <button class="settings-tab-btn" :class="activeTab === 'profile' ? 'active' : ''" @click="activeTab = 'profile'">
+            <i class="ph ph-user"></i> Edit Profile
+        </button>
+        <button class="settings-tab-btn" :class="activeTab === 'account' ? 'active' : ''" @click="activeTab = 'account'">
+            <i class="ph ph-shield-check"></i> Account Settings
+        </button>
+        <button class="settings-tab-btn" :class="activeTab === 'notifications' ? 'active' : ''" @click="activeTab = 'notifications'">
+            <i class="ph ph-bell"></i> Notifications
+        </button>
+        <button class="settings-tab-btn" :class="activeTab === 'chat_prefs' ? 'active' : ''" @click="activeTab = 'chat_prefs'">
+            <i class="ph ph-chat-circle-dots"></i> Chat & Display
+        </button>
+        <button class="settings-tab-btn" :class="activeTab === 'voice' ? 'active' : ''" @click="activeTab = 'voice'">
+            <i class="ph ph-microphone"></i> Voice & Video
+        </button>
+        <button class="settings-tab-btn" :class="activeTab === 'accessibility' ? 'active' : ''" @click="activeTab = 'accessibility'">
+            <i class="ph ph-paint-brush"></i> Themes & Access
+        </button>
+    </div>
+
+    <!-- Settings Content -->
+    <div class="settings-content" style="flex: 1; padding: 40px; overflow-y: auto;">
+        
+        <!-- Profile Tab -->
+        <div x-show="activeTab === 'profile'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+            <h2 style="margin-top: 0; color: #f2f3f5; font-size: 1.8rem; margin-bottom: 30px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">User Profile</h2>
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                {% if error %}
+                <div style="background: rgba(244, 67, 54, 0.15); border: 1px solid #F44336; color: #ff8a80; padding: 12px 18px; border-radius: 8px; margin-bottom: 25px; font-size: 0.95rem; display: flex; align-items: center; gap: 10px;">
+                    <i class="ph ph-warning-circle" style="font-size: 1.3rem;"></i>
+                    <span>{{ error }}</span>
+                </div>
+                {% endif %}
+
+                <div class="form-group" style="margin-bottom: 35px;">
+                    <label style="color: var(--text-secondary); font-weight: 600; margin-bottom: 15px; display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">Avatar Image (Max 1 MB)</label>
+                    <div style="display: flex; gap: 25px; align-items: center; background: rgba(0,0,0,0.15); padding: 25px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                        <div style="width: 100px; height: 100px; border-radius: 50%; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; background: var(--bg-surface);">
+                            <img id="avatarPreviewImg" src="{{ profile.get_avatar_url }}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
+                        </div>
+                        <div style="flex: 1;">
+                            <input type="file" id="avatar" name="avatar" accept="image/*" style="display: none;" onchange="previewAvatar(this)">
+                            <button type="button" onclick="document.getElementById('avatar').click()" class="btn btn-primary" style="margin-bottom: 10px;">
+                                <i class="ph ph-upload-simple"></i> Change Avatar
+                            </button>
+                            <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">JPG, GIF or PNG. Max file size: <strong>1 MB</strong>.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 25px;">
+                    <label for="bio" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">About Me</label>
+                    <textarea id="bio" name="bio" class="form-control" rows="4" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 15px; resize: vertical;">{{ profile.bio }}</textarea>
+                </div>
+
+                <div style="display: flex; gap: 20px;">
+                    <div class="form-group" style="flex: 1; margin-bottom: 25px;">
+                        <label for="favorite_game" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Favorite Game</label>
+                        <input type="text" id="favorite_game" name="favorite_game" class="form-control" value="{{ profile.favorite_game }}" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 15px;">
+                    </div>
+                    <div class="form-group" style="flex: 1; margin-bottom: 25px;">
+                        <label for="status_setting" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Status Setting</label>
+                        <select id="status_setting" name="status_setting" class="form-control" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 15px; cursor: pointer;">
+                            <option value="online" {% if profile.status_setting == 'online' %}selected{% endif %} style="background: var(--bg-elevated); color: var(--text-primary);">Online</option>
+                            <option value="idle" {% if profile.status_setting == 'idle' %}selected{% endif %} style="background: var(--bg-elevated); color: var(--text-primary);">Idle</option>
+                            <option value="dnd" {% if profile.status_setting == 'dnd' %}selected{% endif %} style="background: var(--bg-elevated); color: var(--text-primary);">Do Not Disturb</option>
+                            <option value="offline" {% if profile.status_setting == 'offline' %}selected{% endif %} style="background: var(--bg-elevated); color: var(--text-primary);">Invisible</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 40px;">
+                    <label for="dm_setting" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Who can direct message you?</label>
+                    <select id="dm_setting" name="dm_setting" class="form-control" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 15px; cursor: pointer;">
+                        <option value="everyone" {% if profile.dm_setting == 'everyone' %}selected{% endif %} style="background: var(--bg-elevated); color: var(--text-primary);">Everyone</option>
+                        <option value="friends" {% if profile.dm_setting == 'friends' %}selected{% endif %} style="background: var(--bg-elevated); color: var(--text-primary);">Friends Only</option>
+                        <option value="noone" {% if profile.dm_setting == 'noone' %}selected{% endif %} style="background: var(--bg-elevated); color: var(--text-primary);">No One</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 15px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 30px;">
+                    <button type="submit" class="btn btn-primary" style="padding: 12px 30px; font-weight: bold;"><i class="ph ph-check"></i> Save Changes</button>
+                    <a href="{% url 'profile' request.user.username %}" class="btn btn-secondary" style="padding: 12px 30px;">Cancel</a>
+                </div>
+            </form>
+        </div>
+
+        <div x-show="activeTab === 'account'" style="display: none;" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+            <h2 style="margin-top: 0; color: #f2f3f5; font-size: 1.8rem; margin-bottom: 30px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">Account Settings</h2>
+            
+            <div style="background: rgba(0,0,0,0.15); padding: 30px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 25px;">
+                <h3 style="margin-top: 0; margin-bottom: 20px;">Account Information</h3>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Username</label>
+                    <input type="text" class="form-control" value="{{ request.user.username }}" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px;" disabled>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Email</label>
+                    <input type="email" class="form-control" value="{{ request.user.email|default:'No email provided' }}" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px;" disabled>
+                </div>
+            </div>
+
+            <div style="background: rgba(0,0,0,0.15); padding: 30px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <h3 style="margin-top: 0; color: #F44336;">Danger Zone</h3>
+                <p style="color: var(--text-muted); margin-bottom: 20px;">Permanently delete your account and all associated data.</p>
+                <button class="btn btn-secondary" style="color: #F44336; border: 1px solid rgba(244,67,54,0.3); background: rgba(244,67,54,0.05);">Delete Account</button>
+            </div>
+        </div>
+
+        <div x-show="activeTab === 'notifications'" style="display: none;" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+            <h2 style="margin-top: 0; color: #f2f3f5; font-size: 1.8rem; margin-bottom: 30px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">Notification Preferences</h2>
+            
+            <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <div>
+                    <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Floating In-App Banners</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">Show floating popup alerts when receiving @mentions and direct messages.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="pref_floating_notifications" checked onchange="saveUserPref('floating_notifications', this.checked)">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <div>
+                    <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Audio Ping Sound</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">Play an audible sound chime when a notification arrives.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="pref_sound_alerts" checked onchange="saveUserPref('sound_alerts', this.checked)">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <div>
+                    <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Unread Message Ping Badge</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">Display pulsing ping badge on Social and Channels with unread activity.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="pref_unread_badge" checked onchange="saveUserPref('unread_badge', this.checked)">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            
+            <div style="padding-top: 15px;">
+                <span id="notifSaveMsg" style="font-size: 0.85rem; color: #4CAF50; display: none;">Saved automatically!</span>
+            </div>
+        </div>
+
+        <div x-show="activeTab === 'chat_prefs'" style="display: none;" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+            <h2 style="margin-top: 0; color: #f2f3f5; font-size: 1.8rem; margin-bottom: 30px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">Chat & Display Preferences</h2>
+            
+            <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <div>
+                    <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Typing Indicator</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">See real-time typing indicators when other members are drafting messages.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="pref_show_typing" checked onchange="saveUserPref('show_typing', this.checked)">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <div>
+                    <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Compact Message Spacing</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">Tighter spacing between messages for high-density chat experience.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="pref_compact_chat" onchange="saveUserPref('compact_chat', this.checked); applyCompactChat(this.checked)">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <div>
+                    <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Embed Media & GIFs</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">Automatically render inline image previews, GIF stickers, and media embeds.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="pref_auto_embeds" checked onchange="saveUserPref('auto_embeds', this.checked)">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <div>
+                    <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Smooth Auto-Scroll</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">Smoothly animate the scroll down when new messages arrive.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="pref_smooth_scroll" checked onchange="saveUserPref('smooth_scroll', this.checked)">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+        </div>
+
+        <div x-show="activeTab === 'voice'" style="display: none;" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+            <h2 style="margin-top: 0; color: #f2f3f5; font-size: 1.8rem; margin-bottom: 30px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">Voice & Video</h2>
+            
+            <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+                <div class="form-group" style="flex: 1;">
+                    <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Input Device</label>
+                    <select class="form-control" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px;">
+                        <option>Default Microphone Array</option>
+                        <option>External USB Microphone</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Output Device</label>
+                    <select class="form-control" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px;">
+                        <option>Default Speakers</option>
+                        <option>Headphones (Stereo)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 30px;">
+                <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Input Volume</label>
+                <input type="range" min="0" max="100" value="75" style="width: 100%; accent-color: var(--accent);">
+            </div>
+            
+            <button class="btn btn-primary" onclick="alert('Voice preferences updated.')">Save Voice Settings</button>
+        </div>
+
+        <div x-show="activeTab === 'accessibility'" style="display: none;" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+            <h2 style="margin-top: 0; color: #f2f3f5; font-size: 1.8rem; margin-bottom: 30px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">Accessibility & Themes</h2>
+            
+            <div class="form-group" style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 20px; border-radius: 12px;">
+                <div>
+                    <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 5px;">Reduce Motion</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">Disable UI animations for a simpler visual experience.</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="pref_reduce_motion" onchange="saveUserPref('reduce_motion', this.checked); applyReduceMotion(this.checked)">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 25px;">
+                <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Theme Contrast</label>
+                <select id="themeContrastSelect" class="form-control" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px;" onchange="changeTheme(this.value)">
+                    <option value="standard" style="background: var(--bg-elevated); color: var(--text-primary);">Standard (Vibrant Dark)</option>
+                    <option value="high-contrast" style="background: var(--bg-elevated); color: var(--text-primary);">High Contrast</option>
+                    <option value="midnight" style="background: var(--bg-elevated); color: var(--text-primary);">Midnight (OLED Black)</option>
+                </select>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    function previewAvatar(input) {
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            const maxBytes = 1 * 1024 * 1024; // 1MB
+            if (file.size > maxBytes) {
+                alert(`Selected image (${(file.size / 1024 / 1024).toFixed(2)} MB) exceeds the 1 MB limit! Please choose a smaller image.`);
+                input.value = '';
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = document.getElementById('avatarPreviewImg');
+                if (img) {
+                    img.src = e.target.result;
+                    img.style.display = 'block';
+                }
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function saveUserPref(key, value) {
+        localStorage.setItem('cz_pref_' + key, JSON.stringify(value));
+        const msg = document.getElementById('notifSaveMsg');
+        if (msg) {
+            msg.style.display = 'inline-block';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }
+    }
+
+    function getUserPref(key, defaultValue) {
+        const stored = localStorage.getItem('cz_pref_' + key);
+        if (stored === null) return defaultValue;
+        try {
+            return JSON.parse(stored);
+        } catch(e) {
+            return defaultValue;
+        }
+    }
+
+    function applyReduceMotion(enabled) {
+        if (enabled) {
+            document.documentElement.classList.add('reduce-motion');
+        } else {
+            document.documentElement.classList.remove('reduce-motion');
+        }
+    }
+
+    function applyCompactChat(enabled) {
+        if (enabled) {
+            document.documentElement.classList.add('compact-chat');
+        } else {
+            document.documentElement.classList.remove('compact-chat');
+        }
+    }
+
+    function changeTheme(theme) {
+        localStorage.setItem('chillzone_theme', theme);
+        if (typeof applyTheme === 'function') {
+            applyTheme(theme);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedTheme = localStorage.getItem('chillzone_theme') || 'standard';
+        const select = document.getElementById('themeContrastSelect');
+        if(select) {
+            select.value = savedTheme;
+        }
+
+        // Initialize toggle states
+        const prefs = ['floating_notifications', 'sound_alerts', 'unread_badge', 'show_typing', 'compact_chat', 'auto_embeds', 'smooth_scroll', 'reduce_motion'];
+        prefs.forEach(p => {
+            const el = document.getElementById('pref_' + p);
+            if (el) {
+                const defaultVal = !['compact_chat', 'reduce_motion'].includes(p);
+                el.checked = getUserPref(p, defaultVal);
+            }
+        });
+        
+        applyReduceMotion(getUserPref('reduce_motion', false));
+        applyCompactChat(getUserPref('compact_chat', false));
+    });
+</script>
+
+<style>
+    .settings-tab-btn {
+        width: 100%;
+        text-align: left;
+        padding: 12px 15px;
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 1rem;
+        font-weight: 500;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.2s;
+        margin-bottom: 5px;
+    }
+    .settings-tab-btn:hover {
+        background: rgba(255,255,255,0.05);
+        color: var(--text-primary);
+    }
+    .settings-tab-btn.active {
+        background: rgba(229,106,43,0.15);
+        color: var(--accent);
+    }
+    .settings-tab-btn i {
+        font-size: 1.2rem;
+    }
+</style>
+{% endblock %}

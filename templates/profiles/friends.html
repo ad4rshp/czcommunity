@@ -1,0 +1,194 @@
+{% extends 'authenticated_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/chat.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="chat-layout">
+    <div class="channel-sidebar" id="channelDrawer">
+        <div class="drawer-header mobile-only">
+            <h3>DIRECT MESSAGES</h3>
+            <button type="button" id="closeDrawerBtn">×</button>
+        </div>
+        <div class="category">
+            <div class="category-header">
+                <span class="category-title"><i class="ph ph-user"></i> DIRECT MESSAGES</span>
+            </div>
+            <div class="category-channels" style="display: block; margin-top: 5px;">
+                <a href="{% url 'friends' %}" class="channel-link active">
+                    <i class="ph ph-users" style="margin-right: 5px;"></i> Friends
+                </a>
+                {% for session in dm_sessions %}
+                    {% if session.user1 == request.user %}
+                    <a href="{% url 'dm_chat' session.user2.username %}" class="channel-link" style="display: flex; align-items: center; gap: 8px;">
+                        <img src="{{ session.user2.profile.get_avatar_url }}" alt="{{ session.user2.username }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
+                        {{ session.user2.username }}
+                    </a>
+                    {% else %}
+                    <a href="{% url 'dm_chat' session.user1.username %}" class="channel-link" style="display: flex; align-items: center; gap: 8px;">
+                        <img src="{{ session.user1.profile.get_avatar_url }}" alt="{{ session.user1.username }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
+                        {{ session.user1.username }}
+                    </a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-main" style="padding: 30px; overflow-y: auto; background: var(--bg-primary);" x-data="{ activeTab: 'all' }">
+        
+        <div style="display: flex; gap: 20px; border-bottom: 1px solid var(--border); margin-bottom: 30px; padding-bottom: 15px; align-items: center;">
+            <button type="button" id="openDrawerBtn" class="mobile-only" style="background:none; border:none; font-size:1.5rem; color:var(--text-primary); cursor:pointer; margin-right: 10px;">☰</button>
+            <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;"><i class="ph ph-users"></i> Friends</h2>
+            <div style="width: 1px; height: 25px; background: var(--border);"></div>
+            <span @click="activeTab = 'all'" :style="activeTab === 'all' ? 'background: rgba(255,255,255,0.1);' : 'opacity: 0.7;'" style="font-weight: bold; cursor: pointer; color: var(--text-primary); padding: 5px 15px; border-radius: var(--radius-sm);">All Friends</span>
+            
+            <span @click="activeTab = 'pending'" :style="activeTab === 'pending' ? 'background: rgba(255,255,255,0.1);' : 'opacity: 0.7;'" style="font-weight: bold; cursor: pointer; color: var(--text-primary); padding: 5px 15px; border-radius: var(--radius-sm);">
+                Pending 
+                {% if received_requests %}
+                <span style="background: #ff5252; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; margin-left: 5px;">{{ received_requests.count }}</span>
+                {% endif %}
+            </span>
+
+            <span @click="activeTab = 'sent'" :style="activeTab === 'sent' ? 'background: rgba(255,255,255,0.1);' : 'opacity: 0.7;'" style="font-weight: bold; cursor: pointer; color: var(--text-primary); padding: 5px 15px; border-radius: var(--radius-sm);">Sent</span>
+        </div>
+        
+        <div style="margin-bottom: 30px; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-md); background: rgba(0,0,0,0.15);">
+            <h4 style="margin-top: 0; margin-bottom: 15px;">ADD FRIEND</h4>
+            <form method="post" action="{% url 'send_friend_request_by_username' %}" style="display: flex; gap: 10px; margin: 0;">
+                {% csrf_token %}
+                <input type="text" name="username" placeholder="You can add a friend with their username." style="flex: 1; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-primary);" required>
+                <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">Send Friend Request</button>
+            </form>
+        </div>
+        
+        <div x-show="activeTab === 'all'">
+            <h4 style="color: var(--text-muted); font-size: 0.85rem; letter-spacing: 1px; margin-bottom: 15px;">ALL FRIENDS — {{ friends|length }}</h4>
+            
+            {% if not friends %}
+            <div style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
+                <i class="ph ph-users" style="font-size: 4rem; opacity: 0.5; margin-bottom: 20px;"></i>
+                <h3>No friends yet</h3>
+                <p>Add a friend using their username!</p>
+            </div>
+            {% endif %}
+            
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                {% for friend in friends %}
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: rgba(255,255,255,0.02); border-radius: var(--radius-md); border: 1px solid var(--border); transition: transform 0.2s, background 0.2s;" onmouseover="this.style.background='var(--bg-surface)'; this.style.transform='translateX(5px)';" onmouseout="this.style.background='rgba(255,255,255,0.02)'; this.style.transform='translateX(0)';">
+                    <a href="{% url 'profile' friend.username %}" style="display: flex; align-items: center; gap: 15px; text-decoration: none; flex: 1;">
+                        <div style="width: 40px; height: 40px; position: relative; flex-shrink: 0;">
+                            <img src="{{ friend.profile.get_avatar_url }}" alt="{{ friend.username }}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
+                            {% if friend.profile.status_setting == 'online' %}
+                            <div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #4CAF50; border: 2px solid var(--bg-surface); border-radius: 50%;"></div>
+                            {% elif friend.profile.status_setting == 'idle' %}
+                            <div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #FF9800; border: 2px solid var(--bg-surface); border-radius: 50%;"></div>
+                            {% elif friend.profile.status_setting == 'dnd' %}
+                            <div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #F44336; border: 2px solid var(--bg-surface); border-radius: 50%;"></div>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <span style="font-weight: bold; font-size: 1.1rem; color: var(--text-primary);">{{ friend.username }}</span>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">{{ friend.profile.get_status_setting_display }}</div>
+                        </div>
+                    </a>
+                    <div style="display: flex; gap: 10px;">
+                        <a href="{% url 'dm_chat' friend.username %}" class="btn btn-secondary" style="padding: 5px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1);" title="Message"><i class="ph ph-chat-circle" style="margin: 0; font-size: 1.2rem;"></i></a>
+                        <button class="btn btn-secondary" style="padding: 5px; border-radius: 50%; width: 40px; height: 40px; color: #ff5252; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05);" title="Unfriend" onclick="if(confirm('Are you sure you want to unfriend {{ friend.username }}?')) document.getElementById('unfriend-{{ friend.username }}').submit()"><i class="ph ph-user-minus" style="margin: 0; font-size: 1.2rem;"></i></button>
+                        <form id="unfriend-{{ friend.username }}" method="post" action="{% url 'friend_action' friend.username %}" style="display:none;">
+                            {% csrf_token %}<input type="hidden" name="action" value="unfriend">
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div x-show="activeTab === 'pending'" style="display: none;">
+            <h4 style="color: var(--text-muted); font-size: 0.85rem; letter-spacing: 1px; margin-bottom: 15px;">PENDING REQUESTS — {{ received_requests|length }}</h4>
+            {% if not received_requests %}
+            <div style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
+                <i class="ph ph-envelope-open" style="font-size: 4rem; opacity: 0.5; margin-bottom: 20px;"></i>
+                <h3>No pending requests</h3>
+            </div>
+            {% else %}
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 40px;">
+                {% for req in received_requests %}
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--bg-surface); border-radius: var(--radius-md); box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <a href="{% url 'profile' req.sender.username %}" style="display: flex; align-items: center; gap: 15px; text-decoration: none;">
+                        <img src="{{ req.sender.profile.get_avatar_url }}" alt="{{ req.sender.username }}" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" onerror="this.src='/static/img/default_avatar.svg'">
+                        <div>
+                            <span style="font-weight: bold; font-size: 1.1rem; color: var(--text-primary);">{{ req.sender.username }}</span>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">Incoming Friend Request</div>
+                        </div>
+                    </a>
+                    <div style="display: flex; gap: 10px;">
+                        <form method="post" action="{% url 'friend_action' req.sender.username %}" style="margin:0;">
+                            {% csrf_token %}<input type="hidden" name="action" value="accept">
+                            <button class="btn btn-primary" style="padding: 8px; border-radius: 50%; width: 40px; height: 40px;" title="Accept"><i class="ph ph-check" style="margin:0; font-size: 1.2rem; font-weight: bold;"></i></button>
+                        </form>
+                        <form method="post" action="{% url 'friend_action' req.sender.username %}" style="margin:0;">
+                            {% csrf_token %}<input type="hidden" name="action" value="reject">
+                            <button class="btn btn-secondary" style="padding: 8px; border-radius: 50%; width: 40px; height: 40px; color: #ff5252;" title="Reject"><i class="ph ph-x" style="margin:0; font-size: 1.2rem; font-weight: bold;"></i></button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <div x-show="activeTab === 'sent'" style="display: none;">
+            <h4 style="color: var(--text-muted); font-size: 0.85rem; letter-spacing: 1px; margin-bottom: 15px;">SENT REQUESTS — {{ sent_requests|length }}</h4>
+            {% if not sent_requests %}
+            <div style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
+                <i class="ph ph-paper-plane-tilt" style="font-size: 4rem; opacity: 0.5; margin-bottom: 20px;"></i>
+                <h3>No sent requests</h3>
+            </div>
+            {% else %}
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 40px;">
+                {% for req in sent_requests %}
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--bg-surface); border-radius: var(--radius-md); box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <a href="{% url 'profile' req.receiver.username %}" style="display: flex; align-items: center; gap: 15px; text-decoration: none;">
+                        <img src="{{ req.receiver.profile.get_avatar_url }}" alt="{{ req.receiver.username }}" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" onerror="this.src='/static/img/default_avatar.svg'">
+                        <div>
+                            <span style="font-weight: bold; font-size: 1.1rem; color: var(--text-primary);">{{ req.receiver.username }}</span>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">Outgoing Friend Request</div>
+                        </div>
+                    </a>
+                    <div style="display: flex; gap: 10px;">
+                        <form method="post" action="{% url 'friend_action' req.receiver.username %}" style="margin:0;">
+                            {% csrf_token %}<input type="hidden" name="action" value="cancel">
+                            <button class="btn btn-secondary" style="padding: 8px; border-radius: 50%; width: 40px; height: 40px; color: #ff5252;" title="Cancel Request"><i class="ph ph-x" style="margin:0; font-size: 1.2rem; font-weight: bold;"></i></button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const openDrawerBtn = document.getElementById('openDrawerBtn');
+    const closeDrawerBtn = document.getElementById('closeDrawerBtn');
+    const channelDrawer = document.getElementById('channelDrawer');
+
+    if (openDrawerBtn) {
+        openDrawerBtn.addEventListener('click', () => {
+            channelDrawer.classList.add('open');
+        });
+    }
+
+    if (closeDrawerBtn) {
+        closeDrawerBtn.addEventListener('click', () => {
+            channelDrawer.classList.remove('open');
+        });
+    }
+</script>
+{% endblock %}

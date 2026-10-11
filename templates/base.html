@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CHILL ZONE{% endblock %}</title>
+    {% load static %}
+    <link rel="icon" type="image/svg+xml" href="{% static 'img/chillzone_logo.svg' %}">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}?v=2">
+    <link rel="stylesheet" href="{% static 'css/profiles.css' %}?v=3">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js"></script>
+    {% block extra_css %}{% endblock %}
+    <script>
+        function applyTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            if (theme === 'high-contrast') {
+                document.documentElement.style.setProperty('--bg-primary', '#000000');
+                document.documentElement.style.setProperty('--bg-surface', '#0a0a0a');
+                document.documentElement.style.setProperty('--bg-elevated', '#1a1a1a');
+                document.documentElement.style.setProperty('--text-primary', '#ffffff');
+                document.documentElement.style.setProperty('--text-secondary', '#e0e0e0');
+                document.documentElement.style.setProperty('--text-muted', '#bbbbbb');
+                document.documentElement.style.setProperty('--border', 'rgba(255, 255, 255, 0.3)');
+                document.documentElement.style.setProperty('--border-hover', 'rgba(255, 255, 255, 0.5)');
+            } else if (theme === 'midnight') {
+                document.documentElement.style.setProperty('--bg-primary', '#000000');
+                document.documentElement.style.setProperty('--bg-surface', '#070709');
+                document.documentElement.style.setProperty('--bg-elevated', '#0f1013');
+                document.documentElement.style.setProperty('--text-primary', '#f2f3f5');
+                document.documentElement.style.setProperty('--text-secondary', '#8a8d95');
+                document.documentElement.style.setProperty('--text-muted', '#5c5e66');
+                document.documentElement.style.setProperty('--border', 'rgba(255, 255, 255, 0.05)');
+                document.documentElement.style.setProperty('--border-hover', 'rgba(255, 255, 255, 0.12)');
+            } else {
+                // standard
+                document.documentElement.style.removeProperty('--bg-primary');
+                document.documentElement.style.removeProperty('--bg-surface');
+                document.documentElement.style.removeProperty('--bg-elevated');
+                document.documentElement.style.removeProperty('--text-primary');
+                document.documentElement.style.removeProperty('--text-secondary');
+                document.documentElement.style.removeProperty('--text-muted');
+                document.documentElement.style.removeProperty('--border');
+                document.documentElement.style.removeProperty('--border-hover');
+            }
+        }
+        const savedTheme = localStorage.getItem('chillzone_theme') || 'standard';
+        applyTheme(savedTheme);
+    </script>
+</head>
+<body>
+    <!-- CHILLZONE SIGNATURE CUTE WEBSITE PRELOADER -->
+    <div id="cz-page-preloader" aria-label="Loading Chill Zone">
+        <div class="cz-preloader-stage">
+            <div class="cz-preloader-glow"></div>
+            <div class="cz-preloader-mascot-wrap">
+                <img src="{% static 'img/chillzone_logo.svg' %}" alt="ChillZone Mascot">
+            </div>
+            <div class="cz-preloader-brand">
+                <div class="cz-preloader-title">CHILL ZONE</div>
+                <div class="cz-preloader-status">Entering the Lounge</div>
+                <div class="cz-preloader-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Smoothly dismiss preloader on initial page load
+        (function() {
+            const preloader = document.getElementById('cz-page-preloader');
+            if (preloader) {
+                const minDisplayTime = 300;
+                const startTime = Date.now();
+                
+                function hidePreloader() {
+                    const elapsed = Date.now() - startTime;
+                    const remaining = Math.max(0, minDisplayTime - elapsed);
+                    setTimeout(() => {
+                        preloader.classList.add('cz-loaded');
+                        setTimeout(() => {
+                            if (preloader.parentNode) preloader.parentNode.removeChild(preloader);
+                        }, 400);
+                    }, remaining);
+                }
+
+                if (document.readyState === 'complete') {
+                    hidePreloader();
+                } else {
+                    window.addEventListener('load', hidePreloader);
+                    setTimeout(hidePreloader, 3000);
+                }
+            }
+        })();
+    </script>
+
+    {% block body %}
+    {% endblock %}
+    {% block extra_js %}{% endblock %}
+
+    <div id="cookieConsent" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--bg-elevated); padding: 15px 25px; border-radius: var(--radius-lg); border: 1px solid var(--accent); box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 2000; display: none; align-items: center; gap: 20px; width: max-content; max-width: 90vw;">
+        <span style="font-size: 0.9rem;">We use cookies to save your sessions and preferences.</span>
+        <button id="acceptCookies" class="btn btn-primary" style="padding: 6px 15px; font-size: 0.85rem;">Got it!</button>
+    </div>
+    <script>
+        if (!localStorage.getItem('cookiesAccepted')) {
+            document.getElementById('cookieConsent').style.display = 'flex';
+        }
+        document.getElementById('acceptCookies').addEventListener('click', () => {
+            localStorage.setItem('cookiesAccepted', 'true');
+            document.getElementById('cookieConsent').style.display = 'none';
+        });
+    </script>
+    <script>
+        // Anti-devtools / Security layer
+        document.addEventListener('contextmenu', event => {
+            // Prevent default right-click context menu globally
+            // We will implement custom context menus for app components
+            event.preventDefault();
+        });
+        
+        document.onkeydown = function(e) {
+            if(e.keyCode == 123) { // F12
+                return false;
+            }
+            if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) { // Ctrl+Shift+I
+                return false;
+            }
+            if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) { // Ctrl+Shift+C
+                return false;
+            }
+            if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) { // Ctrl+Shift+J
+                return false;
+            }
+            if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) { // Ctrl+U
+                return false;
+            }
+        };
+    </script>
+</body>
+</html>

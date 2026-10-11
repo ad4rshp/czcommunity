@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <defs>
+    <!-- Warm Cyber Sunset Glow Background -->
+    <linearGradient id="czPillGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF8A48"/>
+      <stop offset="50%" stop-color="#FF6B2B"/>
+      <stop offset="100%" stop-color="#E05315"/>
+    </linearGradient>
+
+    <!-- Headphone Arc -->
+    <linearGradient id="hpBand" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#181A20"/>
+      <stop offset="50%" stop-color="#2D303A"/>
+      <stop offset="100%" stop-color="#181A20"/>
+    </linearGradient>
+
+    <!-- Ear Pad Gradient -->
+    <linearGradient id="hpEar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3A3E4A"/>
+      <stop offset="100%" stop-color="#181A20"/>
+    </linearGradient>
+
+    <!-- Cheek Blush Gradient -->
+    <radialGradient id="blushGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF3366" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#FF3366" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Drop Shadows -->
+    <filter id="czSoftShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#E05315" flood-opacity="0.4"/>
+    </filter>
+
+    <filter id="eyeSparkle" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="#FFFFFF" flood-opacity="0.9"/>
+    </filter>
+  </defs>
+
+  <!-- Cute Rounded Mascot Body with Warm Sunset Drop Shadow -->
+  <path d="M 60 16 
+           C 88 16, 102 35, 102 65 
+           C 102 92, 86 104, 60 104 
+           C 34 104, 18 92, 18 65 
+           C 18 35, 32 16, 60 16 Z" 
+        fill="url(#czPillGrad)" 
+        filter="url(#czSoftShadow)"/>
+
+  <!-- Belly Soft Glow / Highlight -->
+  <ellipse cx="60" cy="84" rx="26" ry="12" fill="#FFA573" opacity="0.35"/>
+
+  <!-- Sleek Headphone Band -->
+  <path d="M 23 57 C 21 21, 99 21, 97 57" 
+        fill="none" 
+        stroke="url(#hpBand)" 
+        stroke-width="7" 
+        stroke-linecap="round"/>
+
+  <!-- Inner Band Stitch Line -->
+  <path d="M 28 53 C 28 27, 92 27, 92 53" 
+        fill="none" 
+        stroke="#4B5160" 
+        stroke-width="1.8" 
+        stroke-linecap="round" 
+        opacity="0.75"/>
+
+  <!-- Left Ear Cup -->
+  <rect x="12" y="47" width="13" height="26" rx="6.5" fill="url(#hpEar)" stroke="#111216" stroke-width="1.6"/>
+  <rect x="14.5" y="51" width="3.5" height="18" rx="1.7" fill="#FF7E42" opacity="0.9"/>
+
+  <!-- Right Ear Cup -->
+  <rect x="95" y="47" width="13" height="26" rx="6.5" fill="url(#hpEar)" stroke="#111216" stroke-width="1.6"/>
+  <rect x="102" y="51" width="3.5" height="18" rx="1.7" fill="#FF7E42" opacity="0.9"/>
+
+  <!-- Soft Rose Cheek Blushes under eyes for extra cuteness -->
+  <circle cx="36" cy="67" r="8" fill="url(#blushGlow)"/>
+  <circle cx="84" cy="67" r="8" fill="url(#blushGlow)"/>
+
+  <!-- LEFT CUTE EYE: Big, Kawaii, Expressive Eye (Only eyes - no mouth/nose) -->
+  <g class="cz-eye-left">
+    <!-- Dark Eye Base -->
+    <ellipse cx="44" cy="56" rx="9" ry="11" fill="#14161B"/>
+    <!-- Iris Warm Cyber Gradient -->
+    <ellipse cx="44" cy="57" rx="8" ry="9.5" fill="#242834"/>
+    <!-- Catchlight 1: Big Upper Twinkle -->
+    <circle cx="41.5" cy="52.5" r="3.6" fill="#FFFFFF" filter="url(#eyeSparkle)"/>
+    <!-- Catchlight 2: Mini Lower Glimmer -->
+    <circle cx="46.5" cy="61" r="1.8" fill="#FFE0B2"/>
+    <circle cx="43" cy="62" r="1" fill="#FFFFFF" opacity="0.9"/>
+  </g>
+
+  <!-- RIGHT CUTE EYE: Big, Kawaii, Expressive Eye (Only eyes - no mouth/nose) -->
+  <g class="cz-eye-right">
+    <!-- Dark Eye Base -->
+    <ellipse cx="76" cy="56" rx="9" ry="11" fill="#14161B"/>
+    <!-- Iris Warm Cyber Gradient -->
+    <ellipse cx="76" cy="57" rx="8" ry="9.5" fill="#242834"/>
+    <!-- Catchlight 1: Big Upper Twinkle -->
+    <circle cx="73.5" cy="52.5" r="3.6" fill="#FFFFFF" filter="url(#eyeSparkle)"/>
+    <!-- Catchlight 2: Mini Lower Glimmer -->
+    <circle cx="78.5" cy="61" r="1.8" fill="#FFE0B2"/>
+    <circle cx="75" cy="62" r="1" fill="#FFFFFF" opacity="0.9"/>
+  </g>
+
+  <!-- Forehead Chill Star / Sparkle Mark -->
+  <path d="M 60 28 L 61.6 33.2 L 66.8 34.8 L 61.6 36.4 L 60 41.6 L 58.4 36.4 L 53.2 34.8 L 58.4 33.2 Z" 
+        fill="#FFFFFF" 
+        opacity="0.95"/>
+</svg>

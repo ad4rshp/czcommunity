@@ -1,0 +1,530 @@
+{% extends 'authenticated_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/chat.css' %}">
+<link rel="stylesheet" href="{% static 'css/community.css' %}">
+<style>
+    .settings-layout {
+        display: flex;
+        height: 100%;
+        background: var(--bg-primary);
+    }
+    .settings-sidebar {
+        width: 280px;
+        background: var(--bg-surface);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+    }
+    .settings-header {
+        padding: 20px;
+        border-bottom: 1px solid var(--border);
+    }
+    .settings-nav {
+        padding: 15px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .settings-nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 15px;
+        border-radius: var(--radius-sm);
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.15s ease;
+    }
+    .settings-nav-item:hover {
+        background: rgba(255,255,255,0.05);
+        color: var(--text-primary);
+    }
+    .settings-nav-item.active {
+        background: rgba(255,255,255,0.1);
+        color: var(--text-primary);
+    }
+    .settings-content-area {
+        flex: 1;
+        padding: 40px;
+        overflow-y: auto;
+    }
+    .settings-section {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 25px;
+        margin-bottom: 20px;
+        max-width: 800px;
+    }
+    .settings-section h4 {
+        margin: 0 0 20px 0;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .settings-field {
+        margin-bottom: 18px;
+    }
+    .settings-field:last-child {
+        margin-bottom: 0;
+    }
+    .settings-field label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+    .settings-field input[type="text"],
+    .settings-field input[type="file"],
+    .settings-field textarea {
+        width: 100%;
+        padding: 12px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--bg-elevated);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 0.95rem;
+        box-sizing: border-box;
+        transition: border-color 0.15s;
+    }
+    .settings-field input[type="text"]:focus,
+    .settings-field textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+    .danger-zone {
+        border-color: rgba(244, 67, 54, 0.3);
+    }
+    .danger-zone h4 {
+        color: #F44336;
+    }
+    
+    .role-card {
+        background: var(--bg-elevated);
+        padding: 15px;
+        border-radius: var(--radius-md);
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border: 1px solid rgba(255,255,255,0.05);
+    }
+    .role-badge {
+        padding: 5px 10px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .audit-log-item {
+        padding: 15px 0;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 15px;
+    }
+    .audit-log-item:last-child {
+        border-bottom: none;
+    }
+    
+    @media (max-width: 768px) {
+        .settings-layout {
+            flex-direction: column;
+        }
+        .settings-sidebar {
+            width: 100%;
+            border-right: none;
+            border-bottom: 1px solid var(--border);
+        }
+        .settings-content-area {
+            padding: 20px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-layout">
+    <div class="settings-sidebar">
+        <div class="settings-header">
+            <h2 style="margin: 0; font-size: 1.2rem;">{{ community.name }}</h2>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;">Server Settings</div>
+        </div>
+        <div class="settings-nav">
+            {% if access_denied %}
+            <a href="{% url 'chat' %}?c={{ community.slug }}" class="settings-nav-item active" style="color: var(--accent);">
+                <i class="ph ph-arrow-left"></i> Return to Server
+            </a>
+            {% else %}
+            <a href="?tab=overview&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'overview' %}active{% endif %}">
+                <i class="ph ph-info"></i> Overview
+            </a>
+            <a href="?tab=roles&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'roles' %}active{% endif %}">
+                <i class="ph ph-shield-star"></i> Roles
+            </a>
+            <a href="?tab=invites&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'invites' %}active{% endif %}">
+                <i class="ph ph-user-plus"></i> Invites
+            </a>
+            <a href="?tab=audit_log&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'audit_log' %}active{% endif %}">
+                <i class="ph ph-scroll"></i> Audit Log
+            </a>
+            <hr style="border: none; border-top: 1px solid var(--border); margin: 10px 0;">
+            <a href="{% url 'chat' %}?c={{ community.slug }}" class="settings-nav-item" style="color: var(--accent);">
+                <i class="ph ph-arrow-left"></i> Back to Server
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="settings-content-area">
+        {% if access_denied %}
+        <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 40px; text-align: center; max-width: 600px; margin: 40px auto;">
+            <div style="font-size: 3rem; color: #F44336; margin-bottom: 15px;"><i class="ph ph-shield-warning"></i></div>
+            <h2 style="margin: 0 0 10px 0; color: var(--text-primary);">Permission Required</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 25px;">You do not have permission to manage this server. Only server owners and managers can access server settings.</p>
+            <a href="{% url 'chat' %}?c={{ community.slug }}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                <i class="ph ph-arrow-left"></i> Return to Server
+            </a>
+        </div>
+        {% elif current_tab == 'overview' %}
+        <div>
+            <h1 style="margin-top: 0; margin-bottom: 20px;">Server Overview</h1>
+            
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_community">
+                
+                <div class="settings-section" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 25px;">
+                    <h4 style="margin-top: 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;"><i class="ph ph-image" style="color: var(--accent);"></i> Server Icon</h4>
+                    <div style="display: flex; gap: 30px; align-items: center;">
+                        <div style="width: 120px; height: 120px; border-radius: 50%; background: var(--bg-primary); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px dashed var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                            <img id="serverIconPreview" src="{{ community.get_icon_url }}" alt="Icon" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='/static/img/default_server.svg'">
+                        </div>
+                        <div class="settings-field" style="flex: 1; margin: 0;">
+                            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; letter-spacing: 0.5px;">UPLOAD NEW ICON (MAX 1 MB)</label>
+                            <div style="position: relative; overflow: hidden; display: inline-block;">
+                                <button type="button" class="btn" style="background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); pointer-events: none;"><i class="ph ph-upload-simple"></i> Choose File...</button>
+                                <input type="file" name="icon" accept="image/*" style="font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer;" onchange="validateServerIconSize(this)">
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 10px;">Recommended size: 512x512. JPG, PNG, or GIF. Maximum file size: <strong>1 MB</strong>.</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="settings-section" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 25px; margin-top: 25px;">
+                    <h4 style="margin-top: 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;"><i class="ph ph-text-aa" style="color: var(--accent);"></i> Server Details</h4>
+                    <div class="settings-field">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">SERVER NAME</label>
+                        <input type="text" name="name" value="{{ community.name }}" required style="width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); font-family: inherit;">
+                    </div>
+                    <div class="settings-field" style="margin-top: 15px;">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">DESCRIPTION</label>
+                        <textarea name="description" rows="3" style="width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); font-family: inherit; resize: vertical;">{{ community.description }}</textarea>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 40px;">
+                    <button type="submit" class="btn btn-primary"><i class="ph ph-check"></i> Save Changes</button>
+                </div>
+            </form>
+            
+            <div class="settings-section danger-zone">
+                <h4><i class="ph ph-warning"></i> Danger Zone</h4>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 15px;">
+                    Deleting the server will permanently remove all channels, messages, and roles. This action cannot be undone.
+                </p>
+                <a href="{% url 'delete_community' %}" class="btn" style="background: rgba(244, 67, 54, 0.1); color: #F44336; border: 1px solid #F44336; text-decoration: none; display: inline-block; text-align: center;">Delete Server</a>
+            </div>
+        </div>
+        {% endif %}
+
+        
+        {% if current_tab == 'roles' %}
+        <div>
+            <h1 style="margin-top: 0; margin-bottom: 20px;">Roles</h1>
+            
+            <div class="settings-section">
+                <h4><i class="ph ph-plus"></i> Create Role</h4>
+                <form method="post" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="create_role">
+                    <div class="settings-field" style="flex: 2; margin-bottom: 0;">
+                        <label>Role Name</label>
+                        <input type="text" name="name" required>
+                    </div>
+                    <div class="settings-field" style="flex: 1; margin-bottom: 0;">
+                        <label>Color</label>
+                        <input type="color" name="color" value="#E56A2B" style="width: 100%; height: 44px; border-radius: var(--radius-sm); background: var(--bg-elevated); border: 1px solid var(--border); cursor: pointer; padding: 5px;">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="height: 44px;">Create</button>
+                </form>
+            </div>
+            
+            <div class="settings-section">
+                <h4><i class="ph ph-shield-check"></i> Existing Roles</h4>
+                {% if roles %}
+                    {% for role in roles %}
+                    <details class="role-details" style="background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 10px; overflow: hidden;">
+                        <summary style="padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div class="role-badge" style="color: {{ role.color }}; border: 1px solid {{ role.color }}; background: rgba(255,255,255,0.05); margin: 0;">
+                                    {{ role.name }}
+                                </div>
+                                <span style="color: var(--text-muted); font-size: 0.85rem;"><i class="ph ph-caret-down"></i> Edit Permissions</span>
+                            </div>
+                            
+                            {% if role.name != '@everyone' %}
+                            <form method="post" style="margin: 0;" onsubmit="return confirm('Delete this role?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_role">
+                                <input type="hidden" name="role_id" value="{{ role.id }}">
+                                <button type="submit" class="icon-btn" style="color: #F44336; background: transparent; border: none; cursor: pointer; padding: 5px;"><i class="ph ph-trash" style="font-size: 1.2rem;"></i></button>
+                            </form>
+                            {% endif %}
+                        </summary>
+                        
+                        <div style="padding: 15px; border-top: 1px solid var(--border); background: var(--bg-surface);">
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="update_role">
+                                <input type="hidden" name="role_id" value="{{ role.id }}">
+                                
+                                <div style="display: flex; gap: 15px; margin-bottom: 18px; flex-wrap: wrap;">
+                                    {% if role.name != '@everyone' %}
+                                    <div style="flex: 1; min-width: 180px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">Role Name</label>
+                                        <input type="text" name="name" value="{{ role.name }}" style="width: 100%; padding: 8px 12px; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;">
+                                    </div>
+                                    {% endif %}
+                                    <div style="min-width: 140px;">
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">Role Color</label>
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <input type="color" name="color" value="{{ role.color }}" style="width: 40px; height: 38px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                                            <span style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">{{ role.color }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 20px;">
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="display_separately" {% if role.display_separately %}checked{% endif %}> Display role members separately from online members</div>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer; margin-bottom: 10px;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="allow_mention" {% if role.allow_mention %}checked{% endif %}> Allow anyone to @mention this role</div>
+                                    </label>
+                                    
+                                    <hr style="border-color: var(--border); margin: 15px 0;">
+                                    
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="VIEW_CHANNEL" {% if role.VIEW_CHANNEL %}checked{% endif %}> View Channels</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to view channels by default.</div>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="SEND_MESSAGES" {% if role.SEND_MESSAGES %}checked{% endif %}> Send Messages</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to send messages in text channels.</div>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="READ_MESSAGE_HISTORY" {% if role.READ_MESSAGE_HISTORY %}checked{% endif %}> Read History</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to read previous messages sent in channels.</div>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="ATTACH_FILES" {% if role.ATTACH_FILES %}checked{% endif %}> Attach Files</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to upload files and media.</div>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="EMBED_LINKS" {% if role.EMBED_LINKS %}checked{% endif %}> Embed Links</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows links sent by this member to embed media/previews.</div>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="CHANGE_NICKNAME" {% if role.CHANGE_NICKNAME %}checked{% endif %}> Change Nickname</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to change their own nickname.</div>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="MANAGE_MESSAGES" {% if role.MANAGE_MESSAGES %}checked{% endif %}> Manage Messages</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to delete messages sent by others.</div>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="MANAGE_NICKNAMES" {% if role.MANAGE_NICKNAMES %}checked{% endif %}> Manage Nicknames</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to change the nicknames of others.</div>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="MODERATE_MEMBERS" {% if role.MODERATE_MEMBERS %}checked{% endif %}> Moderate Members</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to timeout or manage other users.</div>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="KICK_MEMBERS" {% if role.KICK_MEMBERS %}checked{% endif %}> Kick Members</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to remove users from the server.</div>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="BAN_MEMBERS" {% if role.BAN_MEMBERS %}checked{% endif %}> Ban Members</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to permanently ban users from the server.</div>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="MANAGE_CHANNELS" {% if role.MANAGE_CHANNELS %}checked{% endif %}> Manage Channels</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to create, edit, or delete channels.</div>
+                                    </label>
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="MANAGE_ROLES" {% if role.MANAGE_ROLES %}checked{% endif %}> Manage Roles</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to create, edit, or delete roles.</div>
+                                    </label>
+                                    
+                                    <hr style="border-color: rgba(244, 67, 54, 0.3); margin: 15px 0;">
+                                    <h5 style="color: #F44336; margin: 0 0 10px 0; font-size: 0.8rem;">DANGER ZONE</h5>
+                                    
+                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
+                                        <div style="display: flex; align-items: center; gap: 8px; color: #F44336;"><input type="checkbox" name="ADMINISTRATOR" {% if role.ADMINISTRATOR %}checked{% endif %}> Administrator</div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Grants all permissions and bypasses channel restrictions.</div>
+                                    </label>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-sm">Save Permissions</button>
+                            </form>
+                        </div>
+                    </details>
+                    {% endfor %}
+                {% else %}
+                    <p style="color: var(--text-muted);">No roles created yet.</p>
+                {% endif %}
+            </div>
+            
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                <i class="ph ph-info"></i> Note: You can assign roles to members by visiting their profile from the members list.
+            </p>
+        </div>
+        {% endif %}
+        
+        {% if current_tab == 'invites' %}
+        <div>
+            <h1 style="margin-top: 0; margin-bottom: 20px;">Server Invites</h1>
+            <div class="settings-section">
+                <h4 style="margin-top: 0; color: var(--text-primary);">Create New Invite</h4>
+                <form method="post" style="display: flex; gap: 15px; align-items: flex-end;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="create_invite">
+                    <div class="settings-field" style="margin: 0; flex: 1;">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">MAX USES (0 for unlimited)</label>
+                        <input type="number" name="max_uses" value="0" min="0" style="width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary);">
+                    </div>
+                    <div class="settings-field" style="margin: 0; flex: 1;">
+                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">EXPIRATION</label>
+                        <select name="expires_in" style="width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary);">
+                            <option value="0">Never expires</option>
+                            <option value="1">1 Day</option>
+                            <option value="7">7 Days</option>
+                            <option value="30">30 Days</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="height: 44px; padding: 0 20px;">Generate Code</button>
+                </form>
+            </div>
+            
+            <div class="settings-section" style="padding: 0;">
+                <div style="padding: 15px 20px; border-bottom: 1px solid var(--border); font-weight: bold; color: var(--text-muted); display: flex;">
+                    <div style="flex: 2;">Invite Code</div>
+                    <div style="flex: 1;">Creator</div>
+                    <div style="flex: 1;">Uses</div>
+                    <div style="flex: 1;">Expires</div>
+                    <div style="width: 40px;"></div>
+                </div>
+                {% if invites %}
+                    {% for inv in invites %}
+                    <div style="padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; {% if inv.is_expired %}opacity: 0.5;{% endif %}">
+                        <div style="flex: 2; font-family: monospace; font-size: 1.1rem; color: var(--accent);">{{ inv.code }}</div>
+                        <div style="flex: 1; color: var(--text-primary);">{{ inv.created_by.username }}</div>
+                        <div style="flex: 1; color: var(--text-secondary);">{{ inv.uses }} / {% if inv.max_uses == 0 %}∞{% else %}{{ inv.max_uses }}{% endif %}</div>
+                        <div style="flex: 1; color: var(--text-secondary); font-size: 0.85rem;">
+                            {% if inv.expires_at %}{{ inv.expires_at|date:"M d, Y" }}{% else %}Never{% endif %}
+                            {% if inv.is_expired %}<span style="color: #F44336; margin-left: 5px;">(Expired)</span>{% endif %}
+                        </div>
+                        <div style="width: 40px; text-align: right;">
+                            <form method="post" style="margin: 0;">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_invite">
+                                <input type="hidden" name="invite_id" value="{{ inv.id }}">
+                                <button type="submit" style="background: none; border: none; color: #F44336; cursor: pointer; padding: 5px;" title="Revoke Invite"><i class="ph ph-trash"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="padding: 30px; text-align: center; color: var(--text-muted);">
+                        No active invite codes. Create one above!
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if current_tab == 'audit_log' %}
+        <div>
+            <h1 style="margin-top: 0; margin-bottom: 20px;">Audit Log</h1>
+            <div class="settings-section" style="padding: 0;">
+                {% if audit_logs %}
+                    {% for log in audit_logs %}
+                    <div class="audit-log-item" style="padding: 15px 20px;">
+                        <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-elevated); display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">
+                            {% if log.user %}
+                                {{ log.user.username|make_list|first|upper }}
+                            {% else %}
+                                ?
+                            {% endif %}
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="margin-bottom: 4px;">
+                                {% if log.user %}
+                                    <strong style="color: var(--text-primary);">{{ log.user.username }}</strong>
+                                {% else %}
+                                    <strong style="color: var(--text-muted);">System</strong>
+                                {% endif %}
+                                <span style="color: var(--text-secondary);">{{ log.action }}</span>
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                {{ log.created_at|date:"M d, Y - h:i A" }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="padding: 30px; text-align: center; color: var(--text-muted);">
+                        No audit logs available.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+    </div>
+</div>
+
+<script>
+    // Style textareas for dashboard config
+    document.querySelectorAll('.settings-field textarea').forEach(el => {
+        el.style.resize = 'vertical';
+        if(!el.style.minHeight) el.style.minHeight = '100px';
+    });
+
+    function validateServerIconSize(input) {
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            const maxBytes = 1 * 1024 * 1024; // 1MB
+            if (file.size > maxBytes) {
+                alert(`Selected icon (${(file.size / 1024 / 1024).toFixed(2)} MB) exceeds the 1 MB limit! Please choose a smaller image.`);
+                input.value = '';
+                return;
+            }
+            const preview = document.getElementById('serverIconPreview');
+            if (preview) {
+                const reader = new FileReader();
+                reader.onload = (e) => { preview.src = e.target.result; };
+                reader.readAsDataURL(file);
+            }
+        }
+    }
+</script>
+{% endblock %}
