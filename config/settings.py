@@ -42,6 +42,10 @@ CSRF_TRUSTED_ORIGINS = [
     'http://*.up.railway.app',
     'https://czcommunity-production.up.railway.app',
     'http://czcommunity-production.up.railway.app',
+    'https://czcommunity.com',
+    'https://www.czcommunity.com',
+    'http://czcommunity.com',
+    'http://www.czcommunity.com',
     'http://localhost:8000',
     'http://127.0.0.1:8000',
 ]
