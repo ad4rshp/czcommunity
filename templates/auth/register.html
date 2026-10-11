@@ -87,5 +87,55 @@
             input.classList.add('form-control');
         }
     });
+
+    // Add interactive refresh button for captcha
+    const captchaImg = document.querySelector('img.captcha');
+    if (captchaImg) {
+        // Create a wrapper & refresh button
+        const refreshBtn = document.createElement('button');
+        refreshBtn.type = 'button';
+        refreshBtn.className = 'captcha-refresh-btn';
+        refreshBtn.title = 'Refresh Captcha';
+        refreshBtn.innerHTML = '<i class="ph ph-arrows-clockwise"></i> Refresh Code';
+        refreshBtn.style.cssText = 'background: rgba(255, 107, 43, 0.12); border: 1px solid rgba(255, 107, 43, 0.3); color: #ff8a48; border-radius: 6px; padding: 4px 10px; font-size: 0.78rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; transition: all 0.2s ease;';
+        
+        refreshBtn.onmouseover = function() {
+            this.style.background = 'rgba(255, 107, 43, 0.25)';
+            this.style.color = '#ffffff';
+        };
+        refreshBtn.onmouseout = function() {
+            this.style.background = 'rgba(255, 107, 43, 0.12)';
+            this.style.color = '#ff8a48';
+        };
+
+        refreshBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const icon = refreshBtn.querySelector('i');
+            if (icon) icon.classList.add('ph-spin');
+            
+            fetch('/captcha/refresh/', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.image_url) {
+                    captchaImg.src = data.image_url;
+                }
+                const hiddenInput = document.querySelector('input[name="captcha_0"]');
+                if (hiddenInput && data.key) {
+                    hiddenInput.value = data.key;
+                }
+            })
+            .catch(err => console.error('Failed to refresh captcha', err))
+            .finally(() => {
+                if (icon) icon.classList.remove('ph-spin');
+            });
+        });
+
+        captchaImg.parentNode.insertBefore(refreshBtn, captchaImg.nextSibling);
+        captchaImg.style.cursor = 'pointer';
+        captchaImg.title = 'Click to refresh';
+        captchaImg.addEventListener('click', () => refreshBtn.click());
+    }
 </script>
 {% endblock %}
