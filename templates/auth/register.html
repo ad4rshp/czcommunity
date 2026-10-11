@@ -91,21 +91,24 @@
     // Add interactive refresh button for captcha
     const captchaImg = document.querySelector('img.captcha');
     if (captchaImg) {
-        // Create a wrapper & refresh button
+        // Create an icon-only refresh button
         const refreshBtn = document.createElement('button');
         refreshBtn.type = 'button';
         refreshBtn.className = 'captcha-refresh-btn';
         refreshBtn.title = 'Refresh Captcha';
-        refreshBtn.innerHTML = '<i class="ph ph-arrows-clockwise"></i> Refresh Code';
-        refreshBtn.style.cssText = 'background: rgba(255, 107, 43, 0.12); border: 1px solid rgba(255, 107, 43, 0.3); color: #ff8a48; border-radius: 6px; padding: 4px 10px; font-size: 0.78rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; transition: all 0.2s ease;';
+        refreshBtn.setAttribute('aria-label', 'Refresh Captcha');
+        refreshBtn.innerHTML = '<i class="ph-bold ph-arrows-clockwise"></i>';
+        refreshBtn.style.cssText = 'background: rgba(255, 107, 43, 0.15); border: 1px solid rgba(255, 107, 43, 0.35); color: var(--accent); border-radius: 8px; width: 36px; height: 36px; min-width: 36px; font-size: 1.15rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin-left: 8px; vertical-align: middle; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);';
         
         refreshBtn.onmouseover = function() {
-            this.style.background = 'rgba(255, 107, 43, 0.25)';
+            this.style.background = 'var(--accent)';
             this.style.color = '#ffffff';
+            this.style.transform = 'scale(1.05)';
         };
         refreshBtn.onmouseout = function() {
-            this.style.background = 'rgba(255, 107, 43, 0.12)';
-            this.style.color = '#ff8a48';
+            this.style.background = 'rgba(255, 107, 43, 0.15)';
+            this.style.color = 'var(--accent)';
+            this.style.transform = 'scale(1)';
         };
 
         refreshBtn.addEventListener('click', function(e) {
