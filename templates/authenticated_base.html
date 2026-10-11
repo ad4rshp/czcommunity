@@ -8,8 +8,10 @@
         
         <!-- Left: Logo & Social -->
         <div class="nav-brand">
-            <a href="{% url 'home' %}" class="logo-link">
-                <img src="{% static 'img/chillzone_logo.svg' %}" alt="Chill Zone Logo" class="brand-mascot-icon" style="width: 30px; height: 30px; object-fit: contain;"> CHILL ZONE
+            <a href="{% url 'home' %}" class="logo-link" aria-label="Chill Zone Home">
+                <img src="{% static 'img/chillzone_logo.svg' %}" alt="" class="brand-mascot-icon" style="width: 30px; height: 30px; object-fit: contain;">
+                <span class="brand-text-full">CHILL ZONE</span>
+                <span class="brand-text-compact">CZ</span>
                 {% if site_settings and site_settings.show_beta_warning %}
                 <span class="beta-tag">BETA</span>
                 {% endif %}
@@ -64,6 +66,37 @@
         {% block content %}
         {% endblock %}
     </main>
+
+    <!-- Mobile Bottom Navigation Bar (Thumb-friendly touch bar) -->
+    <nav class="mobile-bottom-nav mobile-only" aria-label="Mobile Navigation">
+        <a href="{% if active_community %}{% url 'chat' %}?c={{ active_community.slug }}{% else %}{% url 'chat' %}{% endif %}" class="mobile-nav-item {% if request.path|slice:':11' == '/community/' and request.path != '/community/create/' %}active{% endif %}" title="Servers & Chat">
+            <i class="ph-fill ph-chat-circle-dots"></i>
+            <span>Chat</span>
+        </a>
+        <a href="{% url 'friends' %}" class="mobile-nav-item {% if request.path == '/profiles/friends/' or request.path|slice:':8' == '/chat/dm' %}active{% endif %}" title="Social & Friends">
+            <div class="mobile-nav-icon-wrap">
+                <i class="ph-fill ph-users"></i>
+                <span id="mobileSocialPingBadge" class="social-ping-badge" style="display: none;"></span>
+            </div>
+            <span>Social</span>
+        </a>
+        <a href="{% url 'create_community' %}" class="mobile-nav-item {% if request.path == '/community/create/' %}active{% endif %}" title="Add Server">
+            <div class="mobile-nav-add-btn">
+                <i class="ph-bold ph-plus"></i>
+            </div>
+            <span>Add</span>
+        </a>
+        <a href="{% url 'profile_edit' %}" class="mobile-nav-item {% if request.path == '/profiles/edit/' %}active{% endif %}" title="Settings">
+            <i class="ph-fill ph-sliders"></i>
+            <span>Settings</span>
+        </a>
+        <a href="{% url 'profile' request.user.username %}" class="mobile-nav-item {% if request.path == '/profiles/'|add:request.user.username|add:'/' %}active{% endif %}" onclick="event.preventDefault(); openProfileModalFromUrl('{% url 'profile_card_fragment' request.user.username %}');" title="Profile">
+            <div class="mobile-nav-avatar-wrap">
+                <img src="{{ request.user.profile.get_avatar_url }}" alt="Avatar" onerror="this.src='/static/img/default_avatar.svg'">
+            </div>
+            <span>Profile</span>
+        </a>
+    </nav>
     
     <!-- Global Profile Popout Modal -->
     <div id="globalProfileModal" class="profile-modal-overlay">

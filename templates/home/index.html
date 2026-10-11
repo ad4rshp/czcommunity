@@ -16,9 +16,10 @@
     <nav class="sticky-nav">
         <div class="nav-container">
             <div class="nav-left">
-                <a href="{% url 'home' %}" class="logo" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text-primary);">
-                    <img src="{% static 'img/chillzone_logo.svg' %}" alt="Chillzone" style="width: 34px; height: 34px; object-fit: contain;">
-                    <span style="font-weight: 800; font-size: 1.15rem; letter-spacing: 0.5px;">CHILL ZONE</span>
+                <a href="{% url 'home' %}" class="logo" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text-primary);" aria-label="Chill Zone Home">
+                    <img src="{% static 'img/chillzone_logo.svg' %}" alt="" style="width: 34px; height: 34px; object-fit: contain;">
+                    <span class="brand-text-full" style="font-weight: 800; font-size: 1.15rem; letter-spacing: 0.5px;">CHILL ZONE</span>
+                    <span class="brand-text-compact" style="font-weight: 800; font-size: 1.15rem; letter-spacing: 1px;">CZ</span>
                     {% if site_settings and site_settings.show_beta_warning %}
                     <span class="beta-tag-outline">BETA</span>
                     {% endif %}

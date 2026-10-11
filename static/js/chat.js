@@ -458,21 +458,50 @@ function scrollToBottom() {
 }
 scrollToBottom();
 
-// Mobile Drawer logic
+// Desktop Sidebar Collapse & Mobile Drawer Logic
+window.toggleSidebarCollapse = function() {
+    const isCollapsed = document.documentElement.classList.toggle('cz-sidebar-collapsed');
+    try {
+        localStorage.setItem('cz_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+    } catch(e) {}
+};
+
 const openDrawerBtn = document.getElementById('openDrawerBtn');
 const closeDrawerBtn = document.getElementById('closeDrawerBtn');
 const channelDrawer = document.getElementById('channelDrawer');
 
-if (openDrawerBtn) {
+// Create mobile drawer backdrop overlay if not present
+let drawerBackdrop = document.querySelector('.channel-drawer-backdrop');
+if (!drawerBackdrop && channelDrawer) {
+    drawerBackdrop = document.createElement('div');
+    drawerBackdrop.className = 'channel-drawer-backdrop';
+    document.body.appendChild(drawerBackdrop);
+    drawerBackdrop.addEventListener('click', () => {
+        channelDrawer.classList.remove('open');
+        drawerBackdrop.classList.remove('active');
+    });
+}
+
+if (openDrawerBtn && channelDrawer) {
     openDrawerBtn.addEventListener('click', () => {
         channelDrawer.classList.add('open');
+        if (drawerBackdrop) drawerBackdrop.classList.add('active');
     });
 }
-if (closeDrawerBtn) {
+if (closeDrawerBtn && channelDrawer) {
     closeDrawerBtn.addEventListener('click', () => {
         channelDrawer.classList.remove('open');
+        if (drawerBackdrop) drawerBackdrop.classList.remove('active');
     });
 }
+
+// Close drawer on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && channelDrawer && channelDrawer.classList.contains('open')) {
+        channelDrawer.classList.remove('open');
+        if (drawerBackdrop) drawerBackdrop.classList.remove('active');
+    }
+});
 
 // Swipe to reply logic for mobile
 let touchStartX = 0;

@@ -19,6 +19,9 @@
                 </div>
             </div>
             <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                <button type="button" class="sidebar-collapse-toggle-btn desktop-only" onclick="toggleSidebarCollapse()" title="Collapse / Expand Sidebar" aria-label="Toggle Sidebar">
+                    <i class="ph ph-sidebar-simple"></i>
+                </button>
                 {% if can_manage_roles or can_manage_channels or request.user == community.owner %}
                 <a href="{% url 'community_settings' %}?c={{ community.slug }}" style="color: var(--text-muted); padding: 5px; border-radius: 4px; transition: all 0.2s; display: flex; align-items: center;" onmouseover="this.style.color='var(--text-primary)'; this.style.background='rgba(255,255,255,0.06)';" onmouseout="this.style.color='var(--text-muted)'; this.style.background='transparent';">
                     <i class="ph ph-gear" title="Server Settings" style="font-size: 1.15rem;"></i>

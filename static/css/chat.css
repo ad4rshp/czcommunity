@@ -12,7 +12,112 @@
     display: flex;
     flex-direction: column;
     padding: 10px 0;
-    transition: transform var(--transition-fast);
+    transition: width var(--transition-normal), transform var(--transition-fast);
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* User-controlled Collapsible Sidebar (Desktop) */
+.cz-sidebar-collapsed .channel-sidebar {
+    width: 64px;
+}
+
+.cz-sidebar-collapsed .channel-sidebar .community-header span,
+.cz-sidebar-collapsed .channel-sidebar .category-title,
+.cz-sidebar-collapsed .channel-sidebar .category-actions,
+.cz-sidebar-collapsed .channel-sidebar .channel-link span,
+.cz-sidebar-collapsed .channel-sidebar .channel-edit-icon {
+    display: none !important;
+}
+
+.cz-sidebar-collapsed .channel-sidebar .channel-link {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0;
+    border-radius: var(--radius-sm);
+    margin: 2px 8px;
+}
+
+.cz-sidebar-collapsed .channel-sidebar .channel-link.active {
+    border-left: none;
+    background-color: rgba(255, 107, 43, 0.15);
+    color: var(--accent);
+}
+
+.cz-sidebar-collapsed .channel-sidebar .community-header {
+    justify-content: center;
+    padding: 8px 0;
+    margin: 4px 6px 12px 6px;
+}
+
+.cz-sidebar-collapsed .channel-sidebar .community-header > div:first-child {
+    justify-content: center;
+}
+
+.cz-sidebar-collapsed .channel-sidebar .category-header {
+    justify-content: center;
+    padding: 4px 0;
+}
+
+.sidebar-collapse-toggle-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.sidebar-collapse-toggle-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* User-controlled Compact Mode for Messages & Content Density */
+.compact-chat .message-group {
+    margin-bottom: 6px;
+}
+
+.compact-chat .message-avatar {
+    width: 28px;
+    height: 28px;
+    margin-right: 10px;
+}
+
+.compact-chat .message-avatar img {
+    width: 28px !important;
+    height: 28px !important;
+}
+
+.compact-chat .message-meta {
+    margin-bottom: 2px;
+}
+
+.compact-chat .message-meta .author {
+    font-size: 0.88rem;
+}
+
+.compact-chat .message-meta .timestamp {
+    font-size: 0.7rem;
+}
+
+.compact-chat .message-text {
+    font-size: 0.88rem;
+    line-height: 1.35;
+}
+
+.compact-chat .message-area {
+    padding: 12px 16px;
+}
+
+.compact-chat .channel-link {
+    padding: 4px 12px;
+    font-size: 0.85rem;
 }
 
 .category {
@@ -434,27 +539,78 @@
     }
     
     .drawer-header {
-        padding: 15px;
+        padding: 14px 16px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         border-bottom: 1px solid var(--border);
-        margin-bottom: 10px;
+        margin-bottom: 8px;
     }
     
     #closeDrawerBtn {
-        background: none;
-        border: none;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--border);
         color: var(--text-primary);
-        font-size: 1.5rem;
+        font-size: 1.25rem;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    #closeDrawerBtn:active {
+        background: rgba(255, 255, 255, 0.16);
     }
     
     #openDrawerBtn {
-        background: none;
-        border: none;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--border);
         color: var(--text-primary);
-        font-size: 1.5rem;
-        margin-right: 15px;
+        font-size: 1.15rem;
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        border-radius: var(--radius-sm);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    #openDrawerBtn:active {
+        background: rgba(255, 107, 43, 0.2);
+        color: var(--accent);
+    }
+
+    /* Backdrop overlay for mobile drawer */
+    .channel-drawer-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        z-index: 95;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity var(--transition-normal);
+    }
+
+    .channel-drawer-backdrop.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .composer-area {
+        padding: 0 12px calc(8px + env(safe-area-inset-bottom, 0px)) 12px;
     }
 }
 
