@@ -12,26 +12,39 @@
             <h3>DIRECT MESSAGES</h3>
             <button type="button" id="closeDrawerBtn">×</button>
         </div>
+        <div class="community-header desktop-only" style="padding: 10px 14px; margin: 4px 10px 12px 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);">
+            <span style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px;">Messages</span>
+            <button type="button" class="sidebar-collapse-toggle-btn desktop-only" onclick="toggleSidebarCollapse()" title="Collapse / Expand Sidebar" aria-label="Toggle Sidebar">
+                <i class="ph ph-sidebar-simple"></i>
+            </button>
+        </div>
         <div class="category">
             <div class="category-header">
                 <span class="category-title"><i class="ph ph-user"></i> DIRECT MESSAGES</span>
             </div>
             <div class="category-channels" style="display: block; margin-top: 5px;">
-                <a href="{% url 'friends' %}" class="channel-link active">
-                    <i class="ph ph-users" style="margin-right: 5px;"></i> Friends
-                </a>
+                <div class="channel-item-wrapper">
+                    <a href="{% url 'friends' %}" class="channel-link active" title="Friends">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <i class="ph ph-users channel-icon" style="font-size: 1.15rem;"></i>
+                            <span class="channel-name-text">Friends</span>
+                        </div>
+                    </a>
+                </div>
                 {% for session in dm_sessions %}
+                <div class="channel-item-wrapper">
                     {% if session.user1 == request.user %}
-                    <a href="{% url 'dm_chat' session.user2.username %}" class="channel-link" style="display: flex; align-items: center; gap: 8px;">
-                        <img src="{{ session.user2.profile.get_avatar_url }}" alt="{{ session.user2.username }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
-                        {{ session.user2.username }}
+                    <a href="{% url 'dm_chat' session.user2.username %}" class="channel-link" title="{{ session.user2.username }}" style="display: flex; align-items: center; gap: 8px;">
+                        <img src="{{ session.user2.profile.get_avatar_url }}" alt="{{ session.user2.username }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.src='/static/img/default_avatar.svg'">
+                        <span class="channel-name-text">{{ session.user2.username }}</span>
                     </a>
                     {% else %}
-                    <a href="{% url 'dm_chat' session.user1.username %}" class="channel-link" style="display: flex; align-items: center; gap: 8px;">
-                        <img src="{{ session.user1.profile.get_avatar_url }}" alt="{{ session.user1.username }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
-                        {{ session.user1.username }}
+                    <a href="{% url 'dm_chat' session.user1.username %}" class="channel-link" title="{{ session.user1.username }}" style="display: flex; align-items: center; gap: 8px;">
+                        <img src="{{ session.user1.profile.get_avatar_url }}" alt="{{ session.user1.username }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.src='/static/img/default_avatar.svg'">
+                        <span class="channel-name-text">{{ session.user1.username }}</span>
                     </a>
                     {% endif %}
+                </div>
                 {% endfor %}
             </div>
         </div>

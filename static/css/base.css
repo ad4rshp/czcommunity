@@ -755,6 +755,7 @@ input:checked + .slider:before {
 .status-indicator.online { background: #4CAF50; }
 .status-indicator.idle { background: #FFC107; }
 .status-indicator.dnd { background: #F44336; }
+.status-indicator.offline { background: #747f8d; }
 
 .profile-name {
     font-weight: 600;

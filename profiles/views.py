@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.contrib import messages
 from .models import Profile
 
 @login_required
@@ -212,7 +213,9 @@ def profile_edit(request):
     if request.method == 'POST':
         profile.bio = request.POST.get('bio', '')
         profile.favorite_game = request.POST.get('favorite_game', '')
-        profile.status_setting = request.POST.get('status_setting', 'online')
+        status_setting = request.POST.get('status_setting', 'online')
+        if status_setting in ['online', 'idle', 'dnd', 'offline']:
+            profile.status_setting = status_setting
         profile.dm_setting = request.POST.get('dm_setting', 'everyone')
         
         if 'avatar' in request.FILES:
@@ -227,7 +230,8 @@ def profile_edit(request):
             profile.avatar = avatar_file
             
         profile.save()
-        return redirect('profile', username=request.user.username)
+        messages.success(request, 'Your profile and status have been updated successfully!')
+        return redirect('profile_edit')
         
     base_template = 'base_empty.html' if (request.headers.get('HX-Request') or request.headers.get('X-Requested-With') == 'XMLHttpRequest') else 'authenticated_base.html'
     return render(request, 'profiles/edit.html', {'profile': profile, 'base_template': base_template})

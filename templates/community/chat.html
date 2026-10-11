@@ -839,14 +839,16 @@
                 <div class="panel-member-item">
                     <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: inherit;" onclick="openProfileModal('{{ member.username }}', '{{ community.slug }}')">
                         <div style="position: relative;">
-                            <img src="{{ member.profile.get_avatar_url }}" alt="avatar" class="panel-member-avatar" style="object-fit: cover;">
+                            <img src="{{ member.profile.get_avatar_url }}" alt="avatar" class="panel-member-avatar" style="object-fit: cover; {% if member.profile.status_setting == 'offline' %}opacity: 0.6; filter: grayscale(40%);{% endif %}">
                             
-                            {% if member.profile.status_setting == 'online' %}
-                            <div style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #4CAF50; border: 2px solid var(--bg-surface); border-radius: 50%;"></div>
-                            {% elif member.profile.status_setting == 'idle' %}
-                            <div style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #FFC107; border: 2px solid var(--bg-surface); border-radius: 50%;"></div>
+                            {% if member.profile.status_setting == 'idle' %}
+                            <div style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #FFC107; border: 2px solid var(--bg-surface); border-radius: 50%;" title="Idle"></div>
                             {% elif member.profile.status_setting == 'dnd' %}
-                            <div style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #F44336; border: 2px solid var(--bg-surface); border-radius: 50%;"></div>
+                            <div style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #F44336; border: 2px solid var(--bg-surface); border-radius: 50%;" title="Do Not Disturb"></div>
+                            {% elif member.profile.status_setting == 'offline' %}
+                            <div style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #747f8d; border: 2px solid var(--bg-surface); border-radius: 50%;" title="Offline"></div>
+                            {% else %}
+                            <div style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #4CAF50; border: 2px solid var(--bg-surface); border-radius: 50%;" title="Online"></div>
                             {% endif %}
                         </div>
                         <div class="panel-member-info">

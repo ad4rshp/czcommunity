@@ -101,7 +101,7 @@ def chat_view(request, channel_slug=None):
     for r in roles:
         group_members = [
             m for m in memberships 
-            if m.highest_role and m.highest_role.id == r.id
+            if m.highest_role and m.highest_role.id == r.id and getattr(m.user.profile, 'status_setting', 'online') != 'offline'
         ]
         if group_members:
             role_member_groups.append({

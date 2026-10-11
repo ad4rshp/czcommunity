@@ -42,9 +42,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://*.up.railway.app',
     'https://czcommunity-production.up.railway.app',
     'http://czcommunity-production.up.railway.app',
-    'https://chillzone.o190.com',
-    'http://chillzone.o190.com',
-    'https://*.o190.com',
+
     'https://czcommunity.com',
     'https://www.czcommunity.com',
     'http://czcommunity.com',

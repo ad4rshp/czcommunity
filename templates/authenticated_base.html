@@ -46,12 +46,14 @@
                 <div class="profile-avatar">
                     <img src="{{ request.user.profile.get_avatar_url }}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
                     
-                    {% if request.user.profile.status_setting == 'online' %}
-                    <div class="status-indicator online"></div>
-                    {% elif request.user.profile.status_setting == 'idle' %}
-                    <div class="status-indicator idle"></div>
+                    {% if request.user.profile.status_setting == 'idle' %}
+                    <div class="status-indicator idle" title="Idle"></div>
                     {% elif request.user.profile.status_setting == 'dnd' %}
-                    <div class="status-indicator dnd"></div>
+                    <div class="status-indicator dnd" title="Do Not Disturb"></div>
+                    {% elif request.user.profile.status_setting == 'offline' %}
+                    <div class="status-indicator offline" title="Invisible"></div>
+                    {% else %}
+                    <div class="status-indicator online" title="Online"></div>
                     {% endif %}
                 </div>
                 <span class="profile-name desktop-only">{{ request.user.username }}</span>
@@ -63,6 +65,16 @@
     </header>
 
     <main class="main-content">
+        {% if messages %}
+        <div class="cz-global-messages-wrap" style="max-width: 900px; margin: 15px auto 0 auto; padding: 0 16px;">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }}" style="padding: 12px 18px; border-radius: var(--radius-md); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; background: {% if message.tags == 'success' %}rgba(76, 175, 80, 0.15){% elif message.tags == 'error' %}rgba(244, 67, 54, 0.15){% else %}rgba(255, 107, 43, 0.15){% endif %}; border: 1px solid {% if message.tags == 'success' %}#4CAF50{% elif message.tags == 'error' %}#F44336{% else %}var(--accent){% endif %}; color: #fff;">
+                <i class="ph-fill {% if message.tags == 'success' %}ph-check-circle{% elif message.tags == 'error' %}ph-warning-circle{% else %}ph-info{% endif %}" style="font-size: 1.25rem;"></i>
+                <span>{{ message }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
         {% block content %}
         {% endblock %}
     </main>
@@ -86,13 +98,22 @@
             </div>
             <span>Add</span>
         </a>
-        <a href="{% url 'profile_edit' %}" class="mobile-nav-item {% if request.path == '/profiles/edit/' %}active{% endif %}" title="Settings">
+        <a href="{% url 'profile_edit' %}" class="mobile-nav-item {% if '/settings/' in request.path or '/edit/' in request.path %}active{% endif %}" title="Settings">
             <i class="ph-fill ph-sliders"></i>
             <span>Settings</span>
         </a>
         <a href="{% url 'profile' request.user.username %}" class="mobile-nav-item {% if request.path == '/profiles/'|add:request.user.username|add:'/' %}active{% endif %}" onclick="event.preventDefault(); openProfileModalFromUrl('{% url 'profile_card_fragment' request.user.username %}');" title="Profile">
-            <div class="mobile-nav-avatar-wrap">
+            <div class="mobile-nav-avatar-wrap" style="position: relative;">
                 <img src="{{ request.user.profile.get_avatar_url }}" alt="Avatar" onerror="this.src='/static/img/default_avatar.svg'">
+                {% if request.user.profile.status_setting == 'idle' %}
+                <div class="status-indicator idle" style="bottom: -2px; right: -2px;"></div>
+                {% elif request.user.profile.status_setting == 'dnd' %}
+                <div class="status-indicator dnd" style="bottom: -2px; right: -2px;"></div>
+                {% elif request.user.profile.status_setting == 'offline' %}
+                <div class="status-indicator offline" style="bottom: -2px; right: -2px;"></div>
+                {% else %}
+                <div class="status-indicator online" style="bottom: -2px; right: -2px;"></div>
+                {% endif %}
             </div>
             <span>Profile</span>
         </a>

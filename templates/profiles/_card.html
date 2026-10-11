@@ -33,17 +33,13 @@
             <img src="{{ profile_user.profile.get_avatar_url }}" alt="Avatar" class="profile-avatar-inner" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
             <div class="avatar-hover-overlay">View</div>
             
-            <div class="profile-status-indicator">
-                {% if profile_user.profile.status_setting == 'online' %}
-                    <div style="width: 14px; height: 14px; border-radius: 50%; background: #4CAF50;"></div>
-                {% elif profile_user.profile.status_setting == 'idle' %}
-                    <i class="ph-fill ph-moon" style="color: #FFC107; font-size: 14px;"></i>
+            <div class="profile-status-indicator {{ profile_user.profile.status_setting|default:'online' }}" title="{{ profile_user.profile.get_status_setting_display }}">
+                {% if profile_user.profile.status_setting == 'idle' %}
+                <i class="ph-fill ph-moon"></i>
                 {% elif profile_user.profile.status_setting == 'dnd' %}
-                    <div style="width: 14px; height: 14px; border-radius: 50%; background: #F44336; position: relative;">
-                        <div style="position: absolute; top: 6px; left: 3px; width: 8px; height: 2px; background: #232428;"></div>
-                    </div>
-                {% else %}
-                    <div style="width: 14px; height: 14px; border-radius: 50%; background: #80848e; border: 2px solid #232428;"></div>
+                <div class="dnd-dash"></div>
+                {% elif profile_user.profile.status_setting == 'offline' %}
+                <div class="offline-dot"></div>
                 {% endif %}
             </div>
         </div>
@@ -52,9 +48,15 @@
             <!-- Large Display Name -->
             <h1 class="profile-display-name">{{ profile_user.username }}</h1>
             
-            <!-- Smaller Username -->
-            <div class="profile-username">
-                {{ profile_user.username }}
+            <!-- Smaller Username & Status Pill -->
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div class="profile-username">
+                    @{{ profile_user.username }}
+                </div>
+                <div class="profile-status-pill {{ profile_user.profile.status_setting|default:'online' }}">
+                    <span class="status-dot"></span>
+                    <span>{{ profile_user.profile.get_status_setting_display }}</span>
+                </div>
             </div>
         </div>
     </div>

@@ -56,7 +56,7 @@
             if (localStorage.getItem('cz_pref_reduce_motion') === 'true') {
                 document.documentElement.classList.add('reduce-motion');
             }
-            if (localStorage.getItem('cz_sidebar_collapsed') === 'true') {
+            if (window.innerWidth > 768 && localStorage.getItem('cz_sidebar_collapsed') === 'true') {
                 document.documentElement.classList.add('cz-sidebar-collapsed');
             }
         } catch(e) {}
