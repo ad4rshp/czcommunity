@@ -14,7 +14,7 @@
   <a href="#tech-stack">Tech Stack</a> •
   <a href="#getting-started">Getting Started</a> •
   <a href="#deployment">Deployment</a> •
-  <a href="#license">License</a>
+  <a href="#copyright--ownership">Copyright</a>
 </p>
 
 ---
@@ -137,21 +137,19 @@ Set these in your production server `.env` or system environment:
 
 ---
 
-## 🤝 Contributing
+## 👤 Author
 
-Contributions, bug reports, and suggestions are welcome!
-1. Fork the Project.
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`).
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push to the Branch (`git push origin feature/AmazingFeature`).
-5. Open a Pull Request.
+**Adarsh Patel** ([@ad4rshp](https://github.com/ad4rshp))  
+Sole creator, architect, and developer of the ChillZone platform.
 
 ---
 
-## 📄 License
+## 📄 Copyright & Ownership
 
-This project is licensed under the [MIT License](LICENSE) — see the LICENSE file for details.
+Copyright &copy; 2026 Adarsh Patel. All Rights Reserved.
+
+This project, its source code, design assets, and associated documentation are proprietary and confidential. Unauthorized copying, modification, redistribution, or hosting of this software is strictly prohibited.
 
 <p align="center">
-  Crafted with ❤️ for the <strong>ChillZone Community</strong>.
+  Crafted with ❤️ by <strong>Adarsh</strong> for <strong>ChillZone</strong>.
 </p>
