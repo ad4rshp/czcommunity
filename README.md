@@ -139,17 +139,17 @@ Set these in your production server `.env` or system environment:
 
 ## 👤 Author
 
-**Adarsh Patel** ([@ad4rshp](https://github.com/ad4rshp))  
+**Adarsh Pandey** ([@ad4rshp](https://github.com/ad4rshp))  
 Sole creator, architect, and developer of the ChillZone platform.
 
 ---
 
 ## 📄 Copyright & Ownership
 
-Copyright &copy; 2026 Adarsh Patel. All Rights Reserved.
+Copyright &copy; 2026 Adarsh Pandey. All Rights Reserved.
 
 This project, its source code, design assets, and associated documentation are proprietary and confidential. Unauthorized copying, modification, redistribution, or hosting of this software is strictly prohibited.
 
 <p align="center">
-  Crafted with ❤️ by <strong>Adarsh</strong> for <strong>ChillZone</strong>.
+  Crafted with ❤️ by <strong>Adarsh Pandey</strong> for <strong>ChillZone</strong>.
 </p>
