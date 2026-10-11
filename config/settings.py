@@ -29,11 +29,19 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',') if os.environ.get('DJANGO_ALLOWED_HOSTS') else ['*']
 
+# Proxy & SSL configuration for Railway / Cloud deployment
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
 # CSRF Trusted Origins for Railway & Production domains
 CSRF_TRUSTED_ORIGINS = [
     'https://*.railway.app',
     'https://*.up.railway.app',
+    'http://*.railway.app',
+    'http://*.up.railway.app',
     'https://czcommunity-production.up.railway.app',
+    'http://czcommunity-production.up.railway.app',
     'http://localhost:8000',
     'http://127.0.0.1:8000',
 ]
