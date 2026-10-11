@@ -246,8 +246,28 @@ def create_community(request):
                     return redirect(f"/community/chat/?c={community.slug}")
                 else:
                     return render(request, 'core/create_community.html', {'error': 'Invalid invite code.'})
-            
-    return render(request, 'core/create_community.html')
+
+        elif action == 'join_official':
+            from chat.services import ChatService
+            official = ChatService.get_or_create_official_community(owner=request.user)
+            if official:
+                member, created = CommunityMember.objects.get_or_create(community=official, user=request.user)
+                everyone_role = Role.objects.filter(community=official, name="@everyone").first()
+                if everyone_role:
+                    member.roles.add(everyone_role)
+                return redirect(f"/community/chat/?c={official.slug}")
+
+    # Check official server membership status for the template
+    from chat.models import Community, CommunityMember
+    official = Community.objects.filter(is_verified=True).first()
+    is_official_member = False
+    if official and request.user.is_authenticated:
+        is_official_member = CommunityMember.objects.filter(community=official, user=request.user).exists()
+
+    return render(request, 'core/create_community.html', {
+        'official_community': official,
+        'is_official_member': is_official_member
+    })
 
 
 def tos(request):

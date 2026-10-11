@@ -8,6 +8,11 @@ from captcha.fields import CaptchaField
 class CustomUserCreationForm(UserCreationForm):
     email = forms.EmailField(required=True, help_text='Required. Inform a valid email address.')
     captcha = CaptchaField()
+    join_official = forms.BooleanField(
+        required=False,
+        initial=True,
+        label=mark_safe('<span style="font-weight: 600; color: #fff;">Join Official Chillzone Server</span> <span style="display:inline-flex; align-items:center; gap:3px; font-size: 0.75rem; background: rgba(76, 175, 80, 0.2); color: #4CAF50; padding: 2px 6px; border-radius: 10px; font-weight: 600;">✓ Official</span><br><span style="color: var(--text-muted); font-size: 0.82rem;">Automatically join the main Chillzone community for updates, announcements, and voice hangouts.</span>')
+    )
     tos_agreed = forms.BooleanField(
         required=True,
         label=mark_safe('I agree to the <a href="/tos/" target="_blank" style="color: var(--accent); text-decoration: none;">Terms of Service</a> and <a href="/privacy/" target="_blank" style="color: var(--accent); text-decoration: none;">Privacy Policy</a>'),

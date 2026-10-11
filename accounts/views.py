@@ -24,15 +24,18 @@ def register_view(request):
             user = form.save()
             login(request, user)
             
-            # Automatically join official (verified) communities
-            from chat.models import Community, CommunityMember, Role
-            official_communities = Community.objects.filter(is_verified=True)
-            for community in official_communities:
-                member, created = CommunityMember.objects.get_or_create(community=community, user=user)
-                if created:
-                    everyone_role = Role.objects.filter(community=community, name="@everyone").first()
+            # Check if user opted in to join the official server
+            join_official = form.cleaned_data.get('join_official', True)
+            if join_official:
+                from chat.services import ChatService
+                from chat.models import CommunityMember, Role
+                official = ChatService.get_or_create_official_community(owner=user)
+                if official:
+                    member, created = CommunityMember.objects.get_or_create(community=official, user=user)
+                    everyone_role = Role.objects.filter(community=official, name="@everyone").first()
                     if everyone_role:
                         member.roles.add(everyone_role)
+                    return redirect(f"/community/chat/?c={official.slug}")
             
             return redirect('community')
     else:

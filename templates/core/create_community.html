@@ -81,6 +81,24 @@
                     <button type="submit" class="btn" style="background: var(--bg-elevated); color: var(--text-primary); width: 100%; margin-top: 10px; border: 1px solid var(--border);">Join Server</button>
                 </form>
             </div>
+
+            {% if not is_official_member %}
+            <!-- Official Community Option -->
+            <div class="option-card" style="border-color: rgba(76, 175, 80, 0.4); background: linear-gradient(180deg, rgba(76, 175, 80, 0.05), var(--bg-surface));">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
+                    <img src="/static/img/chillzone_logo.svg" alt="Official" style="width: 28px; height: 28px;">
+                    <h3 style="margin: 0;">Chillzone Official</h3>
+                    <span style="font-size: 0.75rem; background: rgba(76, 175, 80, 0.2); color: #4CAF50; padding: 2px 6px; border-radius: 10px; font-weight: 600;">✓ Verified</span>
+                </div>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px;">The main server for announcements, voice chats, and community events.</p>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="join_official">
+                    <button type="submit" class="btn btn-primary" style="background: #4CAF50; border-color: #4CAF50; width: 100%; margin-top: 38px;">Join Official Server</button>
+                </form>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
