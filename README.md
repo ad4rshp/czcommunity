@@ -14,7 +14,7 @@
   <a href="#tech-stack">Tech Stack</a> •
   <a href="#getting-started">Getting Started</a> •
   <a href="#deployment">Deployment</a> •
-  <a href="#copyright--ownership">Copyright</a>
+  <a href="#license--attribution">License</a>
 </p>
 
 ---
@@ -144,11 +144,11 @@ Sole creator, architect, and developer of the ChillZone platform.
 
 ---
 
-## 📄 Copyright & Ownership
+## 📄 License & Attribution
 
-Copyright &copy; 2026 Adarsh Pandey. All Rights Reserved.
+Copyright &copy; 2026 **Adarsh Pandey**.
 
-This project, its source code, design assets, and associated documentation are proprietary and confidential. Unauthorized copying, modification, redistribution, or hosting of this software is strictly prohibited.
+This project is open for personal use, learning, and modification under the condition that **proper attribution and credit are prominently preserved** to the author (**Adarsh Pandey** - [@ad4rshp](https://github.com/ad4rshp)). Re-hosting or distributing modified versions without explicit credit to the original creator is prohibited.
 
 <p align="center">
   Crafted with ❤️ by <strong>Adarsh Pandey</strong> for <strong>ChillZone</strong>.
