@@ -23,6 +23,10 @@
         });
     }
 }">
+    <!-- Global Settings Close Button -->
+    <button type="button" class="settings-close-icon" onclick="const m = document.getElementById('globalProfileModal'); if(m && m.classList.contains('show')) { m.classList.remove('show'); } else { window.location.href = '{% url 'chat' %}'; }" title="Close Settings" aria-label="Close Settings">
+        <i class="ph-bold ph-x"></i>
+    </button>
     
     <!-- Settings Sidebar / Mobile Categories Menu -->
     <div class="settings-sidebar">
@@ -108,7 +112,20 @@
                     <span class="settings-hub-subtitle">Color contrast & animations</span>
                 </div>
                 <i class="ph ph-caret-right settings-hub-arrow"></i>
-            </div>
+        </div>
+
+        <!-- Sidebar Log Out Action -->
+        <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border);">
+            <a href="{% url 'logout' %}" class="settings-hub-card settings-logout-card" style="color: #ff5252; text-decoration: none; margin-bottom: 0;" onclick="return confirm('Are you sure you want to log out of your account?');">
+                <div class="settings-hub-icon-wrap" style="background: rgba(244,67,54,0.15); color: #ff5252;">
+                    <i class="ph-bold ph-sign-out"></i>
+                </div>
+                <div class="settings-hub-info">
+                    <span class="settings-hub-title" style="color: #ff5252;">Log Out</span>
+                    <span class="settings-hub-subtitle">Sign out of session</span>
+                </div>
+                <i class="ph ph-arrow-square-out settings-hub-arrow" style="color: rgba(244,67,54,0.6);"></i>
+            </a>
         </div>
     </div>
 
@@ -268,17 +285,30 @@
                 </div>
             </form>
 
-            <div style="background: rgba(0,0,0,0.15); padding: 30px; border-radius: 12px; border: 1px solid rgba(244,67,54,0.15);">
+            <div style="background: rgba(0,0,0,0.18); padding: 25px 30px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); margin-bottom: 25px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+                    <div>
+                        <h3 style="margin: 0 0 6px 0; color: var(--text-primary); font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                            <i class="ph-bold ph-shield-check" style="color: #3b82f6;"></i> Session & Security
+                        </h3>
+                        <p style="margin: 0; color: var(--text-secondary); font-size: 0.88rem;">
+                            You are signed in as <strong>{{ request.user.username }}</strong>. Sign out of your active session on this device.
+                        </p>
+                    </div>
+                    <a href="{% url 'logout' %}" class="btn" style="background: rgba(244,67,54,0.16); color: #ff5252; border: 1px solid rgba(244,67,54,0.35); padding: 10px 22px; font-weight: 600; text-decoration: none; border-radius: var(--radius-sm); display: inline-flex; align-items: center; gap: 8px;" onclick="return confirm('Are you sure you want to log out of your account?');">
+                        <i class="ph-bold ph-sign-out"></i> Log Out
+                    </a>
+                </div>
+            </div>
+
+            <div style="background: rgba(0,0,0,0.15); padding: 25px 30px; border-radius: 12px; border: 1px solid rgba(244,67,54,0.2);">
                 <h3 style="margin-top: 0; color: #F44336; display: flex; align-items: center; gap: 8px;">
                     <i class="ph-bold ph-warning-octagon"></i> Danger Zone
                 </h3>
-                <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;">Permanently delete your account, personal data, and direct message history. This action cannot be reversed.</p>
-                <form method="POST" action="{% url 'logout' %}" onsubmit="return confirm('For security, account deletion requires manual admin assistance. Are you sure you want to sign out now?');">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-secondary" style="color: #F44336; border: 1px solid rgba(244,67,54,0.3); background: rgba(244,67,54,0.08);">
-                        <i class="ph ph-sign-out"></i> Log Out / Deactivate Session
-                    </button>
-                </form>
+                <p style="color: var(--text-muted); margin-bottom: 15px; font-size: 0.88rem;">Permanently delete your account, personal data, and direct message history. This action cannot be reversed.</p>
+                <button type="button" class="btn" style="color: #F44336; border: 1px solid rgba(244,67,54,0.35); background: rgba(244,67,54,0.08); padding: 8px 18px; font-size: 0.85rem;" onclick="alert('To request permanent account deletion and complete data erasure, please contact admin support or email support@czcommunity.com.');">
+                    <i class="ph ph-trash"></i> Request Account Deletion
+                </button>
             </div>
         </div>
 
