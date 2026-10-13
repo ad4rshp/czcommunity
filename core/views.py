@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from .models import DashboardConfig
 from .forms import DashboardConfigForm
@@ -63,40 +64,62 @@ def community_settings(request):
         
         # Overview Tab
         if action == 'update_community':
-            name = request.POST.get('name')
-            description = request.POST.get('description')
-            if name:
-                community.name = name
-            community.description = description
+            if not (is_owner or (membership and membership.has_permission('ADMINISTRATOR'))):
+                messages.error(request, "You lack permission to manage server settings.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=overview')
+            name = (request.POST.get('name') or '').strip()
+            if not name:
+                messages.error(request, "Server name cannot be blank.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=overview')
+            community.name = name
+            community.description = request.POST.get('description', '').strip()
             if 'icon' in request.FILES:
                 icon_file = request.FILES['icon']
-                # Limit server icon size to 1MB (1 * 1024 * 1024 bytes)
                 if icon_file.size > 1 * 1024 * 1024:
-                    return redirect('/community/settings/?tab=overview&error=Icon+size+must+be+under+1MB')
+                    messages.error(request, "Icon size must be under 1MB.")
+                    return redirect(f'/community/settings/?c={community.slug}&tab=overview')
                 community.icon = icon_file
             community.save()
             AuditLog.objects.create(community=community, user=request.user, action="Updated community profile")
-            return redirect('/community/settings/?tab=overview')
+            messages.success(request, "Server settings updated successfully!")
+            return redirect(f'/community/settings/?c={community.slug}&tab=overview')
+
         # Dashboard Tab
         elif action == 'update_dashboard':
+            if not (is_owner or (membership and membership.has_permission('ADMINISTRATOR'))):
+                messages.error(request, "You lack permission to update dashboard configuration.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=dashboard')
             form = DashboardConfigForm(request.POST, instance=config)
             if form.is_valid():
                 form.save()
                 AuditLog.objects.create(community=community, user=request.user, action="Updated dashboard configuration")
-                return redirect('/community/settings/?tab=dashboard')
+                messages.success(request, "Dashboard configuration updated!")
+                return redirect(f'/community/settings/?c={community.slug}&tab=dashboard')
+            else:
+                messages.error(request, "Please correct the form errors.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=dashboard')
                 
         # Roles Tab
         elif action == 'create_role':
-            name = request.POST.get('name')
+            if not (is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('MANAGE_ROLES')))):
+                messages.error(request, "You lack permission to create roles.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=roles')
+            name = (request.POST.get('name') or '').strip()
             color = request.POST.get('color', '#99AAB5')
-            if name:
-                from django.db.models import Max
-                max_pos = Role.objects.filter(community=community).aggregate(Max('position'))['position__max'] or 0
-                Role.objects.create(community=community, name=name, color=color, position=max_pos + 1)
-                AuditLog.objects.create(community=community, user=request.user, action=f"Created role: {name}")
-            return redirect('/community/settings/?tab=roles')
+            if not name:
+                messages.error(request, "Role name cannot be blank.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=roles')
+            from django.db.models import Max
+            max_pos = Role.objects.filter(community=community).aggregate(Max('position'))['position__max'] or 0
+            Role.objects.create(community=community, name=name, color=color, position=max_pos + 1)
+            AuditLog.objects.create(community=community, user=request.user, action=f"Created role: {name}")
+            messages.success(request, f"Role '{name}' created successfully!")
+            return redirect(f'/community/settings/?c={community.slug}&tab=roles')
             
         elif action == 'update_role':
+            if not (is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('MANAGE_ROLES')))):
+                messages.error(request, "You lack permission to update roles.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=roles')
             role_id = request.POST.get('role_id')
             role = Role.objects.filter(id=role_id, community=community).first()
             if role:
@@ -127,26 +150,51 @@ def community_settings(request):
                     
                 role.save()
                 AuditLog.objects.create(community=community, user=request.user, action=f"Updated permissions for role: {role.name}")
-            return redirect('/community/settings/?tab=roles')
+                messages.success(request, f"Permissions for role '{role.name}' saved!")
+            return redirect(f'/community/settings/?c={community.slug}&tab=roles')
             
         elif action == 'delete_role':
+            if not (is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('MANAGE_ROLES')))):
+                messages.error(request, "You lack permission to delete roles.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=roles')
             role_id = request.POST.get('role_id')
             role = Role.objects.filter(id=role_id, community=community).first()
-            if role:
+            if role and role.name != '@everyone':
                 name = role.name
                 role.delete()
                 AuditLog.objects.create(community=community, user=request.user, action=f"Deleted role: {name}")
-            return redirect('/community/settings/?tab=roles')
+                messages.success(request, f"Role '{name}' deleted.")
+            return redirect(f'/community/settings/?c={community.slug}&tab=roles')
             
         elif action == 'create_invite':
+            if not (is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('MANAGE_ROLES')))):
+                messages.error(request, "You lack permission to create invite links.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=invites')
+            
+            try:
+                max_uses = int(request.POST.get('max_uses', 0))
+                if max_uses < 0:
+                    messages.error(request, "Max uses cannot be negative.")
+                    return redirect(f'/community/settings/?c={community.slug}&tab=invites')
+                if max_uses > 10000:
+                    messages.error(request, "Max uses cannot exceed 10,000.")
+                    return redirect(f'/community/settings/?c={community.slug}&tab=invites')
+            except (ValueError, TypeError):
+                messages.error(request, "Invalid number for max uses.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=invites')
+
+            try:
+                expires_in_days = int(request.POST.get('expires_in', 0))
+                if expires_in_days < 0:
+                    expires_in_days = 0
+            except (ValueError, TypeError):
+                expires_in_days = 0
+
             from chat.models import CommunityInvite
             import uuid
             from django.utils import timezone
             import datetime
-            
-            max_uses = int(request.POST.get('max_uses', 0))
-            expires_in_days = int(request.POST.get('expires_in', 0))
-            
+
             expires_at = None
             if expires_in_days > 0:
                 expires_at = timezone.now() + datetime.timedelta(days=expires_in_days)
@@ -160,9 +208,13 @@ def community_settings(request):
                 expires_at=expires_at
             )
             AuditLog.objects.create(community=community, user=request.user, action=f"Created invite code: {code}")
-            return redirect('/community/settings/?tab=invites')
+            messages.success(request, f"Generated new invite code: {code}")
+            return redirect(f'/community/settings/?c={community.slug}&tab=invites')
             
         elif action == 'delete_invite':
+            if not (is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('MANAGE_ROLES')))):
+                messages.error(request, "You lack permission to revoke invites.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=invites')
             from chat.models import CommunityInvite
             invite_id = request.POST.get('invite_id')
             invite = CommunityInvite.objects.filter(id=invite_id, community=community).first()
@@ -170,7 +222,8 @@ def community_settings(request):
                 code = invite.code
                 invite.delete()
                 AuditLog.objects.create(community=community, user=request.user, action=f"Deleted invite code: {code}")
-            return redirect('/community/settings/?tab=invites')
+                messages.success(request, f"Revoked invite code: {code}")
+            return redirect(f'/community/settings/?c={community.slug}&tab=invites')
 
     else:
         form = DashboardConfigForm(instance=config)
@@ -200,28 +253,49 @@ def community_settings(request):
 
 @login_required
 def create_community(request):
-    from chat.models import Community, CommunityMember, Role, Channel, ChannelCategory
+    from chat.models import Community, CommunityMember, Role, Channel, ChannelCategory, AuditLog
     
-    # We no longer restrict creating multiple communities
+    official = Community.objects.filter(is_verified=True).first()
+    is_official_member = CommunityMember.objects.filter(community=official, user=request.user).exists() if official else False
+
     if request.method == 'POST':
         action = request.POST.get('action')
         
         if action == 'create':
-            name = request.POST.get('name')
-            if name:
-                import uuid
-                slug = name.lower().replace(' ', '-') + '-' + str(uuid.uuid4())[:8]
-                community = Community.objects.create(name=name, slug=slug, owner=request.user)
-                cat = ChannelCategory.objects.create(community=community, name="General", slug=f"general-{str(uuid.uuid4())[:8]}")
-                Channel.objects.create(category=cat, name="general", slug=f"general-{str(uuid.uuid4())[:8]}")
+            name = (request.POST.get('name') or '').strip()
+            if not name:
+                return render(request, 'core/create_community.html', {
+                    'error': 'Server name cannot be blank. Please enter a valid name.',
+                    'official_community': official,
+                    'is_official_member': is_official_member
+                })
+            if len(name) < 2:
+                return render(request, 'core/create_community.html', {
+                    'error': 'Server name must be at least 2 characters long.',
+                    'official_community': official,
+                    'is_official_member': is_official_member
+                })
+            if len(name) > 100:
+                return render(request, 'core/create_community.html', {
+                    'error': 'Server name cannot exceed 100 characters.',
+                    'official_community': official,
+                    'is_official_member': is_official_member
+                })
                 
-                Role.objects.create(community=community, name="@everyone", color="#99AAB5")
-                CommunityMember.objects.create(community=community, user=request.user)
-                
-                return redirect(f"/community/chat/?c={community.slug}")
+            import uuid
+            slug = name.lower().replace(' ', '-') + '-' + str(uuid.uuid4())[:8]
+            community = Community.objects.create(name=name, slug=slug, owner=request.user)
+            cat = ChannelCategory.objects.create(community=community, name="General", slug=f"general-{str(uuid.uuid4())[:8]}")
+            Channel.objects.create(category=cat, name="general", slug=f"general-{str(uuid.uuid4())[:8]}")
+            
+            Role.objects.create(community=community, name="@everyone", color="#99AAB5")
+            CommunityMember.objects.create(community=community, user=request.user)
+            AuditLog.objects.create(community=community, user=request.user, action="Created community server")
+            messages.success(request, f"Server '{community.name}' created successfully!")
+            return redirect(f"/community/chat/?c={community.slug}")
                 
         elif action == 'join':
-            invite_code = request.POST.get('invite_code')
+            invite_code = (request.POST.get('invite_code') or '').strip()
             if invite_code:
                 from chat.models import CommunityInvite
                 from django.utils import timezone
@@ -236,7 +310,11 @@ def create_community(request):
                         is_expired = True
                         
                     if is_expired:
-                        return render(request, 'core/create_community.html', {'error': 'This invite code has expired or reached its maximum uses.'})
+                        return render(request, 'core/create_community.html', {
+                            'error': 'This invite code has expired or reached its maximum uses.',
+                            'official_community': official,
+                            'is_official_member': is_official_member
+                        })
                         
                     community = invite.community
                     member, created = CommunityMember.objects.get_or_create(community=community, user=request.user)
@@ -244,37 +322,33 @@ def create_community(request):
                         everyone_role = Role.objects.filter(community=community, name="@everyone").first()
                         if everyone_role:
                             member.roles.add(everyone_role)
-                        
-                        # Increment uses
                         invite.uses += 1
                         invite.save()
-                        
+                        AuditLog.objects.create(community=community, user=request.user, action=f"{request.user.username} joined via invite code '{invite_code}'")
+                    messages.success(request, f"Joined {community.name}!")
                     return redirect(f"/community/chat/?c={community.slug}")
                 else:
-                    return render(request, 'core/create_community.html', {'error': 'Invalid invite code.'})
+                    return render(request, 'core/create_community.html', {
+                        'error': 'Invalid invite code. Please check and try again.',
+                        'official_community': official,
+                        'is_official_member': is_official_member
+                    })
 
         elif action == 'join_official':
             from chat.services import ChatService
-            official = ChatService.get_or_create_official_community(owner=request.user)
-            if official:
-                member, created = CommunityMember.objects.get_or_create(community=official, user=request.user)
-                everyone_role = Role.objects.filter(community=official, name="@everyone").first()
+            official_comm = ChatService.get_or_create_official_community(owner=request.user)
+            if official_comm:
+                member, created = CommunityMember.objects.get_or_create(community=official_comm, user=request.user)
+                everyone_role = Role.objects.filter(community=official_comm, name="@everyone").first()
                 if everyone_role:
                     member.roles.add(everyone_role)
-                return redirect(f"/community/chat/?c={official.slug}")
-
-    # Check official server membership status for the template
-    from chat.models import Community, CommunityMember
-    official = Community.objects.filter(is_verified=True).first()
-    is_official_member = False
-    if official and request.user.is_authenticated:
-        is_official_member = CommunityMember.objects.filter(community=official, user=request.user).exists()
+                messages.success(request, "Welcome to Chillzone Official!")
+                return redirect(f"/community/chat/?c={official_comm.slug}")
 
     return render(request, 'core/create_community.html', {
         'official_community': official,
         'is_official_member': is_official_member
     })
-
 
 def tos(request):
     return render(request, 'core/tos.html')
@@ -285,15 +359,23 @@ def privacy(request):
 @login_required
 def delete_community_view(request):
     from chat.models import Community
-    community = Community.objects.first()
+    slug = request.GET.get('c') or request.POST.get('community_slug')
+    if slug:
+        community = Community.objects.filter(slug=slug).first()
+    else:
+        community = Community.objects.filter(owner=request.user).first() or Community.objects.first()
     
-    if not request.user.is_superuser and (community and community.owner != request.user):
-        return HttpResponseForbidden("You don't have permission to delete this community.")
+    if not community:
+        return redirect('community')
+
+    if not request.user.is_superuser and (community.owner != request.user):
+        return render(request, '403.html', status=403)
         
     if request.method == 'POST':
         if request.POST.get('action') == 'delete_community_confirm':
-            if community:
-                community.delete()
+            name = community.name
+            community.delete()
+            messages.success(request, f"Server '{name}' was permanently deleted.")
             return redirect('create_community')
             
     return render(request, 'core/delete_community.html', {'community': community})
@@ -315,3 +397,12 @@ def leave_community(request, community_id):
             return redirect('home')
             
     return redirect('home')
+
+def custom_404(request, exception=None):
+    return render(request, '404.html', status=404)
+
+def custom_500(request):
+    return render(request, '500.html', status=500)
+
+def custom_403(request, exception=None):
+    return render(request, '403.html', status=403)

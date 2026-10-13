@@ -214,14 +214,48 @@ def profile_edit(request):
     profile, created = Profile.objects.get_or_create(user=request.user)
     
     if request.method == 'POST':
+        is_ajax = request.headers.get('Accept') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.POST.get('ajax') == '1'
+        tab = request.POST.get('current_tab', 'profile')
+        
+        # Account Update (Email / Account Details)
+        if request.POST.get('account_update') == '1':
+            email = request.POST.get('email', '').strip()
+            if not email or '@' not in email or '.' not in email:
+                error_msg = 'Please enter a valid email address.'
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': error_msg}, status=400)
+                return render(request, 'profiles/edit.html', {
+                    'profile': profile,
+                    'error': error_msg,
+                    'base_template': 'base_empty.html' if (request.headers.get('HX-Request') or request.headers.get('X-Requested-With') == 'XMLHttpRequest') else 'authenticated_base.html'
+                })
+            request.user.email = email
+            request.user.save()
+            messages.success(request, 'Account email updated successfully!')
+            return redirect(f"{reverse('profile_edit')}?tab=account")
+
+        # Profile Update (Display Name, Bio, Favorite Game, Status, DM Setting)
+        display_name = request.POST.get('display_name', None)
+        if display_name is not None:
+            display_name = display_name.strip()
+            if not display_name:
+                error_msg = 'Display name cannot be empty.'
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': error_msg}, status=400)
+                return render(request, 'profiles/edit.html', {
+                    'profile': profile,
+                    'error': error_msg,
+                    'base_template': 'base_empty.html' if (request.headers.get('HX-Request') or request.headers.get('X-Requested-With') == 'XMLHttpRequest') else 'authenticated_base.html'
+                })
+            request.user.first_name = display_name
+            request.user.save()
+
         profile.bio = request.POST.get('bio', '')
         profile.favorite_game = request.POST.get('favorite_game', '')
         status_setting = request.POST.get('status_setting', 'online')
         if status_setting in ['online', 'idle', 'dnd', 'offline']:
             profile.status_setting = status_setting
         profile.dm_setting = request.POST.get('dm_setting', 'everyone')
-        
-        is_ajax = request.headers.get('Accept') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.POST.get('ajax') == '1'
         
         if 'avatar' in request.FILES:
             avatar_file = request.FILES['avatar']
@@ -248,7 +282,6 @@ def profile_edit(request):
             })
             
         messages.success(request, 'Your profile and status have been updated successfully!')
-        tab = request.POST.get('current_tab', 'profile')
         return redirect(f"{reverse('profile_edit')}?tab={tab}")
         
     base_template = 'base_empty.html' if (request.headers.get('HX-Request') or request.headers.get('X-Requested-With') == 'XMLHttpRequest') else 'authenticated_base.html'

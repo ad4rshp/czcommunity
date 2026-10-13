@@ -8,31 +8,28 @@ from .models import Community, Channel, ChannelCategory, Message, CommunityMembe
 
 @login_required
 def chat_view(request, channel_slug=None):
-    community_slug = request.GET.get('c')
-    if community_slug:
-        community = Community.objects.filter(slug=community_slug).first()
-    else:
-        # Fallback to user's first community
-        membership = CommunityMember.objects.filter(user=request.user).first()
-        community = membership.community if membership else None
-        
-    if not community:
-        from chat.services import ChatService
-        official = Community.objects.filter(is_verified=True).first() or ChatService.get_or_create_official_community(owner=request.user)
-        if official:
-            return redirect(f"/community/chat/?c={official.slug}")
-        return redirect('create_community')
-
-    categories = ChannelCategory.objects.filter(community=community).prefetch_related('channels')
-    
     if channel_slug:
         active_channel = get_object_or_404(Channel, slug=channel_slug)
+        community = active_channel.category.community
     else:
-        # Default to first channel
+        community_slug = request.GET.get('c')
+        if community_slug:
+            community = Community.objects.filter(slug=community_slug).first()
+        else:
+            # Fallback to user's first community
+            membership = CommunityMember.objects.filter(user=request.user).first()
+            community = membership.community if membership else None
+            
+        if not community:
+            from chat.services import ChatService
+            official = Community.objects.filter(is_verified=True).first() or ChatService.get_or_create_official_community(owner=request.user)
+            if official:
+                return redirect(f"/community/chat/?c={official.slug}")
+            return redirect('create_community')
+            
         active_channel = Channel.objects.filter(category__community=community).first()
-        if not active_channel:
-            # Need to create initial seed data if empty
-            pass
+
+    categories = ChannelCategory.objects.filter(community=community).prefetch_related('channels')
     
     # Lazy member creation
     if request.user.is_authenticated:
@@ -41,7 +38,6 @@ def chat_view(request, channel_slug=None):
         membership = None
         
     # UI Permissions
-    is_owner = (request.user == community.owner)
     is_owner = (request.user == community.owner)
     can_view_channel = is_owner or (membership and membership.has_permission('VIEW_CHANNEL'))
     can_read_history = is_owner or (membership and membership.has_permission('READ_MESSAGE_HISTORY'))
@@ -53,6 +49,8 @@ def chat_view(request, channel_slug=None):
     can_kick_members = is_owner or (membership and membership.has_permission('KICK_MEMBERS'))
     can_ban_members = is_owner or (membership and membership.has_permission('BAN_MEMBERS'))
     can_manage_roles = is_owner or (membership and membership.has_permission('MANAGE_ROLES'))
+    can_connect_voice = is_owner or (membership and membership.has_permission('CONNECT_VOICE'))
+    can_speak_voice = is_owner or (membership and membership.has_permission('SPEAK'))
     
     if active_channel and can_view_channel:
         if can_read_history:
@@ -171,6 +169,8 @@ def chat_view(request, channel_slug=None):
         'can_kick_members': can_kick_members,
         'can_ban_members': can_ban_members,
         'can_manage_roles': can_manage_roles,
+        'can_connect_voice': can_connect_voice,
+        'can_speak_voice': can_speak_voice,
     }
     
     # REST API Fallback - Resolves Template Coupling Con
@@ -212,14 +212,15 @@ def dm_view(request, username):
 def add_channel(request, category_id):
     category = get_object_or_404(ChannelCategory, id=category_id)
     membership = CommunityMember.objects.filter(community=category.community, user=request.user).first()
-    if not (request.user == category.community.owner or (membership and membership.has_permission('MANAGE_CHANNELS'))):
-        from django.http import HttpResponseForbidden
-        return HttpResponseForbidden("You do not have permission to manage channels.")
+    can_manage = request.user.is_superuser or request.user == category.community.owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('MANAGE_CHANNELS')))
+    if not can_manage:
+        return render(request, '403.html', status=403)
     
     community = category.community
     categories = ChannelCategory.objects.filter(community=community).prefetch_related('channels')
     
     from .forms import ChannelForm
+    from .models import AuditLog
     if request.method == 'POST':
         form = ChannelForm(request.POST)
         if form.is_valid():
@@ -231,7 +232,11 @@ def add_channel(request, category_id):
             if Channel.objects.filter(slug=channel.slug).exists():
                 channel.slug = f"{channel.slug}-{str(uuid.uuid4())[:4]}"
             channel.save()
+            AuditLog.objects.create(community=community, user=request.user, action=f"Created #{channel.name} channel in {category.name}")
+            messages.success(request, f"Channel #{channel.name} created successfully!")
             return redirect('chat_channel', channel_slug=channel.slug)
+        else:
+            messages.error(request, "Please fix the validation errors below.")
     else:
         form = ChannelForm()
     
@@ -246,23 +251,32 @@ def add_channel(request, category_id):
 def manage_category(request, category_id):
     category = get_object_or_404(ChannelCategory, id=category_id)
     membership = CommunityMember.objects.filter(community=category.community, user=request.user).first()
-    if not (request.user == category.community.owner or (membership and membership.has_permission('MANAGE_CHANNELS'))):
-        from django.http import HttpResponseForbidden
-        return HttpResponseForbidden("You do not have permission to manage channels.")
+    can_manage = request.user.is_superuser or request.user == category.community.owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('MANAGE_CHANNELS')))
+    if not can_manage:
+        return render(request, '403.html', status=403)
     
     community = category.community
     categories = ChannelCategory.objects.filter(community=community).prefetch_related('channels')
     
     from .forms import CategoryForm
+    from .models import AuditLog
     if request.method == 'POST':
         if 'delete' in request.POST:
+            cat_name = category.name
             category.delete()
+            AuditLog.objects.create(community=community, user=request.user, action=f"Deleted category '{cat_name}'")
+            messages.success(request, f"Category '{cat_name}' deleted.")
             return redirect('chat')
         
         # Handle delete channel
         if 'delete_channel' in request.POST:
             channel_id = request.POST.get('delete_channel')
-            Channel.objects.filter(id=channel_id, category=category).delete()
+            ch = Channel.objects.filter(id=channel_id, category=category).first()
+            if ch:
+                ch_name = ch.name
+                ch.delete()
+                AuditLog.objects.create(community=community, user=request.user, action=f"Deleted channel #{ch_name}")
+                messages.success(request, f"Channel #{ch_name} deleted.")
             return redirect('manage_category', category_id=category.id)
         
         # Handle move channels
@@ -271,12 +285,20 @@ def manage_category(request, category_id):
                 ch_id = key.replace('move_channel_', '')
                 target_cat = ChannelCategory.objects.filter(id=value, community=community).first()
                 if target_cat:
-                    Channel.objects.filter(id=ch_id, category=category).update(category=target_cat)
+                    ch = Channel.objects.filter(id=ch_id, category=category).first()
+                    if ch:
+                        ch.category = target_cat
+                        ch.save()
+                        AuditLog.objects.create(community=community, user=request.user, action=f"Moved #{ch.name} to {target_cat.name}")
         
         form = CategoryForm(request.POST, instance=category)
         if form.is_valid():
             form.save()
+            AuditLog.objects.create(community=community, user=request.user, action=f"Updated category '{category.name}'")
+            messages.success(request, "Category updated.")
             return redirect('manage_category', category_id=category.id)
+        else:
+            messages.error(request, "Please fix the validation errors below.")
     else:
         form = CategoryForm(instance=category)
         
@@ -316,10 +338,9 @@ def edit_channel(request, channel_slug):
     membership = CommunityMember.objects.filter(community=community, user=request.user).first()
     
     if not (request.user == community.owner or (membership and membership.has_permission('MANAGE_CHANNELS'))):
-        from django.http import HttpResponseForbidden, JsonResponse
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'error': 'Forbidden'}, status=403)
-        return HttpResponseForbidden("You do not have permission to manage channels.")
+        return render(request, '403.html', {'message': 'You do not have permission to manage channels.'}, status=403)
         
     from .forms import ChannelForm
     
@@ -333,6 +354,18 @@ def edit_channel(request, channel_slug):
         form = ChannelForm(post_data, instance=channel)
         if form.is_valid():
             channel = form.save()
+            
+            # Audit log
+            try:
+                from .models import AuditLog
+                AuditLog.objects.create(
+                    community=community,
+                    user=request.user,
+                    action='UPDATE_CHANNEL',
+                    details=f"Updated channel #{channel.name} settings"
+                )
+            except Exception:
+                pass
             
             # Handle permissions
             permissions_json = request.POST.get('permissions_json')
@@ -381,6 +414,8 @@ def edit_channel(request, channel_slug):
                 except Exception as e:
                     print("Error saving permissions:", e)
                     
+            from django.contrib import messages
+            messages.success(request, f"Channel #{channel.name} updated successfully.")
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
                 return JsonResponse({'status': 'ok', 'slug': channel.slug, 'name': channel.name})
             return redirect('chat_channel', channel_slug=channel.slug)
@@ -404,12 +439,25 @@ def delete_channel(request, channel_slug):
         membership = CommunityMember.objects.filter(community=community, user=request.user).first()
         
         if not (request.user == community.owner or (membership and membership.has_permission('MANAGE_CHANNELS'))):
-            from django.http import HttpResponseForbidden, JsonResponse
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({'error': 'Forbidden'}, status=403)
-            return HttpResponseForbidden("You do not have permission to delete channels.")
+            return render(request, '403.html', {'message': 'You do not have permission to delete channels.'}, status=403)
             
+        c_name = channel.name
         channel.delete()
+        try:
+            from .models import AuditLog
+            AuditLog.objects.create(
+                community=community,
+                user=request.user,
+                action='DELETE_CHANNEL',
+                details=f"Deleted channel #{c_name}"
+            )
+        except Exception:
+            pass
+            
+        from django.contrib import messages
+        messages.success(request, f"Channel #{c_name} deleted successfully.")
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'status': 'ok'})
         return redirect('chat')
@@ -419,6 +467,10 @@ def delete_channel(request, channel_slug):
 def get_channel_permissions(request, channel_slug):
     channel = get_object_or_404(Channel, slug=channel_slug)
     community = channel.category.community
+    
+    membership = CommunityMember.objects.filter(community=community, user=request.user).first()
+    if not (request.user == community.owner or (membership and membership.has_permission('MANAGE_CHANNELS'))):
+        return JsonResponse({'error': 'Forbidden'}, status=403)
     
     # Return all roles for this community
     roles = community.roles.all().order_by('-position')

@@ -81,10 +81,13 @@
             <h4 style="color: var(--text-muted); font-size: 0.85rem; letter-spacing: 1px; margin-bottom: 15px;">ALL FRIENDS — {{ friends|length }}</h4>
             
             {% if not friends %}
-            <div style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
-                <i class="ph ph-users" style="font-size: 4rem; opacity: 0.5; margin-bottom: 20px;"></i>
-                <h3>No friends yet</h3>
-                <p>Add a friend using their username!</p>
+            <div style="text-align: center; padding: 50px 20px; color: var(--text-muted); background: rgba(0,0,0,0.15); border-radius: var(--radius-lg); border: 1px dashed var(--border);">
+                <i class="ph ph-users" style="font-size: 3.5rem; color: var(--accent); opacity: 0.8; margin-bottom: 15px;"></i>
+                <h3 style="margin: 0 0 8px 0; color: var(--text-primary);">No Friends Yet</h3>
+                <p style="margin: 0 0 20px 0; max-width: 420px; margin-inline: auto; font-size: 0.9rem;">ChillZone is best experienced with friends! Send a request using a username above or browse fellow community members.</p>
+                <a href="{% url 'member_directory' %}" class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="ph ph-compass"></i> Explore Member Directory
+                </a>
             </div>
             {% endif %}
             
@@ -122,9 +125,10 @@
         <div x-show="activeTab === 'pending'" style="display: none;">
             <h4 style="color: var(--text-muted); font-size: 0.85rem; letter-spacing: 1px; margin-bottom: 15px;">PENDING REQUESTS — {{ received_requests|length }}</h4>
             {% if not received_requests %}
-            <div style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
-                <i class="ph ph-envelope-open" style="font-size: 4rem; opacity: 0.5; margin-bottom: 20px;"></i>
-                <h3>No pending requests</h3>
+            <div style="text-align: center; padding: 50px 20px; color: var(--text-muted); background: rgba(0,0,0,0.15); border-radius: var(--radius-lg); border: 1px dashed var(--border);">
+                <i class="ph ph-envelope-open" style="font-size: 3.5rem; color: #4CAF50; opacity: 0.8; margin-bottom: 15px;"></i>
+                <h3 style="margin: 0 0 8px 0; color: var(--text-primary);">All Caught Up</h3>
+                <p style="margin: 0; font-size: 0.9rem;">There are no incoming friend requests waiting for your response.</p>
             </div>
             {% else %}
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 40px;">
@@ -156,9 +160,10 @@
         <div x-show="activeTab === 'sent'" style="display: none;">
             <h4 style="color: var(--text-muted); font-size: 0.85rem; letter-spacing: 1px; margin-bottom: 15px;">SENT REQUESTS — {{ sent_requests|length }}</h4>
             {% if not sent_requests %}
-            <div style="text-align: center; padding: 60px 20px; color: var(--text-muted);">
-                <i class="ph ph-paper-plane-tilt" style="font-size: 4rem; opacity: 0.5; margin-bottom: 20px;"></i>
-                <h3>No sent requests</h3>
+            <div style="text-align: center; padding: 50px 20px; color: var(--text-muted); background: rgba(0,0,0,0.15); border-radius: var(--radius-lg); border: 1px dashed var(--border);">
+                <i class="ph ph-paper-plane-tilt" style="font-size: 3.5rem; color: #3b82f6; opacity: 0.8; margin-bottom: 15px;"></i>
+                <h3 style="margin: 0 0 8px 0; color: var(--text-primary);">No Sent Requests</h3>
+                <p style="margin: 0; font-size: 0.9rem;">You don't have any pending friend requests waiting on others.</p>
             </div>
             {% else %}
             <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 40px;">

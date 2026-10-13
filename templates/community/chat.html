@@ -16,7 +16,13 @@
             </button>
             <div class="channel-info">
                 <div class="channel-title-group">
-                    <span class="channel-prefix-icon"><i class="ph-bold ph-hash"></i></span>
+                    <span class="channel-prefix-icon">
+                        {% if active_channel.channel_type == 'voice' %}
+                        <i class="ph-bold ph-speaker-high" style="color: var(--accent);"></i>
+                        {% else %}
+                        <i class="ph-bold ph-hash"></i>
+                        {% endif %}
+                    </span>
                     <h3 class="channel-title-text">{{ active_channel.name }}</h3>
                 </div>
                 {% if active_channel.description %}
@@ -24,6 +30,12 @@
                 {% endif %}
             </div>
             <div class="header-actions">
+                {% if can_manage_channels %}
+                <!-- Edit Channel Button -->
+                <button type="button" class="header-action-btn edit-channel-btn" onclick="openEditModal('{{ active_channel.slug }}', '{{ active_channel.name }}', '{{ active_channel.channel_type }}', '{{ active_channel.cooldown|default:0 }}', '{{ active_channel.user_limit|default:0 }}')" title="Edit Channel Settings" aria-label="Edit Channel">
+                    <i class="ph-bold ph-gear"></i>
+                </button>
+                {% endif %}
                 
                 <!-- Members Button -->
                 <button type="button" class="header-action-btn members-btn" onclick="toggleRightPanel('members')" title="Members List" aria-label="Members">

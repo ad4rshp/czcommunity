@@ -157,6 +157,16 @@
                 </div>
 
                 <div class="form-group" style="margin-bottom: 25px;">
+                    <label for="display_name" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">
+                        Display Name <span style="color: #F44336;">*</span>
+                    </label>
+                    <input type="text" id="display_name" name="display_name" class="form-control" value="{{ request.user.first_name|default:request.user.username }}" required maxlength="50" placeholder="Your display name" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 15px;">
+                    <div id="displayNameError" style="color: #F44336; font-size: 0.82rem; margin-top: 6px; display: none;">
+                        <i class="ph-bold ph-warning-circle"></i> Display name cannot be blank.
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 25px;">
                     <label for="bio" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">About Me</label>
                     <textarea id="bio" name="bio" class="form-control" rows="4" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 15px; resize: vertical;">{{ profile.bio }}</textarea>
                 </div>
@@ -231,22 +241,44 @@
         <div x-show="activeTab === 'account'" style="display: none;" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
             <h2 class="settings-page-title">Account Settings</h2>
             
-            <div style="background: rgba(0,0,0,0.15); padding: 30px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 25px;">
-                <h3 style="margin-top: 0; margin-bottom: 20px;">Account Information</h3>
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Username</label>
-                    <input type="text" class="form-control" value="{{ request.user.username }}" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px;" disabled>
-                </div>
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Email</label>
-                    <input type="email" class="form-control" value="{{ request.user.email|default:'No email provided' }}" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px;" disabled>
-                </div>
-            </div>
+            <form method="post" action="{% url 'profile_edit' %}" id="accountSettingsForm">
+                {% csrf_token %}
+                <input type="hidden" name="current_tab" value="account">
+                <input type="hidden" name="account_update" value="1">
 
-            <div style="background: rgba(0,0,0,0.15); padding: 30px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                <h3 style="margin-top: 0; color: #F44336;">Danger Zone</h3>
-                <p style="color: var(--text-muted); margin-bottom: 20px;">Permanently delete your account and all associated data.</p>
-                <button class="btn btn-secondary" style="color: #F44336; border: 1px solid rgba(244,67,54,0.3); background: rgba(244,67,54,0.05);">Delete Account</button>
+                <div style="background: rgba(0,0,0,0.15); padding: 30px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 25px;">
+                    <h3 style="margin-top: 0; margin-bottom: 20px;">Account Information</h3>
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Username</label>
+                        <input type="text" class="form-control" value="{{ request.user.username }}" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-muted); width: 100%; padding: 12px; cursor: not-allowed;" readonly>
+                        <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 4px; display: block;">Username is unique across ChillZone and cannot be changed.</small>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 25px;">
+                        <label for="account_email" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Email Address <span style="color: #F44336;">*</span></label>
+                        <input type="email" id="account_email" name="email" class="form-control" value="{{ request.user.email }}" required placeholder="your.email@example.com" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px;">
+                        <div id="accountEmailError" style="color: #F44336; font-size: 0.82rem; margin-top: 6px; display: none;">
+                            <i class="ph-bold ph-warning-circle"></i> Please enter a valid email address.
+                        </div>
+                    </div>
+
+                    <div class="settings-actions" style="display: flex; gap: 12px; align-items: center;">
+                        <button type="submit" class="btn btn-primary" style="padding: 10px 24px; font-weight: 600;"><i class="ph ph-check"></i> Save Account Details</button>
+                        <button type="reset" class="btn btn-secondary" style="padding: 10px 24px;">Cancel</button>
+                    </div>
+                </div>
+            </form>
+
+            <div style="background: rgba(0,0,0,0.15); padding: 30px; border-radius: 12px; border: 1px solid rgba(244,67,54,0.15);">
+                <h3 style="margin-top: 0; color: #F44336; display: flex; align-items: center; gap: 8px;">
+                    <i class="ph-bold ph-warning-octagon"></i> Danger Zone
+                </h3>
+                <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;">Permanently delete your account, personal data, and direct message history. This action cannot be reversed.</p>
+                <form method="POST" action="{% url 'logout' %}" onsubmit="return confirm('For security, account deletion requires manual admin assistance. Are you sure you want to sign out now?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary" style="color: #F44336; border: 1px solid rgba(244,67,54,0.3); background: rgba(244,67,54,0.08);">
+                        <i class="ph ph-sign-out"></i> Log Out / Deactivate Session
+                    </button>
+                </form>
             </div>
         </div>
 
@@ -287,7 +319,7 @@
             </div>
             
             <div class="settings-actions" style="margin-top: 30px; display: flex; align-items: center; justify-content: space-between;">
-                <button type="button" class="btn btn-primary" onclick="showSettingsToast('Notification preferences saved!', 'success')"><i class="ph ph-check"></i> Save Preferences</button>
+                <button type="button" class="btn btn-primary" onclick="saveAllNotificationPrefs()"><i class="ph ph-check"></i> Save Preferences</button>
                 <span id="notifSaveMsg" style="font-size: 0.85rem; color: #4CAF50; display: none;"><i class="ph ph-check-circle"></i> Saved automatically!</span>
             </div>
         </div>
@@ -347,29 +379,55 @@
         <div x-show="activeTab === 'voice'" style="display: none;" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
             <h2 class="settings-page-title">Voice & Video</h2>
             
-            <div style="display: flex; gap: 20px; margin-bottom: 30px;">
-                <div class="form-group" style="flex: 1;">
-                    <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Input Device</label>
-                    <select class="form-control" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px;">
-                        <option>Default Microphone Array</option>
-                        <option>External USB Microphone</option>
+            <div style="display: flex; gap: 20px; margin-bottom: 25px; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 1; min-width: 240px;">
+                    <label for="voiceInputDevice" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">
+                        <i class="ph ph-microphone"></i> Input Device (Microphone)
+                    </label>
+                    <select id="voiceInputDevice" class="form-control" onchange="onVoiceInputChange(this.value)" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px;">
+                        <option value="default">Default System Microphone</option>
                     </select>
                 </div>
-                <div class="form-group" style="flex: 1;">
-                    <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Output Device</label>
-                    <select class="form-control" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px;">
-                        <option>Default Speakers</option>
-                        <option>Headphones (Stereo)</option>
+                <div class="form-group" style="flex: 1; min-width: 240px;">
+                    <label for="voiceOutputDevice" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">
+                        <i class="ph ph-speaker-high"></i> Output Device (Speakers / Headphones)
+                    </label>
+                    <select id="voiceOutputDevice" class="form-control" onchange="onVoiceOutputChange(this.value)" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px;">
+                        <option value="default">Default System Speakers</option>
                     </select>
                 </div>
             </div>
 
-            <div class="form-group" style="margin-bottom: 30px;">
-                <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Input Volume</label>
-                <input type="range" min="0" max="100" value="75" style="width: 100%; accent-color: var(--accent);">
+            <div class="form-group" style="margin-bottom: 30px; background: rgba(0,0,0,0.15); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <label for="voiceInputVolume" style="color: var(--text-secondary); font-weight: 600; margin: 0;">Input Sensitivity & Volume</label>
+                    <span id="voiceVolumePercent" style="font-size: 0.85rem; font-weight: 700; color: var(--accent); padding: 2px 8px; border-radius: 4px; background: rgba(255,107,43,0.12);">75%</span>
+                </div>
+                <input type="range" id="voiceInputVolume" min="0" max="100" value="75" oninput="onVoiceVolumeInput(this.value)" style="width: 100%; accent-color: var(--accent); cursor: pointer;">
+                <small style="color: var(--text-muted); font-size: 0.8rem; margin-top: 6px; display: block;">Adjust microphone gain to reduce background noise or amplify quiet speech.</small>
+            </div>
+
+            <!-- Interactive Mic Test Card -->
+            <div style="background: rgba(0,0,0,0.15); padding: 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 30px;">
+                <div style="font-weight: 600; font-size: 1rem; color: var(--text-primary); margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                    <i class="ph-bold ph-waveform" style="color: #23A55A;"></i> Mic Test
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0; margin-bottom: 16px;">Speak into your microphone to verify detection and volume response.</p>
+                
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 12px;">
+                    <button type="button" id="micTestToggleBtn" onclick="toggleSettingsMicTest()" class="btn btn-secondary" style="padding: 9px 18px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                        <i class="ph ph-microphone"></i> <span>Let's Check</span>
+                    </button>
+                    <div style="flex: 1; height: 14px; background: rgba(255,255,255,0.08); border-radius: 7px; overflow: hidden; position: relative;">
+                        <div id="settingsMicMeterBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #23A55A 0%, #FEE75C 70%, #ED4245 100%); transition: width 0.08s ease; border-radius: 7px;"></div>
+                    </div>
+                </div>
             </div>
             
-            <button type="button" class="btn btn-primary" onclick="showSettingsToast('Voice & video settings saved!', 'success')"><i class="ph ph-check"></i> Save Voice Settings</button>
+            <div class="settings-actions" style="display: flex; align-items: center; justify-content: space-between;">
+                <button type="button" class="btn btn-primary" onclick="saveVoiceSettingsExplicit()"><i class="ph ph-check"></i> Save Voice Settings</button>
+                <span id="voiceSaveMsg" style="font-size: 0.85rem; color: #4CAF50; display: none;"><i class="ph ph-check-circle"></i> Voice preferences saved!</span>
+            </div>
         </div>
 
         <div x-show="activeTab === 'accessibility'" style="display: none;" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
@@ -569,11 +627,185 @@
         }, 4000);
     }
 
+    let settingsAudioStream = null;
+    let settingsAudioCtx = null;
+    let settingsAnalyser = null;
+    let settingsMicAnimId = null;
+
+    async function initAudioDevices() {
+        try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const inputSelect = document.getElementById('voiceInputDevice');
+            const outputSelect = document.getElementById('voiceOutputDevice');
+            
+            const savedInput = localStorage.getItem('cz_input_device') || 'default';
+            const savedOutput = localStorage.getItem('cz_output_device') || 'default';
+            const savedVolume = localStorage.getItem('cz_input_volume') || '75';
+            
+            const volInput = document.getElementById('voiceInputVolume');
+            const volBadge = document.getElementById('voiceVolumePercent');
+            if (volInput) volInput.value = savedVolume;
+            if (volBadge) volBadge.textContent = savedVolume + '%';
+
+            if (inputSelect) {
+                const audioInputs = devices.filter(d => d.kind === 'audioinput');
+                if (audioInputs.length > 0) {
+                    inputSelect.innerHTML = '<option value="default">Default System Microphone</option>';
+                    audioInputs.forEach((d, idx) => {
+                        const label = d.label || `Microphone ${idx + 1}`;
+                        const opt = document.createElement('option');
+                        opt.value = d.deviceId;
+                        opt.textContent = label;
+                        if (d.deviceId === savedInput) opt.selected = true;
+                        inputSelect.appendChild(opt);
+                    });
+                }
+            }
+
+            if (outputSelect) {
+                const audioOutputs = devices.filter(d => d.kind === 'audiooutput');
+                if (audioOutputs.length > 0) {
+                    outputSelect.innerHTML = '<option value="default">Default System Speakers</option>';
+                    audioOutputs.forEach((d, idx) => {
+                        const label = d.label || `Audio Output ${idx + 1}`;
+                        const opt = document.createElement('option');
+                        opt.value = d.deviceId;
+                        opt.textContent = label;
+                        if (d.deviceId === savedOutput) opt.selected = true;
+                        outputSelect.appendChild(opt);
+                    });
+                }
+            }
+        } catch(err) {
+            console.warn('Audio devices enumeration:', err);
+        }
+    }
+
+    function onVoiceInputChange(deviceId) {
+        localStorage.setItem('cz_input_device', deviceId);
+        if (window.Alpine && Alpine.store('voice')) {
+            Alpine.store('voice').selectInputDevice(deviceId);
+        }
+    }
+
+    function onVoiceOutputChange(deviceId) {
+        localStorage.setItem('cz_output_device', deviceId);
+        if (window.Alpine && Alpine.store('voice')) {
+            Alpine.store('voice').selectOutputDevice(deviceId);
+        }
+    }
+
+    function onVoiceVolumeInput(vol) {
+        localStorage.setItem('cz_input_volume', vol);
+        const badge = document.getElementById('voiceVolumePercent');
+        if (badge) badge.textContent = vol + '%';
+    }
+
+    function saveVoiceSettingsExplicit() {
+        const inputSelect = document.getElementById('voiceInputDevice');
+        const outputSelect = document.getElementById('voiceOutputDevice');
+        const volInput = document.getElementById('voiceInputVolume');
+        if (inputSelect) localStorage.setItem('cz_input_device', inputSelect.value);
+        if (outputSelect) localStorage.setItem('cz_output_device', outputSelect.value);
+        if (volInput) localStorage.setItem('cz_input_volume', volInput.value);
+        
+        const msg = document.getElementById('voiceSaveMsg');
+        if (msg) {
+            msg.style.display = 'inline-block';
+            setTimeout(() => { msg.style.display = 'none'; }, 2500);
+        }
+        showSettingsToast('Voice & video settings saved successfully!', 'success');
+    }
+
+    async function toggleSettingsMicTest() {
+        const btn = document.getElementById('micTestToggleBtn');
+        const meter = document.getElementById('settingsMicMeterBar');
+        if (!btn || !meter) return;
+
+        if (settingsMicAnimId) {
+            // Stop test
+            cancelAnimationFrame(settingsMicAnimId);
+            settingsMicAnimId = null;
+            if (settingsAudioStream) {
+                settingsAudioStream.getTracks().forEach(t => t.stop());
+                settingsAudioStream = null;
+            }
+            if (settingsAudioCtx) {
+                settingsAudioCtx.close();
+                settingsAudioCtx = null;
+            }
+            meter.style.width = '0%';
+            btn.innerHTML = '<i class="ph ph-microphone"></i> <span>Let\'s Check</span>';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-secondary');
+            return;
+        }
+
+        try {
+            const inputId = localStorage.getItem('cz_input_device') || 'default';
+            const constraints = {
+                audio: inputId !== 'default' ? { deviceId: { exact: inputId } } : true,
+                video: false
+            };
+            settingsAudioStream = await navigator.mediaDevices.getUserMedia(constraints);
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            settingsAudioCtx = new AudioContextClass();
+            const src = settingsAudioCtx.createMediaStreamSource(settingsAudioStream);
+            settingsAnalyser = settingsAudioCtx.createAnalyser();
+            settingsAnalyser.fftSize = 256;
+            src.connect(settingsAnalyser);
+
+            btn.innerHTML = '<i class="ph ph-stop-circle"></i> <span>Stop Test</span>';
+            btn.classList.remove('btn-secondary');
+            btn.classList.add('btn-primary');
+
+            const bufferLength = settingsAnalyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            const updateMeter = () => {
+                if (!settingsMicAnimId) return;
+                settingsAnalyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+                const avg = sum / bufferLength;
+                const percent = Math.min(100, Math.round((avg / 60) * 100));
+                meter.style.width = percent + '%';
+                settingsMicAnimId = requestAnimationFrame(updateMeter);
+            };
+            settingsMicAnimId = requestAnimationFrame(updateMeter);
+        } catch(err) {
+            showSettingsToast('Could not access microphone: ' + (err.message || 'Permission denied'), 'error');
+        }
+    }
+
+    function saveAllNotificationPrefs() {
+        ['floating_notifications', 'sound_alerts', 'unread_badge'].forEach(p => {
+            const el = document.getElementById('pref_' + p);
+            if (el) saveUserPref(p, el.checked);
+        });
+        showSettingsToast('Notification preferences saved successfully!', 'success');
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
+        // Initialize audio devices
+        initAudioDevices();
+
         const form = document.getElementById('profileSettingsForm');
         if (form) {
             form.addEventListener('submit', function(e) {
-                // If browser supports FormData and fetch, submit seamlessly
+                const dn = document.getElementById('display_name');
+                const errEl = document.getElementById('displayNameError');
+                if (dn && !dn.value.trim()) {
+                    e.preventDefault();
+                    if (errEl) errEl.style.display = 'block';
+                    dn.focus();
+                    showSettingsToast('Display name cannot be blank.', 'error');
+                    return false;
+                }
+                if (errEl) errEl.style.display = 'none';
+
+                // AJAX submission
                 e.preventDefault();
                 const btn = document.getElementById('saveChangesBtn');
                 const origHtml = btn ? btn.innerHTML : 'Save Changes';
@@ -592,11 +824,12 @@
                         'X-Requested-With': 'XMLHttpRequest'
                     }
                 })
-                .then(res => {
+                .then(async res => {
+                    const data = await res.json().catch(() => ({}));
                     if (!res.ok) {
-                        return res.json().then(data => { throw new Error(data.message || 'Error saving changes'); });
+                        throw new Error(data.message || 'Error saving changes');
                     }
-                    return res.json();
+                    return data;
                 })
                 .then(data => {
                     if (btn) {
@@ -604,21 +837,36 @@
                         btn.innerHTML = '<i class="ph ph-check"></i> Saved!';
                         setTimeout(() => { btn.innerHTML = origHtml; }, 2200);
                     }
-                    showSettingsToast(data.message || 'Settings saved successfully!', 'success');
+                    showSettingsToast(data.message || 'Profile settings saved successfully!', 'success');
                     if (data.status_setting) {
                         window.currentUserStatus = data.status_setting;
                         updateGlobalStatusIndicators(data.status_setting);
                     }
                 })
                 .catch(err => {
-                    console.error('Save failed via AJAX, falling back to native submit:', err);
                     if (btn) {
                         btn.disabled = false;
                         btn.innerHTML = origHtml;
                     }
-                    // If AJAX failed because of CORS or unsupported format, submit natively
-                    form.submit();
+                    showSettingsToast(err.message || 'Validation error while saving profile.', 'error');
                 });
+            });
+        }
+
+        const accForm = document.getElementById('accountSettingsForm');
+        if (accForm) {
+            accForm.addEventListener('submit', function(e) {
+                const emailInput = document.getElementById('account_email');
+                const emailErr = document.getElementById('accountEmailError');
+                const emailVal = emailInput ? emailInput.value.trim() : '';
+                if (!emailVal || !emailVal.includes('@') || !emailVal.includes('.')) {
+                    e.preventDefault();
+                    if (emailErr) emailErr.style.display = 'block';
+                    emailInput.focus();
+                    showSettingsToast('Please enter a valid email address.', 'error');
+                    return false;
+                }
+                if (emailErr) emailErr.style.display = 'none';
             });
         }
 

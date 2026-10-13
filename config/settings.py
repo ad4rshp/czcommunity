@@ -21,13 +21,43 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 import os
 
+# Detect production environment
+IS_PRODUCTION = (
+    os.environ.get('ENVIRONMENT', '').lower() == 'production' or 
+    os.environ.get('DJANGO_ENV', '').lower() == 'production' or 
+    bool(os.environ.get('RAILWAY_ENVIRONMENT'))
+)
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-gus3sx2x9nl(9m$9)_^$-(_khj$ux2ehusd#sgv+@-4y!#_me-')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    if IS_PRODUCTION:
+        import warnings
+        warnings.warn("DJANGO_SECRET_KEY is not set in production! Using fallback key.")
+    SECRET_KEY = 'django-insecure-gus3sx2x9nl(9m$9)_^$-(_khj$ux2ehusd#sgv+@-4y!#_me-'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ('true', '1', 'yes')
+# In production environments (or when DJANGO_DEBUG=False), DEBUG is False.
+if 'DJANGO_DEBUG' in os.environ:
+    DEBUG = os.environ.get('DJANGO_DEBUG').lower() in ('true', '1', 'yes')
+else:
+    DEBUG = not IS_PRODUCTION
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',') if os.environ.get('DJANGO_ALLOWED_HOSTS') else ['*']
+# Allowed hosts configuration
+allowed_hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS')
+if allowed_hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = [
+        '*', 
+        'localhost', 
+        '127.0.0.1', 
+        '.railway.app', 
+        '.up.railway.app', 
+        'czcommunity-production.up.railway.app',
+        'czcommunity.com', 
+        'www.czcommunity.com'
+    ]
 
 # Proxy & SSL configuration for Railway / Cloud deployment
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

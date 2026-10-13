@@ -5,7 +5,6 @@ from . import upload_views
 
 urlpatterns = [
     path('', views.chat_view, name='chat'),
-    path('<slug:channel_slug>/', views.chat_view, name='chat_channel'),
     path('category/<int:category_id>/add-channel/', views.add_channel, name='add_channel'),
     path('category/<int:category_id>/manage/', views.manage_category, name='manage_category'),
     path('channel/<int:channel_id>/move/', csrf_exempt(views.move_channel), name='move_channel'),
@@ -16,4 +15,5 @@ urlpatterns = [
     path('api/search/', views.search_messages, name='search_messages'),
     path('api/notifications/', views.get_notifications, name='get_notifications'),
     path('api/notifications/read/', csrf_exempt(views.mark_notifications_read), name='mark_notifications_read'),
+    path('<slug:channel_slug>/', views.chat_view, name='chat_channel'),
 ]

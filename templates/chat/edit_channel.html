@@ -1,0 +1,111 @@
+{% extends 'authenticated_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/chat.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="chat-layout">
+    {% include 'community/sidebar.html' %}
+
+    <div class="chat-main" style="padding: 30px; display: flex; align-items: center; justify-content: center; background: var(--bg-primary); overflow-y: auto;">
+        <div style="width: 100%; max-width: 520px; background: var(--bg-surface); padding: 32px; border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: 0 10px 40px rgba(0,0,0,0.35);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; padding-bottom: 14px; border-bottom: 1px solid var(--border);">
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 1.15rem; color: var(--text-primary);">
+                    <i class="ph-bold ph-gear" style="color: var(--accent);"></i> Edit Channel Settings
+                </h3>
+                <span style="font-size: 0.8rem; padding: 3px 8px; border-radius: 4px; background: rgba(255,107,43,0.12); color: var(--accent); font-weight: 600;">
+                    #{{ channel.name }}
+                </span>
+            </div>
+            
+            <form method="post" action="{% url 'edit_channel' channel.slug %}">
+                {% csrf_token %}
+                {% if form.errors %}
+                <div style="background: rgba(244, 67, 54, 0.15); border: 1px solid #F44336; color: #ff8a80; padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 18px; font-size: 0.88rem;">
+                    <strong><i class="ph-bold ph-warning-circle"></i> Please fix the errors below:</strong>
+                    <ul style="margin: 6px 0 0 18px; padding: 0;">
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                                <li>{{ field.label }}: {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                        {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <div style="display: flex; flex-direction: column; gap: 18px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">CHANNEL NAME</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                        <div style="color: #F44336; font-size: 0.8rem; margin-top: 5px;">{{ form.name.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">CHANNEL TYPE</label>
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); font-size: 0.9rem;">
+                            <span style="display: flex; align-items: center; gap: 8px;">
+                                {% if channel.channel_type == 'voice' %}
+                                <i class="ph-bold ph-speaker-high" style="color: var(--accent);"></i> Voice Channel
+                                {% else %}
+                                <i class="ph-bold ph-hash" style="color: var(--accent);"></i> Text Channel
+                                {% endif %}
+                            </span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted); font-style: italic;">Cannot change after creation</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">DESCRIPTION / TOPIC <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                        <div style="color: #F44336; font-size: 0.8rem; margin-top: 5px;">{{ form.description.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+
+                    {% if channel.channel_type == 'text' or channel.channel_type == 'announcement' %}
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">SLOWMODE COOLDOWN <span style="color: var(--text-muted); font-weight: 400;">(seconds between messages, 0 to disable)</span></label>
+                        {{ form.cooldown }}
+                        {% if form.cooldown.errors %}
+                        <div style="color: #F44336; font-size: 0.8rem; margin-top: 5px;">{{ form.cooldown.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if channel.channel_type == 'voice' %}
+                    <div>
+                        <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">USER LIMIT <span style="color: var(--text-muted); font-weight: 400;">(0 for unlimited, max 99)</span></label>
+                        {{ form.user_limit }}
+                        {% if form.user_limit.errors %}
+                        <div style="color: #F44336; font-size: 0.8rem; margin-top: 5px;">{{ form.user_limit.errors|striptags }}</div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 18px; border-top: 1px solid var(--border);">
+                        <button type="button" class="btn btn-secondary" style="color: #F44336; border-color: rgba(244,67,54,0.3);" onclick="if(confirm('Are you sure you want to delete this channel? All messages will be permanently lost.')) { document.getElementById('directDeleteForm').submit(); }">
+                            <i class="ph ph-trash"></i> Delete Channel
+                        </button>
+
+                        <div style="display: flex; gap: 10px;">
+                            <a href="{% url 'chat_channel' channel.slug %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <form id="directDeleteForm" action="{% url 'delete_channel' channel.slug %}" method="POST" style="display: none;">
+                {% csrf_token %}
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

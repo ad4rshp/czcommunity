@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}404 — Channel or Page Not Found | CHILL ZONE{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cz-error-container {
+        min-height: calc(100vh - 80px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 30px 20px;
+        background: radial-gradient(circle at center, rgba(255, 107, 43, 0.08) 0%, transparent 65%);
+    }
+    .cz-error-card {
+        background: var(--bg-surface, #16171b);
+        border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+        border-radius: var(--radius-lg, 16px);
+        padding: 48px 36px;
+        max-width: 520px;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+    .cz-error-code {
+        font-size: 5rem;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -2px;
+        background: linear-gradient(135deg, #ff6b2b 0%, #ff9e40 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 12px;
+    }
+    .cz-error-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #ffffff;
+        margin: 0 0 12px 0;
+    }
+    .cz-error-desc {
+        font-size: 0.95rem;
+        color: var(--text-muted, #94a3b8);
+        line-height: 1.6;
+        margin: 0 0 28px 0;
+    }
+    .cz-error-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    .cz-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        border-radius: var(--radius-md, 10px);
+        font-weight: 600;
+        font-size: 0.92rem;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .cz-btn-primary {
+        background: var(--accent, #ff6b2b);
+        color: #ffffff;
+        border: none;
+        box-shadow: 0 4px 16px rgba(255, 107, 43, 0.35);
+    }
+    .cz-btn-primary:hover {
+        background: #ff7d42;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 107, 43, 0.45);
+        color: #ffffff;
+    }
+    .cz-btn-secondary {
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-primary, #ffffff);
+        border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    }
+    .cz-btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cz-error-container">
+    <div class="cz-error-card">
+        <div class="cz-error-code">404</div>
+        <h1 class="cz-error-title">Lost in the Void</h1>
+        <p class="cz-error-desc">
+            The channel, category, or space you are looking for does not exist or has been moved. Don't worry, your crew is waiting for you back in the community!
+        </p>
+        <div class="cz-error-actions">
+            <a href="{% url 'community' %}" class="cz-btn cz-btn-primary">
+                <i class="ph-bold ph-chats-circle"></i> Return to Chat
+            </a>
+            <a href="{% url 'home' %}" class="cz-btn cz-btn-secondary">
+                <i class="ph-bold ph-house"></i> Home
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

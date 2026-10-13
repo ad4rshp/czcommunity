@@ -41,13 +41,27 @@ urlpatterns = [
     path('login/', accounts_views.login_view, name='login'),
     path('register/', accounts_views.register_view, name='register'),
     path('logout/', accounts_views.logout_view, name='logout'),
+    path('community/category/<int:category_id>/manage/', chat_views.manage_category),
+    path('community/category/<int:category_id>/add-channel/', chat_views.add_channel),
     path('community/chat/', include('chat.urls')),
     path('profiles/', include('profiles.urls')),
 ]
 
 from django.conf import settings
 from django.conf.urls.static import static
+from django.urls import re_path
+from django.views.static import serve
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATICFILES_DIRS[0])
+else:
+    # Ensure static and media files are safely served in production deployments
+    urlpatterns += [
+        re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+        re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATICFILES_DIRS[0]}),
+    ]
+
+handler404 = 'core.views.custom_404'
+handler500 = 'core.views.custom_500'
+handler403 = 'core.views.custom_403'

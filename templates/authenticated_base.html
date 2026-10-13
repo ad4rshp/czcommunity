@@ -712,6 +712,11 @@
                         newScript.appendChild(document.createTextNode(oldScript.innerHTML));
                         oldScript.parentNode.replaceChild(newScript, oldScript);
                     });
+
+                    // Initialize Alpine components in newMain
+                    if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+                        window.Alpine.initTree(newMain);
+                    }
                 } else {
                     window.location.href = link.href;
                 }

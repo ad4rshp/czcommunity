@@ -17,26 +17,57 @@
             
             <form method="post">
                 {% csrf_token %}
+                {% if form.errors %}
+                <div style="background: rgba(244, 67, 54, 0.15); border: 1px solid #F44336; color: #ff8a80; padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 18px; font-size: 0.88rem;">
+                    <strong><i class="ph-bold ph-warning-circle"></i> Validation error:</strong>
+                    <ul style="margin: 6px 0 0 18px; padding: 0;">
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                                <li>{{ field.label }}: {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                        {% for error in form.non_field_errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
                 <div style="display: flex; flex-direction: column; gap: 18px;" x-data="{ type: 'text' }" x-init="type = document.querySelector('[name=channel_type]').value; document.querySelector('[name=channel_type]').addEventListener('change', e => type = e.target.value)">
                     <div>
                         <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">CHANNEL NAME</label>
                         {{ form.name }}
+                        {% if form.name.errors %}
+                        <div style="color: #F44336; font-size: 0.8rem; margin-top: 5px;">{{ form.name.errors|striptags }}</div>
+                        {% endif %}
                     </div>
                     <div>
                         <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">CHANNEL TYPE</label>
                         {{ form.channel_type }}
+                        {% if form.channel_type.errors %}
+                        <div style="color: #F44336; font-size: 0.8rem; margin-top: 5px;">{{ form.channel_type.errors|striptags }}</div>
+                        {% endif %}
                     </div>
                     <div x-show="type === 'text' || type === 'announcement'">
                         <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">COOLDOWN (SLOWMODE) <span style="color: var(--text-muted); font-weight: 400;">(seconds)</span></label>
                         {{ form.cooldown }}
+                        {% if form.cooldown.errors %}
+                        <div style="color: #F44336; font-size: 0.8rem; margin-top: 5px;">{{ form.cooldown.errors|striptags }}</div>
+                        {% endif %}
                     </div>
                     <div x-show="type === 'voice'">
                         <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">USER LIMIT <span style="color: var(--text-muted); font-weight: 400;">(0 for unlimited)</span></label>
                         {{ form.user_limit }}
+                        {% if form.user_limit.errors %}
+                        <div style="color: #F44336; font-size: 0.8rem; margin-top: 5px;">{{ form.user_limit.errors|striptags }}</div>
+                        {% endif %}
                     </div>
                     <div>
                         <label style="display: block; margin-bottom: 8px; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">DESCRIPTION <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
                         {{ form.description }}
+                        {% if form.description.errors %}
+                        <div style="color: #F44336; font-size: 0.8rem; margin-top: 5px;">{{ form.description.errors|striptags }}</div>
+                        {% endif %}
                     </div>
                     <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 5px; padding-top: 15px; border-top: 1px solid var(--border);">
                         <a href="{% url 'chat' %}" class="btn btn-secondary">Back</a>

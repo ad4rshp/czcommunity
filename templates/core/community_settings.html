@@ -240,7 +240,7 @@
                 <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 15px;">
                     Deleting the server will permanently remove all channels, messages, and roles. This action cannot be undone.
                 </p>
-                <a href="{% url 'delete_community' %}" class="btn" style="background: rgba(244, 67, 54, 0.1); color: #F44336; border: 1px solid #F44336; text-decoration: none; display: inline-block; text-align: center;">Delete Server</a>
+                <a href="{% url 'delete_community' %}?c={{ community.slug }}" class="btn" style="background: rgba(244, 67, 54, 0.1); color: #F44336; border: 1px solid #F44336; text-decoration: none; display: inline-block; text-align: center;">Delete Server</a>
             </div>
         </div>
         {% endif %}
@@ -463,36 +463,52 @@
         
         {% if current_tab == 'audit_log' %}
         <div>
-            <h1 style="margin-top: 0; margin-bottom: 20px;">Audit Log</h1>
-            <div class="settings-section" style="padding: 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                <h1 style="margin: 0; font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
+                    <i class="ph ph-scroll" style="color: var(--accent);"></i> Audit Log
+                </h1>
+                <span style="font-size: 0.85rem; color: var(--text-muted); background: var(--bg-surface); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);">
+                    {{ audit_logs|length }} Recent Events
+                </span>
+            </div>
+            <div class="settings-section" style="padding: 0; overflow: hidden;">
                 {% if audit_logs %}
                     {% for log in audit_logs %}
-                    <div class="audit-log-item" style="padding: 15px 20px;">
-                        <div style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-elevated); display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">
+                    <div class="audit-log-item" style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 14px;">
+                        <div style="width: 38px; height: 38px; border-radius: 50%; background: rgba(255,107,43,0.15); border: 1px solid rgba(255,107,43,0.3); color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; font-size: 0.95rem;">
                             {% if log.user %}
                                 {{ log.user.username|make_list|first|upper }}
                             {% else %}
-                                ?
+                                <i class="ph ph-gear"></i>
                             {% endif %}
                         </div>
-                        <div style="flex: 1;">
-                            <div style="margin-bottom: 4px;">
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                 {% if log.user %}
-                                    <strong style="color: var(--text-primary);">{{ log.user.username }}</strong>
+                                    <strong style="color: var(--text-primary); font-size: 0.95rem;">{{ log.user.username }}</strong>
                                 {% else %}
-                                    <strong style="color: var(--text-muted);">System</strong>
+                                    <strong style="color: var(--text-muted); font-size: 0.95rem;">System</strong>
                                 {% endif %}
-                                <span style="color: var(--text-secondary);">{{ log.action }}</span>
+                                <span style="font-size: 0.82rem; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--text-secondary); font-weight: 500;">
+                                    {{ log.action }}
+                                </span>
                             </div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted);">
-                                {{ log.created_at|date:"M d, Y - h:i A" }}
+                            {% if log.details %}
+                            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px; word-break: break-word;">
+                                {{ log.details }}
+                            </div>
+                            {% endif %}
+                            <div style="font-size: 0.75rem; color: var(--text-muted); opacity: 0.8;">
+                                <i class="ph ph-clock" style="vertical-align: -1px;"></i> {{ log.created_at|date:"M d, Y • h:i A" }}
                             </div>
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
-                    <div style="padding: 30px; text-align: center; color: var(--text-muted);">
-                        No audit logs available.
+                    <div style="padding: 50px 30px; text-align: center; color: var(--text-muted);">
+                        <i class="ph ph-scroll" style="font-size: 3.5rem; color: var(--accent); opacity: 0.75; margin-bottom: 16px; display: inline-block;"></i>
+                        <h3 style="margin: 0 0 8px 0; color: var(--text-primary);">No Audit Log Entries Yet</h3>
+                        <p style="margin: 0 auto; max-width: 480px; font-size: 0.9rem; line-height: 1.5;">The audit log automatically records administrative actions including role changes, channel creations, updates, category moves, invite generation, and server configuration edits.</p>
                     </div>
                 {% endif %}
             </div>
