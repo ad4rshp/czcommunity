@@ -42,7 +42,9 @@ urlpatterns = [
     path('register/', accounts_views.register_view, name='register'),
     path('logout/', accounts_views.logout_view, name='logout'),
     path('community/category/<int:category_id>/manage/', chat_views.manage_category),
+    path('community/category/<slug:category_slug>/manage/', chat_views.manage_category),
     path('community/category/<int:category_id>/add-channel/', chat_views.add_channel),
+    path('community/category/<slug:category_slug>/add-channel/', chat_views.add_channel),
     path('community/chat/', include('chat.urls')),
     path('profiles/', include('profiles.urls')),
 ]

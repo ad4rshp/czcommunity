@@ -102,3 +102,65 @@ class CoreRoleAndPermissionsTests(TestCase):
         self.assertIsNotNone(invite)
         self.assertEqual(invite.max_uses, 5)
         self.assertTrue(AuditLog.objects.filter(community=self.community, user=self.mod).exists())
+
+    def test_friends_view_and_member_directory_reverse(self):
+        """Verify /friends/ loads and member_directory reverse URL is found without NoReverseMatch."""
+        from django.urls import reverse
+        # Check reverse resolution
+        url_dir = reverse('member_directory')
+        self.assertTrue(url_dir.startswith('/profiles/'))
+        
+        # Check /friends/ renders without template reverse errors
+        resp = self.client_owner.get(reverse('friends'))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("ALL FRIENDS", resp.content.decode('utf-8'))
+
+    def test_create_and_join_community_messages_no_name_error(self):
+        """Verify join and create actions do not crash with NameError for messages."""
+        # Create invite
+        invite = CommunityInvite.objects.create(
+            community=self.community,
+            code='testjoin123',
+            created_by=self.owner,
+            max_uses=10
+        )
+        
+        # Regular user joins via invite code
+        resp_join = self.client_reg.post(reverse('create_community'), {
+            'action': 'join',
+            'invite_code': 'testjoin123'
+        })
+        self.assertEqual(resp_join.status_code, 302)
+        
+        # User joins official server
+        resp_official = self.client_reg.post(reverse('create_community'), {
+            'action': 'join_official'
+        })
+        self.assertEqual(resp_official.status_code, 302)
+
+    def test_delete_community_messages_no_name_error(self):
+        """Verify community deletion works without NameError for messages."""
+        temp_comm = Community.objects.create(name='Temp Comm', slug='temp-comm', owner=self.owner)
+        resp = self.client_owner.post(f"{reverse('delete_community')}?c={temp_comm.slug}", {
+            'action': 'delete_community_confirm',
+            'community_slug': temp_comm.slug
+        })
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(Community.objects.filter(slug='temp-comm').exists())
+
+    def test_category_urls_graceful_handling_no_raw_404(self):
+        """Verify non-existent category IDs/slugs redirect safely rather than crashing with unhandled 404."""
+        # Non-existent ID in manage category
+        resp_manage = self.client_owner.get('/community/chat/category/999999/manage/')
+        self.assertEqual(resp_manage.status_code, 302)
+        self.assertEqual(resp_manage.url, reverse('chat'))
+
+        # Non-existent slug in manage category
+        resp_slug = self.client_owner.get('/community/chat/category/non-existent-category/manage/')
+        self.assertEqual(resp_slug.status_code, 302)
+        self.assertEqual(resp_slug.url, reverse('chat'))
+
+        # Non-existent ID in add channel
+        resp_add = self.client_owner.get('/community/chat/category/999999/add-channel/')
+        self.assertEqual(resp_add.status_code, 302)
+        self.assertEqual(resp_add.url, reverse('chat'))

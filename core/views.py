@@ -254,6 +254,7 @@ def community_settings(request):
 @login_required
 def create_community(request):
     from chat.models import Community, CommunityMember, Role, Channel, ChannelCategory, AuditLog
+    from django.contrib import messages
     
     official = Community.objects.filter(is_verified=True).first()
     is_official_member = CommunityMember.objects.filter(community=official, user=request.user).exists() if official else False
@@ -359,6 +360,7 @@ def privacy(request):
 @login_required
 def delete_community_view(request):
     from chat.models import Community
+    from django.contrib import messages
     slug = request.GET.get('c') or request.POST.get('community_slug')
     if slug:
         community = Community.objects.filter(slug=slug).first()

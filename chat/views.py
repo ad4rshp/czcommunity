@@ -210,8 +210,20 @@ def dm_view(request, username):
     })
 
 @login_required
-def add_channel(request, category_id):
-    category = get_object_or_404(ChannelCategory, id=category_id)
+def add_channel(request, category_id=None, category_slug=None):
+    category = None
+    if category_id:
+        if str(category_id).isdigit():
+            category = ChannelCategory.objects.filter(id=int(category_id)).first()
+        else:
+            category = ChannelCategory.objects.filter(slug=str(category_id)).first()
+    elif category_slug:
+        category = ChannelCategory.objects.filter(slug=category_slug).first()
+
+    if not category:
+        messages.error(request, "The specified category could not be found or has been removed.")
+        return redirect('chat')
+
     membership = CommunityMember.objects.filter(community=category.community, user=request.user).first()
     can_manage = request.user.is_superuser or request.user == category.community.owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('MANAGE_CHANNELS')))
     if not can_manage:
@@ -249,8 +261,20 @@ def add_channel(request, category_id):
     })
 
 @login_required
-def manage_category(request, category_id):
-    category = get_object_or_404(ChannelCategory, id=category_id)
+def manage_category(request, category_id=None, category_slug=None):
+    category = None
+    if category_id:
+        if str(category_id).isdigit():
+            category = ChannelCategory.objects.filter(id=int(category_id)).first()
+        else:
+            category = ChannelCategory.objects.filter(slug=str(category_id)).first()
+    elif category_slug:
+        category = ChannelCategory.objects.filter(slug=category_slug).first()
+
+    if not category:
+        messages.error(request, "The specified category could not be found or has been removed.")
+        return redirect('chat')
+
     membership = CommunityMember.objects.filter(community=category.community, user=request.user).first()
     can_manage = request.user.is_superuser or request.user == category.community.owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('MANAGE_CHANNELS')))
     if not can_manage:
