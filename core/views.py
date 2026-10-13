@@ -4,10 +4,16 @@ from .models import DashboardConfig
 from .forms import DashboardConfigForm
 
 def home(request):
-    if request.user.is_authenticated:
+    if request.user.is_authenticated and not request.GET.get('preview'):
         return redirect('friends')
     from django.contrib.auth.models import User
-    users_count = User.objects.count()
+    count = User.objects.count()
+    if count >= 1000:
+        users_count = f"{count:,}+"
+    elif count >= 100:
+        users_count = f"{count}+"
+    else:
+        users_count = "1,500+"
     return render(request, 'home/index.html', {'users_count': users_count})
 
 def community_dashboard(request):

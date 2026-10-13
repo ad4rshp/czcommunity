@@ -41,5 +41,29 @@
         </div>
         {% endif %}
         {% endwith %}
+        
+        <div class="message-actions">
+            <button type="button" class="msg-action-btn" onclick="reactToMessage({{ message.id }})" title="Add Reaction" aria-label="Reaction">
+                <i class="ph-bold ph-heart"></i>
+            </button>
+            <button type="button" class="msg-action-btn" onclick="replyToMessage({{ message.id }}, '{{ message.author.username }}')" title="Reply to message" aria-label="Reply">
+                <i class="ph-bold ph-arrow-bend-up-left"></i>
+            </button>
+            {% if request.user == message.author %}
+            <button type="button" class="msg-action-btn" onclick="startEdit({{ message.id }})" title="Edit message" aria-label="Edit">
+                <i class="ph-bold ph-pencil-simple"></i>
+            </button>
+            {% endif %}
+            {% if request.user == message.author or can_manage_messages %}
+            <button type="button" class="msg-action-btn danger" onclick="deleteMessage({{ message.id }})" title="Delete message" aria-label="Delete">
+                <i class="ph-bold ph-trash"></i>
+            </button>
+            {% endif %}
+            {% if request.user != message.author %}
+            <button type="button" class="msg-action-btn" onclick="reportMessage({{ message.id }})" title="Report message" aria-label="Report">
+                <i class="ph-bold ph-flag"></i>
+            </button>
+            {% endif %}
+        </div>
     </div>
 </div>

@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/chat.css' %}">
+<link rel="stylesheet" href="{% static 'css/chat.css' %}?v=7">
 {% endblock %}
 
 {% block content %}
@@ -11,21 +11,30 @@
 
     <div class="chat-main">
         <div class="chat-header">
-            <button type="button" id="openDrawerBtn" class="mobile-only">☰</button>
+            <button type="button" id="openDrawerBtn" class="mobile-only header-mobile-toggle" aria-label="Open sidebar" title="Open Channels">
+                <i class="ph-bold ph-list"></i>
+            </button>
             <div class="channel-info">
-                <h3>#{{ active_channel.name }}</h3>
+                <div class="channel-title-group">
+                    <span class="channel-prefix-icon"><i class="ph-bold ph-hash"></i></span>
+                    <h3 class="channel-title-text">{{ active_channel.name }}</h3>
+                </div>
                 {% if active_channel.description %}
-                <span class="description">{{ active_channel.description }}</span>
+                <span class="channel-topic-text">{{ active_channel.description }}</span>
                 {% endif %}
             </div>
-            <div class="header-actions" style="display: flex; align-items: center; gap: 10px; position: relative;">
+            <div class="header-actions">
                 
                 <!-- Members Button -->
-                <button type="button" class="header-icon-btn members-btn" onclick="toggleRightPanel('members')" title="Members"><i class="ph ph-users"></i></button>
+                <button type="button" class="header-action-btn members-btn" onclick="toggleRightPanel('members')" title="Members List" aria-label="Members">
+                    <i class="ph-bold ph-users"></i>
+                </button>
 
                 <!-- Search Popover Wrapper -->
-                <div class="search-wrapper" style="position: relative;">
-                    <button type="button" class="header-icon-btn search-btn" onclick="toggleSearch()" title="Search messages"><i class="ph ph-magnifying-glass"></i></button>
+                <div class="search-wrapper">
+                    <button type="button" class="header-action-btn search-btn" onclick="toggleSearch()" title="Search messages" aria-label="Search">
+                        <i class="ph-bold ph-magnifying-glass"></i>
+                    </button>
 
                     <!-- Advanced Search Bar & Flyout -->
                     <div id="searchContainer" class="search-container">
@@ -126,8 +135,8 @@
 
                 <!-- Notifications Dropdown Wrapper -->
                 <div class="dropdown-wrapper">
-                    <button type="button" class="header-icon-btn bell-btn" onclick="toggleNotifications()" title="Inbox & Notifications">
-                        <i class="ph ph-bell"></i>
+                    <button type="button" class="header-action-btn bell-btn" onclick="toggleNotifications()" title="Inbox & Notifications" aria-label="Notifications">
+                        <i class="ph-bold ph-bell"></i>
                         <span id="notifBadge" class="cz-notif-badge" style="display: none;">0</span>
                     </button>
                     <div id="notificationsDropdown" class="notifications-menu cz-inbox-menu">
@@ -756,8 +765,8 @@
                                 </div>
                                 {% else %}
                                 <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">
-                                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: {% if member.profile.status == 'online' %}#4CAF50{% elif member.profile.status == 'idle' %}#FFEB3B{% elif member.profile.status == 'dnd' %}#F44336{% else %}#9E9E9E{% endif %}; margin-right: 5px;"></span>
-                                    {{ member.profile.get_status_display|default:"Offline" }}
+                                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: {% if member.profile.status_setting == 'online' %}#4CAF50{% elif member.profile.status_setting == 'idle' %}#FFC107{% elif member.profile.status_setting == 'dnd' %}#F44336{% else %}#747f8d{% endif %}; margin-right: 5px;"></span>
+                                    {{ member.profile.get_status_setting_display|default:"Online" }}
                                 </div>
                                 {% endif %}
                             </div>
@@ -769,46 +778,93 @@
         </div>
         {% else %}
         <div class="message-area" id="messageArea">
-            {% if not chat_messages %}
-            <div class="empty-state">
-                <p>Nothing here yet.</p>
-                <p>Start the conversation.</p>
+            <div class="channel-start-welcome">
+                <div class="channel-start-icon"><i class="ph-bold ph-hash"></i></div>
+                <h3>Welcome to #{{ active_channel.name }}!</h3>
+                <p>This is the start of the #{{ active_channel.name }} channel. Send a message to start the conversation.</p>
             </div>
-            {% else %}
-                {% for message in chat_messages %}
-                {% if not message.deleted_at %}
-                {% include 'chat/partials/_message.html' with message=message request=request %}
-                {% endif %}
-                {% endfor %}
+            {% for message in chat_messages %}
+            {% if not message.deleted_at %}
+            {% include 'chat/partials/_message.html' with message=message request=request %}
             {% endif %}
+            {% endfor %}
         </div>
         {% endif %}
 
         {% if active_channel.channel_type == 'text' or active_channel.channel_type == 'announcement' %}
         <div class="composer-area">
             <div id="typingIndicator" class="typing-indicator"></div>
-            <form id="chatForm">
+            
+            <!-- Quick Emoji Palette Popup -->
+            <div id="quickEmojiPalette" class="quick-emoji-palette" style="display: none;">
+                <div class="emoji-palette-header">
+                    <span>Reactions & Emojis</span>
+                    <button type="button" class="close-palette-btn" onclick="toggleEmojiPalette(false)"><i class="ph ph-x"></i></button>
+                </div>
+                <div class="emoji-palette-grid">
+                    <button type="button" class="palette-emoji" onclick="insertEmoji('😊')">😊</button>
+                    <button type="button" class="palette-emoji" onclick="insertEmoji('🔥')">🔥</button>
+                    <button type="button" class="palette-emoji" onclick="insertEmoji('❤️')">❤️</button>
+                    <button type="button" class="palette-emoji" onclick="insertEmoji('👍')">👍</button>
+                    <button type="button" class="palette-emoji" onclick="insertEmoji('🎉')">🎉</button>
+                    <button type="button" class="palette-emoji" onclick="insertEmoji('✨')">✨</button>
+                    <button type="button" class="palette-emoji" onclick="insertEmoji('🚀')">🚀</button>
+                    <button type="button" class="palette-emoji" onclick="insertEmoji('😂')">😂</button>
+                    <button type="button" class="palette-emoji" onclick="insertEmoji('🎧')">🎧</button>
+                    <button type="button" class="palette-emoji" onclick="insertEmoji('🎮')">🎮</button>
+                    <button type="button" class="palette-emoji" onclick="insertEmoji('☕')">☕</button>
+                    <button type="button" class="palette-emoji" onclick="insertEmoji('💯')">💯</button>
+                </div>
+            </div>
+
+            <form id="chatForm" class="cz-composer-form">
                 <input type="file" id="fileInput" style="display: none;">
                 
-                {% if can_attach_files %}
-                <button type="button" class="attach-btn" onclick="document.getElementById('fileInput').click();" title="Upload File"><i class="ph ph-plus-circle"></i></button>
-                {% else %}
-                <button type="button" class="attach-btn" title="You lack attach permissions" disabled style="opacity: 0.5; cursor: not-allowed;"><i class="ph ph-plus-circle"></i></button>
-                {% endif %}
+                <div class="composer-tools-left">
+                    {% if can_attach_files %}
+                    <button type="button" class="composer-tool-btn" onclick="document.getElementById('fileInput').click();" title="Attach File" aria-label="Attach File">
+                        <i class="ph-bold ph-plus-circle"></i>
+                    </button>
+                    {% else %}
+                    <button type="button" class="composer-tool-btn is-disabled" title="You lack attach permissions" disabled aria-label="No Attach Permission">
+                        <i class="ph-bold ph-plus-circle"></i>
+                    </button>
+                    {% endif %}
+                    
+                    {% if can_embed_links %}
+                    <button type="button" class="composer-tool-btn" id="gifBtn" title="Send GIF" aria-label="Send GIF">
+                        <i class="ph-bold ph-gif"></i>
+                    </button>
+                    {% else %}
+                    <button type="button" class="composer-tool-btn is-disabled" title="You lack embed links permissions" disabled aria-label="No GIF Permission">
+                        <i class="ph-bold ph-gif"></i>
+                    </button>
+                    {% endif %}
+
+                    <button type="button" class="composer-tool-btn" id="emojiPickerBtn" onclick="toggleEmojiPalette()" title="Add Emoji" aria-label="Add Emoji">
+                        <i class="ph-bold ph-smiley"></i>
+                    </button>
+                </div>
                 
-                {% if can_embed_links %}
-                <button type="button" class="attach-btn" id="gifBtn" title="Send GIF" style="margin-left: -5px;"><i class="ph ph-gif"></i></button>
-                {% else %}
-                <button type="button" class="attach-btn" title="You lack embed links permissions" disabled style="margin-left: -5px; opacity: 0.5; cursor: not-allowed;"><i class="ph ph-gif"></i></button>
-                {% endif %}
-                
-                {% if can_send_messages %}
-                <textarea id="messageInput" placeholder="Message #{{ active_channel.name }}" rows="1"></textarea>
-                <button type="submit" class="send-btn">➤</button>
-                {% else %}
-                <textarea id="messageInput" placeholder="You do not have permission to send messages in this channel." rows="1" disabled></textarea>
-                <button type="submit" class="send-btn" disabled style="opacity: 0.5; cursor: not-allowed;">➤</button>
-                {% endif %}
+                <div class="composer-input-wrap">
+                    {% if can_send_messages %}
+                    <textarea id="messageInput" placeholder="Message #{{ active_channel.name }}" rows="1"></textarea>
+                    {% else %}
+                    <textarea id="messageInput" placeholder="You do not have permission to send messages in this channel." rows="1" disabled></textarea>
+                    {% endif %}
+                </div>
+
+                <div class="composer-tools-right">
+                    {% if can_send_messages %}
+                    <button type="submit" class="composer-send-btn" id="sendMessageBtn" title="Send Message (Enter)" aria-label="Send Message">
+                        <i class="ph-fill ph-paper-plane-tilt"></i>
+                    </button>
+                    {% else %}
+                    <button type="submit" class="composer-send-btn is-disabled" disabled title="No Send Permission" aria-label="No Send Permission">
+                        <i class="ph-fill ph-paper-plane-tilt"></i>
+                    </button>
+                    {% endif %}
+                </div>
             </form>
             <div id="mentionSuggestions" class="command-suggestions hidden"></div>
             <div id="commandSuggestions" class="command-suggestions hidden">
@@ -888,15 +944,19 @@
 {{ active_channel.slug|json_script:"channel-slug" }}
 {{ request.user.username|json_script:"current-username" }}
 {{ community_data|json_script:"community-data" }}
-{{ can_manage_messages|yesno:"true,false"|json_script:"can-manage-messages" }}
-{{ can_kick_members|yesno:"true,false"|json_script:"can-kick-members" }}
-{{ can_ban_members|yesno:"true,false"|json_script:"can-ban-members" }}
+{{ can_manage_messages|json_script:"can-manage-messages" }}
+{{ can_kick_members|json_script:"can-kick-members" }}
+{{ can_ban_members|json_script:"can-ban-members" }}
+{{ community.owner.username|json_script:"community-owner" }}
+{{ request.user.profile.get_avatar_url|json_script:"current-user-avatar" }}
 <script>
     // Initialize permissions and community context for chat.js and profile modals
     window.activeCommunitySlug = "{{ community.slug }}";
-    window.canManageMessages = JSON.parse(document.getElementById('can-manage-messages').textContent);
-    window.canKickMembers = JSON.parse(document.getElementById('can-kick-members').textContent);
-    window.canBanMembers = JSON.parse(document.getElementById('can-ban-members').textContent);
+    window.communityOwner = JSON.parse(document.getElementById('community-owner').textContent);
+    window.currentUserAvatar = JSON.parse(document.getElementById('current-user-avatar').textContent);
+    window.canManageMessages = Boolean(JSON.parse(document.getElementById('can-manage-messages').textContent));
+    window.canKickMembers = Boolean(JSON.parse(document.getElementById('can-kick-members').textContent));
+    window.canBanMembers = Boolean(JSON.parse(document.getElementById('can-ban-members').textContent));
 </script>
 <script src="{% static 'js/chat.js' %}?v=5"></script>
 <script src="{% static 'js/autocomplete_and_files.js' %}?v=5"></script>

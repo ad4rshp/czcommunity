@@ -4,16 +4,14 @@
             <button type="button" id="closeDrawerBtn">×</button>
         </div>
         
-        <div class="community-header" style="padding: 14px 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; background: {% if community.is_verified %}linear-gradient(135deg, rgba(255,107,43,0.12), rgba(0,0,0,0.2)){% else %}transparent{% endif %}; border-radius: var(--radius-md); margin: 6px 10px 14px 10px;">
-            <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+        <div class="community-header" style="padding: 10px 8px; border-bottom: 1px solid var(--border); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; background: {% if community.is_verified %}linear-gradient(135deg, rgba(255,107,43,0.12), rgba(0,0,0,0.2)){% else %}transparent{% endif %}; border-radius: var(--radius-md); margin: 6px 8px 14px 8px;">
+            <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; min-width: 0; flex: 1;">
                 <img src="{{ community.get_icon_url }}" alt="{{ community.name }}" title="{{ community.name }}" style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.3);" onerror="this.src='/static/img/default_server.svg'">
-                <div style="display: flex; flex-direction: column; overflow: hidden;">
-                    <h3 style="margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px;">
-                        <span>{{ community.name }}</span>
+                <div style="display: flex; flex-direction: column; overflow: hidden; min-width: 0; flex: 1;">
+                    <h3 style="margin: 0; font-size: 0.88rem; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px;">
+                        <span style="overflow: hidden; text-overflow: ellipsis;">{{ community.name }}</span>
                         {% if community.is_verified %}
-                        <span style="display: inline-flex; align-items: center; gap: 3px; background: rgba(76, 175, 80, 0.15); color: #4CAF50; padding: 2px 6px; border-radius: 10px; font-size: 0.68rem; font-weight: 700; border: 1px solid rgba(76, 175, 80, 0.3);">
-                            <i class="ph-fill ph-seal-check"></i> OFFICIAL
-                        </span>
+                        <i class="ph-fill ph-seal-check" style="color: #4CAF50; font-size: 1rem; flex-shrink: 0;" title="Verified Community"></i>
                         {% endif %}
                     </h3>
                 </div>
@@ -675,7 +673,23 @@
         isLoading: false,
         saveStatus: '',
         get selectedRole() {
-            return (this.rolesData && this.rolesData.length > this.selectedRoleIndex) ? this.rolesData[this.selectedRoleIndex] : null;
+            if (this.rolesData && this.rolesData.length > this.selectedRoleIndex) {
+                return this.rolesData[this.selectedRoleIndex];
+            }
+            return {
+                role_name: '',
+                is_member: false,
+                color: '#99AAB5',
+                perms: {
+                    view_channel: null,
+                    manage_channel: null,
+                    manage_permissions: null,
+                    send_messages: null,
+                    attach_files: null,
+                    connect_voice: null,
+                    speak_voice: null
+                }
+            };
         },
         get filteredAvailableRoles() {
             const query = this.overrideSearch.toLowerCase().trim();

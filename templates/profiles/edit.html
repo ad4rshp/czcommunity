@@ -7,42 +7,132 @@
 {% endblock %}
 
 {% block content %}
-<div class="settings-container" x-data="{ activeTab: new URLSearchParams(window.location.search).get('tab') || 'profile' }">
+<div class="settings-container" :class="activeTab ? 'is-detail-view' : 'is-menu-view'" x-data="{ 
+    isDesktop: window.innerWidth >= 769,
+    activeTab: (window.innerWidth >= 769) 
+        ? (new URLSearchParams(window.location.search).get('tab') || 'profile') 
+        : (new URLSearchParams(window.location.search).get('tab') || null),
+    selectedStatus: '{{ profile.status_setting|default:'online' }}', 
+    isSaving: false,
+    init() {
+        window.addEventListener('resize', () => {
+            this.isDesktop = window.innerWidth >= 769;
+            if (this.isDesktop && !this.activeTab) {
+                this.activeTab = 'profile';
+            }
+        });
+    }
+}">
     
-    <!-- Settings Sidebar / Mobile Scrollable Tab Bar -->
+    <!-- Settings Sidebar / Mobile Categories Menu -->
     <div class="settings-sidebar">
-        <h3 class="settings-sidebar-header">User Settings</h3>
-        <div class="settings-tabs-list">
-            <button type="button" class="settings-tab-btn" :class="activeTab === 'profile' ? 'active' : ''" @click="activeTab = 'profile'">
-                <i class="ph ph-user"></i> <span>Edit Profile</span>
-            </button>
-            <button type="button" class="settings-tab-btn" :class="activeTab === 'account' ? 'active' : ''" @click="activeTab = 'account'">
-                <i class="ph ph-shield-check"></i> <span>Account Settings</span>
-            </button>
-            <button type="button" class="settings-tab-btn" :class="activeTab === 'notifications' ? 'active' : ''" @click="activeTab = 'notifications'">
-                <i class="ph ph-bell"></i> <span>Notifications</span>
-            </button>
-            <button type="button" class="settings-tab-btn" :class="activeTab === 'chat_prefs' ? 'active' : ''" @click="activeTab = 'chat_prefs'">
-                <i class="ph ph-chat-circle-dots"></i> <span>Chat & Display</span>
-            </button>
-            <button type="button" class="settings-tab-btn" :class="activeTab === 'voice' ? 'active' : ''" @click="activeTab = 'voice'">
-                <i class="ph ph-microphone"></i> <span>Voice & Video</span>
-            </button>
-            <button type="button" class="settings-tab-btn" :class="activeTab === 'accessibility' ? 'active' : ''" @click="activeTab = 'accessibility'">
-                <i class="ph ph-paint-brush"></i> <span>Themes & Access</span>
-            </button>
+        <!-- User identity header -->
+        <div class="settings-user-summary-card">
+            <div style="width: 44px; height: 44px; border-radius: 50%; overflow: hidden; position: relative; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
+                <img src="{{ profile.get_avatar_url }}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
+            </div>
+            <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 700; font-size: 0.95rem; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ request.user.username }}</div>
+                <div class="profile-status-pill {{ profile.status_setting|default:'online' }}" style="padding: 2px 8px; font-size: 0.72rem; margin-top: 3px; width: fit-content;">
+                    <span class="status-dot"></span>
+                    <span>{{ profile.get_status_setting_display }}</span>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="settings-sidebar-header">Preferences</h3>
+
+        <!-- Full Touch & Desktop Category List -->
+        <div class="settings-hub-list">
+            <div class="settings-hub-card" :class="activeTab === 'profile' ? 'active' : ''" @click="activeTab = 'profile'">
+                <div class="settings-hub-icon-wrap" style="background: rgba(255,107,43,0.15); color: var(--accent);">
+                    <i class="ph ph-user"></i>
+                </div>
+                <div class="settings-hub-info">
+                    <span class="settings-hub-title">Edit Profile</span>
+                    <span class="settings-hub-subtitle">Avatar, bio, status & DMs</span>
+                </div>
+                <i class="ph ph-caret-right settings-hub-arrow"></i>
+            </div>
+
+            <div class="settings-hub-card" :class="activeTab === 'account' ? 'active' : ''" @click="activeTab = 'account'">
+                <div class="settings-hub-icon-wrap" style="background: rgba(59,130,246,0.15); color: #3b82f6;">
+                    <i class="ph ph-shield-check"></i>
+                </div>
+                <div class="settings-hub-info">
+                    <span class="settings-hub-title">Account Settings</span>
+                    <span class="settings-hub-subtitle">Username, email & security</span>
+                </div>
+                <i class="ph ph-caret-right settings-hub-arrow"></i>
+            </div>
+
+            <div class="settings-hub-card" :class="activeTab === 'notifications' ? 'active' : ''" @click="activeTab = 'notifications'">
+                <div class="settings-hub-icon-wrap" style="background: rgba(234,179,8,0.15); color: #eab308;">
+                    <i class="ph ph-bell"></i>
+                </div>
+                <div class="settings-hub-info">
+                    <span class="settings-hub-title">Notifications</span>
+                    <span class="settings-hub-subtitle">Popups, sounds & pings</span>
+                </div>
+                <i class="ph ph-caret-right settings-hub-arrow"></i>
+            </div>
+
+            <div class="settings-hub-card" :class="activeTab === 'chat_prefs' ? 'active' : ''" @click="activeTab = 'chat_prefs'">
+                <div class="settings-hub-icon-wrap" style="background: rgba(168,85,247,0.15); color: #a855f7;">
+                    <i class="ph ph-chat-circle-dots"></i>
+                </div>
+                <div class="settings-hub-info">
+                    <span class="settings-hub-title">Chat & Display</span>
+                    <span class="settings-hub-subtitle">Typing indicator & media</span>
+                </div>
+                <i class="ph ph-caret-right settings-hub-arrow"></i>
+            </div>
+
+            <div class="settings-hub-card" :class="activeTab === 'voice' ? 'active' : ''" @click="activeTab = 'voice'">
+                <div class="settings-hub-icon-wrap" style="background: rgba(16,185,129,0.15); color: #10b981;">
+                    <i class="ph ph-microphone"></i>
+                </div>
+                <div class="settings-hub-info">
+                    <span class="settings-hub-title">Voice & Video</span>
+                    <span class="settings-hub-subtitle">Audio devices & volume</span>
+                </div>
+                <i class="ph ph-caret-right settings-hub-arrow"></i>
+            </div>
+
+            <div class="settings-hub-card" :class="activeTab === 'accessibility' ? 'active' : ''" @click="activeTab = 'accessibility'">
+                <div class="settings-hub-icon-wrap" style="background: rgba(236,72,153,0.15); color: #ec4899;">
+                    <i class="ph ph-paint-brush"></i>
+                </div>
+                <div class="settings-hub-info">
+                    <span class="settings-hub-title">Themes & Access</span>
+                    <span class="settings-hub-subtitle">Color contrast & animations</span>
+                </div>
+                <i class="ph ph-caret-right settings-hub-arrow"></i>
+            </div>
         </div>
     </div>
 
-    <!-- Settings Content -->
+    <!-- Settings Content Area -->
     <div class="settings-content">
         
+        <!-- Mobile Drill-Down Top Navigation Bar (Shows on Mobile inside open section) -->
+        <div class="settings-detail-header mobile-only" x-show="activeTab !== null">
+            <button type="button" class="settings-back-btn" @click="activeTab = null" title="Back to All Settings">
+                <i class="ph-bold ph-arrow-left"></i>
+                <span>Back to Settings</span>
+            </button>
+            <div class="settings-detail-title-badge">
+                <span x-text="activeTab === 'profile' ? 'Edit Profile' : (activeTab === 'account' ? 'Account' : (activeTab === 'notifications' ? 'Notifications' : (activeTab === 'chat_prefs' ? 'Chat & Display' : (activeTab === 'voice' ? 'Voice & Video' : 'Themes & Access'))))"></span>
+            </div>
+        </div>
+
         <!-- Profile Tab -->
         <div x-show="activeTab === 'profile'" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
             <h2 class="settings-page-title">User Profile</h2>
-            <form method="post" enctype="multipart/form-data">
+            <form method="post" action="{% url 'profile_edit' %}" enctype="multipart/form-data" id="profileSettingsForm">
                 {% csrf_token %}
-                
+                <input type="hidden" name="current_tab" :value="activeTab">
+
                 {% if error %}
                 <div style="background: rgba(244, 67, 54, 0.15); border: 1px solid #F44336; color: #ff8a80; padding: 12px 18px; border-radius: 8px; margin-bottom: 25px; font-size: 0.95rem; display: flex; align-items: center; gap: 10px;">
                     <i class="ph ph-warning-circle" style="font-size: 1.3rem;"></i>
@@ -71,19 +161,54 @@
                     <textarea id="bio" name="bio" class="form-control" rows="4" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 15px; resize: vertical;">{{ profile.bio }}</textarea>
                 </div>
 
-                <div class="settings-form-row">
-                    <div class="form-group" style="margin-bottom: 25px;">
-                        <label for="favorite_game" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Favorite Game</label>
-                        <input type="text" id="favorite_game" name="favorite_game" class="form-control" value="{{ profile.favorite_game }}" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 15px;">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 25px;">
-                        <label for="status_setting" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Status Setting</label>
-                        <select id="status_setting" name="status_setting" class="form-control" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 15px; cursor: pointer;">
-                            <option value="online" {% if profile.status_setting == 'online' %}selected{% endif %} style="background: var(--bg-elevated); color: var(--text-primary);">Online</option>
-                            <option value="idle" {% if profile.status_setting == 'idle' %}selected{% endif %} style="background: var(--bg-elevated); color: var(--text-primary);">Idle</option>
-                            <option value="dnd" {% if profile.status_setting == 'dnd' %}selected{% endif %} style="background: var(--bg-elevated); color: var(--text-primary);">Do Not Disturb</option>
-                            <option value="offline" {% if profile.status_setting == 'offline' %}selected{% endif %} style="background: var(--bg-elevated); color: var(--text-primary);">Invisible</option>
-                        </select>
+                <div class="form-group" style="margin-bottom: 25px;">
+                    <label for="favorite_game" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Favorite Game</label>
+                    <input type="text" id="favorite_game" name="favorite_game" class="form-control" value="{{ profile.favorite_game }}" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 15px;">
+                </div>
+
+                <!-- Status Setting Selector -->
+                <div class="form-group" style="margin-bottom: 30px;">
+                    <label style="color: var(--text-secondary); font-weight: 600; margin-bottom: 12px; display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">Status Setting</label>
+                    <div class="status-selector-grid">
+                        <label class="status-choice-card" :class="selectedStatus === 'online' ? 'selected' : ''" @click="selectedStatus = 'online'">
+                            <input type="radio" name="status_setting" value="online" :checked="selectedStatus === 'online'" @change="selectedStatus = 'online'" style="display: none;">
+                            <span class="status-indicator-dot online"></span>
+                            <div class="status-choice-info">
+                                <span class="status-choice-title">Online</span>
+                                <span class="status-choice-desc">Active & visible to all</span>
+                            </div>
+                            <i class="ph-bold ph-check status-check-icon"></i>
+                        </label>
+
+                        <label class="status-choice-card" :class="selectedStatus === 'idle' ? 'selected' : ''" @click="selectedStatus = 'idle'">
+                            <input type="radio" name="status_setting" value="idle" :checked="selectedStatus === 'idle'" @change="selectedStatus = 'idle'" style="display: none;">
+                            <span class="status-indicator-dot idle"></span>
+                            <div class="status-choice-info">
+                                <span class="status-choice-title">Idle</span>
+                                <span class="status-choice-desc">Away from keyboard</span>
+                            </div>
+                            <i class="ph-bold ph-check status-check-icon"></i>
+                        </label>
+
+                        <label class="status-choice-card" :class="selectedStatus === 'dnd' ? 'selected' : ''" @click="selectedStatus = 'dnd'">
+                            <input type="radio" name="status_setting" value="dnd" :checked="selectedStatus === 'dnd'" @change="selectedStatus = 'dnd'" style="display: none;">
+                            <span class="status-indicator-dot dnd"></span>
+                            <div class="status-choice-info">
+                                <span class="status-choice-title">Do Not Disturb</span>
+                                <span class="status-choice-desc">Mutes sound alerts & popups</span>
+                            </div>
+                            <i class="ph-bold ph-check status-check-icon"></i>
+                        </label>
+
+                        <label class="status-choice-card" :class="selectedStatus === 'offline' ? 'selected' : ''" @click="selectedStatus = 'offline'">
+                            <input type="radio" name="status_setting" value="offline" :checked="selectedStatus === 'offline'" @change="selectedStatus = 'offline'" style="display: none;">
+                            <span class="status-indicator-dot offline"></span>
+                            <div class="status-choice-info">
+                                <span class="status-choice-title">Invisible</span>
+                                <span class="status-choice-desc">Appear offline in members list</span>
+                            </div>
+                            <i class="ph-bold ph-check status-check-icon"></i>
+                        </label>
                     </div>
                 </div>
 
@@ -97,7 +222,7 @@
                 </div>
 
                 <div class="settings-actions">
-                    <button type="submit" class="btn btn-primary" style="padding: 12px 30px; font-weight: bold;"><i class="ph ph-check"></i> Save Changes</button>
+                    <button type="submit" id="saveChangesBtn" class="btn btn-primary" style="padding: 12px 30px; font-weight: bold;"><i class="ph ph-check"></i> Save Changes</button>
                     <a href="{% url 'profile' request.user.username %}" class="btn btn-secondary" style="padding: 12px 30px;">Cancel</a>
                 </div>
             </form>
@@ -161,8 +286,9 @@
                 </label>
             </div>
             
-            <div style="padding-top: 15px;">
-                <span id="notifSaveMsg" style="font-size: 0.85rem; color: #4CAF50; display: none;">Saved automatically!</span>
+            <div class="settings-actions" style="margin-top: 30px; display: flex; align-items: center; justify-content: space-between;">
+                <button type="button" class="btn btn-primary" onclick="showSettingsToast('Notification preferences saved!', 'success')"><i class="ph ph-check"></i> Save Preferences</button>
+                <span id="notifSaveMsg" style="font-size: 0.85rem; color: #4CAF50; display: none;"><i class="ph ph-check-circle"></i> Saved automatically!</span>
             </div>
         </div>
 
@@ -212,6 +338,10 @@
                     <span class="slider round"></span>
                 </label>
             </div>
+
+            <div class="settings-actions" style="margin-top: 30px; display: flex; align-items: center; justify-content: space-between;">
+                <button type="button" class="btn btn-primary" onclick="showSettingsToast('Chat & display preferences saved!', 'success')"><i class="ph ph-check"></i> Save Preferences</button>
+            </div>
         </div>
 
         <div x-show="activeTab === 'voice'" style="display: none;" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
@@ -239,7 +369,7 @@
                 <input type="range" min="0" max="100" value="75" style="width: 100%; accent-color: var(--accent);">
             </div>
             
-            <button class="btn btn-primary" onclick="alert('Voice preferences updated.')">Save Voice Settings</button>
+            <button type="button" class="btn btn-primary" onclick="showSettingsToast('Voice & video settings saved!', 'success')"><i class="ph ph-check"></i> Save Voice Settings</button>
         </div>
 
         <div x-show="activeTab === 'accessibility'" style="display: none;" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
@@ -265,6 +395,10 @@
                 </select>
             </div>
 
+            <div class="settings-actions" style="margin-top: 25px; margin-bottom: 25px;">
+                <button type="button" class="btn btn-primary" onclick="showSettingsToast('Accessibility & theme settings saved!', 'success')"><i class="ph ph-check"></i> Save Theme Settings</button>
+            </div>
+
             <!-- Reset All Interface Preferences -->
             <div class="form-group" style="margin-top: 35px; padding-top: 25px; border-top: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                 <div>
@@ -281,6 +415,33 @@
 </div>
 
 <script>
+    function showSettingsToast(message, type) {
+        const toast = document.getElementById('settingsToastAlert');
+        const icon = document.getElementById('settingsToastIcon');
+        const text = document.getElementById('settingsToastText');
+        if (!toast || !text) {
+            alert(message);
+            return;
+        }
+        text.textContent = message;
+        if (type === 'error') {
+            toast.style.background = 'rgba(244, 67, 54, 0.15)';
+            toast.style.border = '1px solid #F44336';
+            toast.style.color = '#ff8a80';
+            if (icon) icon.className = 'ph-fill ph-warning-circle';
+        } else {
+            toast.style.background = 'rgba(76, 175, 80, 0.15)';
+            toast.style.border = '1px solid #4CAF50';
+            toast.style.color = '#81c784';
+            if (icon) icon.className = 'ph-fill ph-check-circle';
+        }
+        toast.style.display = 'flex';
+        toast.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        setTimeout(() => {
+            toast.style.display = 'none';
+        }, 4000);
+    }
+
     function previewAvatar(input) {
         if (input.files && input.files[0]) {
             const file = input.files[0];
@@ -364,7 +525,103 @@
         window.location.reload();
     }
 
+    function updateGlobalStatusIndicators(status) {
+        // Update top navbar and mobile nav avatar status dots
+        const navDots = document.querySelectorAll('.profile-avatar .status-indicator, .mobile-nav-avatar-wrap .status-indicator');
+        navDots.forEach(dot => {
+            dot.className = 'status-indicator ' + status;
+        });
+        
+        // Update profile popup status indicator if open
+        const cardDots = document.querySelectorAll('.profile-status-indicator');
+        cardDots.forEach(cardDot => {
+            cardDot.className = 'profile-status-indicator ' + status;
+        });
+    }
+
+    function showSettingsToast(msg, type) {
+        type = type || 'success';
+        let container = document.getElementById('czGlobalToastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'czGlobalToastContainer';
+            container.className = 'cz-global-messages-wrap';
+            document.body.appendChild(container);
+        }
+        const toast = document.createElement('div');
+        toast.className = 'cz-global-toast toast-' + type;
+        toast.setAttribute('role', 'alert');
+        const iconClass = type === 'success' ? 'ph-check-circle' : (type === 'error' ? 'ph-warning-circle' : 'ph-info');
+        toast.innerHTML = `
+            <i class="cz-toast-icon ph-fill ${iconClass}"></i>
+            <span class="cz-toast-text">${msg}</span>
+            <button type="button" class="cz-toast-close" onclick="this.closest('.cz-global-toast').remove()" aria-label="Dismiss">
+                <i class="ph ph-x"></i>
+            </button>
+        `;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-12px)';
+            setTimeout(() => {
+                if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
+            }, 300);
+        }, 4000);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('profileSettingsForm');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                // If browser supports FormData and fetch, submit seamlessly
+                e.preventDefault();
+                const btn = document.getElementById('saveChangesBtn');
+                const origHtml = btn ? btn.innerHTML : 'Save Changes';
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Saving...';
+                }
+
+                const formData = new FormData(form);
+                formData.append('ajax', '1');
+
+                fetch(form.action || '{% url "profile_edit" %}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(res => {
+                    if (!res.ok) {
+                        return res.json().then(data => { throw new Error(data.message || 'Error saving changes'); });
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="ph ph-check"></i> Saved!';
+                        setTimeout(() => { btn.innerHTML = origHtml; }, 2200);
+                    }
+                    showSettingsToast(data.message || 'Settings saved successfully!', 'success');
+                    if (data.status_setting) {
+                        window.currentUserStatus = data.status_setting;
+                        updateGlobalStatusIndicators(data.status_setting);
+                    }
+                })
+                .catch(err => {
+                    console.error('Save failed via AJAX, falling back to native submit:', err);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = origHtml;
+                    }
+                    // If AJAX failed because of CORS or unsupported format, submit natively
+                    form.submit();
+                });
+            });
+        }
+
         const savedTheme = localStorage.getItem('chillzone_theme') || 'standard';
         const select = document.getElementById('themeContrastSelect');
         if(select) {

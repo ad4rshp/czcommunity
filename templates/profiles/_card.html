@@ -53,10 +53,38 @@
                 <div class="profile-username">
                     @{{ profile_user.username }}
                 </div>
+                {% if request.user == profile_user %}
+                <div style="position: relative; display: inline-block;">
+                    <div class="profile-status-pill {{ profile_user.profile.status_setting|default:'online' }}" onclick="const q = document.getElementById('cardQuickStatusMenu'); if(q) q.style.display = q.style.display === 'none' ? 'block' : 'none';" style="cursor: pointer;" title="Click to change status">
+                        <span class="status-dot"></span>
+                        <span id="cardStatusDisplayText">{{ profile_user.profile.get_status_setting_display }}</span>
+                        <i class="ph ph-caret-down" style="font-size: 0.75rem; margin-left: 2px;"></i>
+                    </div>
+                    <div id="cardQuickStatusMenu" style="display: none; position: absolute; top: calc(100% + 6px); left: 0; background: #18191c; border: 1px solid rgba(255,255,255,0.12); border-radius: 8px; padding: 6px; z-index: 2000; min-width: 170px; box-shadow: 0 8px 24px rgba(0,0,0,0.6);">
+                        <div onclick="quickChangeCardStatus('online')" style="padding: 7px 10px; border-radius: 4px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; color: #fff;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='transparent'">
+                            <span style="width: 10px; height: 10px; border-radius: 50%; background: #4CAF50;"></span>
+                            <span>Online</span>
+                        </div>
+                        <div onclick="quickChangeCardStatus('idle')" style="padding: 7px 10px; border-radius: 4px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; color: #fff;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='transparent'">
+                            <span style="width: 10px; height: 10px; border-radius: 50%; background: #FFC107;"></span>
+                            <span>Idle</span>
+                        </div>
+                        <div onclick="quickChangeCardStatus('dnd')" style="padding: 7px 10px; border-radius: 4px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; color: #fff;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='transparent'">
+                            <span style="width: 10px; height: 10px; border-radius: 50%; background: #F44336;"></span>
+                            <span>Do Not Disturb</span>
+                        </div>
+                        <div onclick="quickChangeCardStatus('offline')" style="padding: 7px 10px; border-radius: 4px; display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; color: #fff;" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='transparent'">
+                            <span style="width: 10px; height: 10px; border-radius: 50%; background: #747f8d;"></span>
+                            <span>Invisible</span>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
                 <div class="profile-status-pill {{ profile_user.profile.status_setting|default:'online' }}">
                     <span class="status-dot"></span>
                     <span>{{ profile_user.profile.get_status_setting_display }}</span>
                 </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -131,3 +159,51 @@
     </a>
     {% endif %}
 </div>
+
+<script>
+function quickChangeCardStatus(status) {
+    const menu = document.getElementById('cardQuickStatusMenu');
+    if (menu) menu.style.display = 'none';
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || (document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '');
+    
+    fetch('/profiles/status/update/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: 'status=' + encodeURIComponent(status)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const pill = document.querySelector('.profile-popout .profile-status-pill');
+            if (pill) {
+                pill.className = 'profile-status-pill ' + status;
+            }
+            const text = document.getElementById('cardStatusDisplayText');
+            if (text && data.status_display) text.textContent = data.status_display;
+            
+            const cardIndicator = document.querySelector('.profile-popout .profile-status-indicator');
+            if (cardIndicator) {
+                cardIndicator.className = 'profile-status-indicator ' + status;
+                let inner = '';
+                if (status === 'idle') inner = '<i class="ph-fill ph-moon"></i>';
+                else if (status === 'dnd') inner = '<div class="dnd-dash"></div>';
+                else if (status === 'offline') inner = '<div class="offline-dot"></div>';
+                cardIndicator.innerHTML = inner;
+            }
+            
+            // Sync with navbar & mobile nav
+            const navDots = document.querySelectorAll('.profile-avatar .status-indicator, .mobile-nav-avatar-wrap .status-indicator');
+            navDots.forEach(dot => {
+                dot.className = 'status-indicator ' + status;
+            });
+            window.currentUserStatus = status;
+        }
+    })
+    .catch(console.error);
+}
+</script>

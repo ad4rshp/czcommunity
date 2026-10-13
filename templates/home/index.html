@@ -4,7 +4,7 @@
 {% block title %}Chillzone{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/home.css' %}?v=4">
+<link rel="stylesheet" href="{% static 'css/home.css' %}?v=7">
 {% endblock %}
 
 {% block body %}
@@ -239,108 +239,441 @@
                     <p>Designed with zero clutter. Jump into organized spaces, switch text and voice channels seamlessly, and interact with rich media.</p>
                 </div>
 
-                <div class="app-showcase-window">
-                    <!-- Showcase Window Header -->
-                    <div class="window-chrome">
-                        <div class="window-controls">
-                            <span class="dot red"></span>
-                            <span class="dot yellow"></span>
-                            <span class="dot green"></span>
-                        </div>
-                        <div class="window-url-bar">
-                            <i class="ph ph-lock-simple" style="color: #4CAF50;"></i>
-                            <span>chillzone.app / community / official</span>
-                        </div>
-                        <div class="window-meta desktop-only">
-                            <span class="online-pill"><i class="ph-fill ph-circle"></i> Connected</span>
+                <div class="showcase-slideshow-container" x-data="{
+                    activeSlide: 0,
+                    autoplay: true,
+                    timer: null,
+                    slides: [
+                        { id: 'chat', label: 'Rich Chat', icon: 'ph-chat-circle-dots', badge: 'Next-Gen' },
+                        { id: 'voice', label: 'Voice Lounge', icon: 'ph-speaker-high', badge: '16ms WebRTC' },
+                        { id: 'spatial', label: 'Spatial Infinite Canvas', icon: 'ph-planet', badge: 'Interactive 2D' },
+                        { id: 'music', label: 'Music Stage', icon: 'ph-music-notes', badge: 'Synchronized' },
+                        { id: 'roles', label: 'Spaces & Roles', icon: 'ph-shield-check', badge: 'Full Control' }
+                    ],
+                    nextSlide() {
+                        this.activeSlide = (this.activeSlide + 1) % this.slides.length;
+                    },
+                    prevSlide() {
+                        this.activeSlide = (this.activeSlide - 1 + this.slides.length) % this.slides.length;
+                    },
+                    setSlide(idx) {
+                        this.activeSlide = idx;
+                    },
+                    toggleAutoplay() {
+                        this.autoplay = !this.autoplay;
+                    },
+                    startTimer() {
+                        this.timer = setInterval(() => {
+                            if (this.autoplay) {
+                                this.nextSlide();
+                            }
+                        }, 6500);
+                    }
+                }" x-init="startTimer()" @mouseenter="autoplay = false" @mouseleave="autoplay = true">
+
+                    <!-- Slideshow Navigation Pill Tabs -->
+                    <div class="showcase-nav-tabs">
+                        <template x-for="(s, idx) in slides" :key="s.id">
+                            <button type="button" 
+                                    class="showcase-nav-tab" 
+                                    :class="activeSlide === idx ? 'active' : ''"
+                                    @click="setSlide(idx)">
+                                <i :class="'ph-bold ' + s.icon"></i>
+                                <span class="tab-label" x-text="s.label"></span>
+                                <span class="tab-badge" x-text="s.badge"></span>
+                            </button>
+                        </template>
+                    </div>
+
+                    <!-- Showcase Window with Left/Right Arrow Controls -->
+                    <div class="showcase-window-wrapper">
+                        <!-- Navigation Arrows -->
+                        <button type="button" class="slideshow-arrow-btn prev" @click="prevSlide()" aria-label="Previous Slide">
+                            <i class="ph-bold ph-caret-left"></i>
+                        </button>
+                        <button type="button" class="slideshow-arrow-btn next" @click="nextSlide()" aria-label="Next Slide">
+                            <i class="ph-bold ph-caret-right"></i>
+                        </button>
+
+                        <div class="app-showcase-window">
+                            <!-- Showcase Window Header -->
+                            <div class="window-chrome">
+                                <div class="window-controls">
+                                    <span class="dot red"></span>
+                                    <span class="dot yellow"></span>
+                                    <span class="dot green"></span>
+                                </div>
+                                <div class="window-url-bar">
+                                    <i class="ph ph-lock-simple" style="color: #4CAF50;"></i>
+                                    <span x-show="activeSlide === 0">chillzone.app / community / official / #welcome-rules</span>
+                                    <span x-show="activeSlide === 1">chillzone.app / community / official / vc-chill-lounge</span>
+                                    <span x-show="activeSlide === 2">chillzone.app / community / official / spatial-infinite-canvas</span>
+                                    <span x-show="activeSlide === 3">chillzone.app / community / official / music-lounge</span>
+                                    <span x-show="activeSlide === 4">chillzone.app / community / official / settings-roles</span>
+                                </div>
+                                <div class="window-meta desktop-only">
+                                    <span class="online-pill" x-show="activeSlide !== 1"><i class="ph-fill ph-circle"></i> Connected</span>
+                                    <span class="online-pill" x-show="activeSlide === 1" style="color: #23A55A;"><i class="ph-fill ph-broadcast"></i> WebRTC Active • 16ms</span>
+                                </div>
+                            </div>
+
+                            <!-- Showcase Window Body Slides -->
+                            <div class="window-body showcase-slides-viewport">
+                                
+                                <!-- SLIDE 0: Rich Community Chat -->
+                                <div class="showcase-slide-item" x-show="activeSlide === 0" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0" style="width: 100%; display: flex;">
+                                    <div class="showcase-server-rail">
+                                        <div class="rail-icon active" title="Chillzone Official">
+                                            <img src="{% static 'img/chillzone_logo.svg' %}" alt="Chillzone">
+                                        </div>
+                                        <div class="rail-icon" title="Gaming Lounge">
+                                            <img src="{% static 'img/default_server.svg' %}" alt="Gaming">
+                                        </div>
+                                        <div class="rail-icon add" title="Create Server">
+                                            <i class="ph ph-plus"></i>
+                                        </div>
+                                    </div>
+
+                                    <div class="showcase-channels-rail desktop-only">
+                                        <div class="rail-header">
+                                            <strong>CHILLZONE OFFICIAL</strong>
+                                            <i class="ph-fill ph-seal-check" style="color: #4CAF50;"></i>
+                                        </div>
+                                        <div class="channel-group-title">TEXT CHANNELS</div>
+                                        <div class="mock-channel active"><i class="ph ph-hash"></i> welcome-rules</div>
+                                        <div class="mock-channel"><i class="ph ph-hash"></i> general-chat</div>
+                                        <div class="mock-channel"><i class="ph ph-hash"></i> memes-media</div>
+                                        <div class="channel-group-title" style="margin-top: 15px;">VOICE ROOMS</div>
+                                        <div class="mock-channel voice active"><i class="ph ph-speaker-high"></i> Chill Lounge (3)</div>
+                                        <div class="mock-channel voice"><i class="ph ph-speaker-high"></i> Music Room</div>
+                                    </div>
+
+                                    <div class="showcase-content-area" x-data="{ fireCount: 14, starCount: 8, heartCount: 12 }">
+                                        <div class="stage-chat-header">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <i class="ph ph-hash" style="color: var(--accent); font-size: 1.2rem;"></i>
+                                                <strong style="color: #fff;">welcome-rules</strong>
+                                                <span style="font-size: 0.8rem; color: var(--text-muted);" class="desktop-only">— Read the guidelines & start vibing</span>
+                                            </div>
+                                            <div style="display: flex; gap: 10px; color: var(--text-muted);">
+                                                <i class="ph ph-bell"></i>
+                                                <i class="ph ph-users"></i>
+                                                <i class="ph ph-magnifying-glass"></i>
+                                            </div>
+                                        </div>
+
+                                        <div class="stage-messages-list">
+                                            <div class="stage-message-row">
+                                                <img src="{% static 'img/default_avatar_orange.svg' %}" alt="Adarsh" class="stage-avatar">
+                                                <div class="stage-msg-content">
+                                                    <div class="stage-author-bar">
+                                                        <span class="stage-author-name">Adarsh</span>
+                                                        <span class="role-badge-pill" style="background: rgba(255,107,43,0.15); color: var(--accent); border: 1px solid var(--accent);">FOUNDER</span>
+                                                        <span class="stage-time">10:45 AM</span>
+                                                    </div>
+                                                    <p class="stage-text">Welcome to CHILL ZONE! Grab a cup of coffee, explore our smooth spatial audio, and jump into chat! ☕🎉</p>
+                                                    <div class="mockup-reactions" style="margin-top: 8px; display: flex; gap: 8px;">
+                                                        <button type="button" class="reaction-tag" :class="fireCount > 14 ? 'active' : ''" @click="fireCount++">🔥 <span x-text="fireCount"></span></button>
+                                                        <button type="button" class="reaction-tag" :class="starCount > 8 ? 'active' : ''" @click="starCount++">✨ <span x-text="starCount"></span></button>
+                                                        <button type="button" class="reaction-tag" :class="heartCount > 12 ? 'active' : ''" @click="heartCount++">❤️ <span x-text="heartCount"></span></button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="stage-message-row">
+                                                <img src="{% static 'img/default_avatar_green.svg' %}" alt="Sarah" class="stage-avatar">
+                                                <div class="stage-msg-content">
+                                                    <div class="stage-author-bar">
+                                                        <span class="stage-author-name">Sarah</span>
+                                                        <span class="role-badge-pill" style="background: rgba(76,175,80,0.15); color: #4CAF50; border: 1px solid #4CAF50;">MOD</span>
+                                                        <span class="stage-time">10:48 AM</span>
+                                                    </div>
+                                                    <p class="stage-text">Audio sounds crystal clear on the new WebRTC engine. Love the instant theme switching & spatial canvas too!</p>
+                                                    <div class="stage-attachment-pill">
+                                                        <i class="ph-fill ph-file-audio" style="color: var(--accent);"></i>
+                                                        <span>chillzone_intro.mp3 (320kbps stereo)</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="stage-input-dock">
+                                            <div class="stage-input-field">
+                                                <i class="ph ph-plus-circle" style="color: var(--text-muted); font-size: 1.2rem;"></i>
+                                                <span style="color: var(--text-muted); font-size: 0.9rem;">Message #welcome-rules...</span>
+                                                <div style="margin-left: auto; display: flex; gap: 12px; color: var(--text-muted);">
+                                                    <i class="ph ph-gif"></i>
+                                                    <i class="ph ph-smiley"></i>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SLIDE 1: Low-Latency Voice Rooms -->
+                                <div class="showcase-slide-item" x-show="activeSlide === 1" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0" style="width: 100%; display: flex;" x-data="{ micMuted: false, deafened: false, krispActive: true }">
+                                    <div class="voice-stage-layout" style="width: 100%; display: flex; flex-direction: column;">
+                                        <div class="voice-stage-header">
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <i class="ph-fill ph-speaker-high" style="color: #23A55A; font-size: 1.3rem;"></i>
+                                                <strong style="color: #fff; font-size: 1rem;">Chill Lounge Voice Stage</strong>
+                                                <span class="vc-rtc-pill"><i class="ph-fill ph-check-circle"></i> RTC Connected (16ms)</span>
+                                            </div>
+                                            <div style="font-size: 0.8rem; color: var(--text-muted);">Opus 320kbps • 0% Packet Loss</div>
+                                        </div>
+
+                                        <div class="voice-stage-grid">
+                                            <div class="voice-peer-card speaking">
+                                                <div class="peer-avatar-wrap">
+                                                    <img src="{% static 'img/default_avatar_orange.svg' %}" alt="Alex" class="peer-avatar">
+                                                    <div class="peer-pulse-ring"></div>
+                                                </div>
+                                                <div class="peer-name">Alex (You)</div>
+                                                <div class="peer-status" style="color: #23A55A;">Speaking...</div>
+                                                <div class="peer-wave-indicator">
+                                                    <span></span><span></span><span></span><span></span>
+                                                </div>
+                                            </div>
+
+                                            <div class="voice-peer-card">
+                                                <div class="peer-avatar-wrap">
+                                                    <img src="{% static 'img/default_avatar_green.svg' %}" alt="Sarah" class="peer-avatar">
+                                                </div>
+                                                <div class="peer-name">Sarah</div>
+                                                <div class="peer-status">Listening</div>
+                                            </div>
+
+                                            <div class="voice-peer-card speaking">
+                                                <div class="peer-avatar-wrap">
+                                                    <img src="{% static 'img/default_avatar_purple.svg' %}" alt="Liam" class="peer-avatar">
+                                                    <div class="peer-pulse-ring" style="border-color: #A855F7;"></div>
+                                                </div>
+                                                <div class="peer-name">Liam</div>
+                                                <div class="peer-status" style="color: #A855F7;">Speaking...</div>
+                                                <div class="peer-wave-indicator">
+                                                    <span></span><span></span><span></span><span></span>
+                                                </div>
+                                            </div>
+
+                                            <div class="voice-peer-card">
+                                                <div class="peer-avatar-wrap">
+                                                    <img src="{% static 'img/default_avatar_blue.svg' %}" alt="Maya" class="peer-avatar">
+                                                </div>
+                                                <div class="peer-name">Maya</div>
+                                                <div class="peer-status">Listening</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="voice-stage-dock">
+                                            <button type="button" class="stage-dock-btn" :class="micMuted ? 'danger' : 'active'" @click="micMuted = !micMuted">
+                                                <i :class="micMuted ? 'ph-bold ph-microphone-slash' : 'ph-fill ph-microphone'"></i>
+                                                <span x-text="micMuted ? 'Muted' : 'Mute Mic'"></span>
+                                            </button>
+                                            <button type="button" class="stage-dock-btn" :class="deafened ? 'danger' : 'active'" @click="deafened = !deafened">
+                                                <i :class="deafened ? 'ph-bold ph-speaker-slash' : 'ph-fill ph-headphones'"></i>
+                                                <span x-text="deafened ? 'Deafened' : 'Deafen'"></span>
+                                            </button>
+                                            <button type="button" class="stage-dock-btn" :class="krispActive ? 'highlight' : ''" @click="krispActive = !krispActive">
+                                                <i class="ph-fill ph-ear"></i>
+                                                <span>Krisp AI Noise Reduction</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SLIDE 2: Spatial Infinite Canvas (Interactive 2D Proximity Audio) -->
+                                <div class="showcase-slide-item" x-show="activeSlide === 2" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0" style="width: 100%; display: flex;">
+                                    <div class="spatial-canvas-wrapper" x-data="{
+                                        draggingNode: null,
+                                        nodes: [
+                                            { id: 1, name: 'You (Adarsh)', role: 'Founder', avatar: '{% static 'img/default_avatar_orange.svg' %}', x: 220, y: 130, speaking: true, color: '#FF6B2B' },
+                                            { id: 2, name: 'Sarah', role: 'Voice Lead', avatar: '{% static 'img/default_avatar_green.svg' %}', x: 380, y: 100, speaking: false, color: '#4CAF50' },
+                                            { id: 3, name: 'Liam', role: 'DJ Vibes', avatar: '{% static 'img/default_avatar_purple.svg' %}', x: 500, y: 220, speaking: true, color: '#A855F7' },
+                                            { id: 4, name: 'Maya', role: 'Gamer', avatar: '{% static 'img/default_avatar_blue.svg' %}', x: 180, y: 250, speaking: false, color: '#38BDF8' }
+                                        ],
+                                        startDrag(e, node) {
+                                            this.draggingNode = node;
+                                            const startX = e.clientX || (e.touches && e.touches[0].clientX);
+                                            const startY = e.clientY || (e.touches && e.touches[0].clientY);
+                                            const initialX = node.x;
+                                            const initialY = node.y;
+                                            const moveHandler = (moveEv) => {
+                                                if (!this.draggingNode) return;
+                                                const curX = moveEv.clientX || (moveEv.touches && moveEv.touches[0].clientX);
+                                                const curY = moveEv.clientY || (moveEv.touches && moveEv.touches[0].clientY);
+                                                node.x = Math.max(30, Math.min(680, initialX + (curX - startX)));
+                                                node.y = Math.max(30, Math.min(320, initialY + (curY - startY)));
+                                            };
+                                            const upHandler = () => {
+                                                this.draggingNode = null;
+                                                window.removeEventListener('mousemove', moveHandler);
+                                                window.removeEventListener('mouseup', upHandler);
+                                                window.removeEventListener('touchmove', moveHandler);
+                                                window.removeEventListener('touchend', upHandler);
+                                            };
+                                            window.addEventListener('mousemove', moveHandler);
+                                            window.addEventListener('mouseup', upHandler);
+                                            window.addEventListener('touchmove', moveHandler, { passive: false });
+                                            window.addEventListener('touchend', upHandler);
+                                        },
+                                        recenter() {
+                                            this.nodes[0].x = 220; this.nodes[0].y = 130;
+                                            this.nodes[1].x = 380; this.nodes[1].y = 100;
+                                            this.nodes[2].x = 500; this.nodes[2].y = 220;
+                                            this.nodes[3].x = 180; this.nodes[3].y = 250;
+                                        }
+                                    }">
+                                        <div class="spatial-canvas-hud">
+                                            <div class="spatial-hud-left">
+                                                <span class="spatial-hud-badge"><i class="ph-bold ph-arrows-out-cardinal"></i> Infinite Spatial Grid</span>
+                                                <span class="spatial-hud-hint">Interactive: Drag any avatar to test 3D spatial proximity audio</span>
+                                            </div>
+                                            <div class="spatial-hud-controls">
+                                                <button type="button" class="spatial-hud-btn" @click="recenter()" title="Recenter nodes"><i class="ph-bold ph-arrows-counter-clockwise"></i> Recenter</button>
+                                            </div>
+                                        </div>
+
+                                        <div class="spatial-canvas-board">
+                                            <div class="spatial-grid-bg"></div>
+
+                                            <!-- Dynamic Distance Beams -->
+                                            <svg class="spatial-connections-layer">
+                                                <line :x1="nodes[0].x + 28" :y1="nodes[0].y + 28" :x2="nodes[1].x + 28" :y2="nodes[1].y + 28" class="spatial-beam-line" />
+                                                <line :x1="nodes[1].x + 28" :y1="nodes[1].y + 28" :x2="nodes[2].x + 28" :y2="nodes[2].y + 28" class="spatial-beam-line" />
+                                            </svg>
+
+                                            <!-- Draggable Avatar Nodes -->
+                                            <template x-for="n in nodes" :key="n.id">
+                                                <div class="spatial-avatar-node" 
+                                                     :style="`left: ${n.x}px; top: ${n.y}px;`"
+                                                     :class="n.speaking ? 'is-speaking' : ''"
+                                                     @mousedown="startDrag($event, n)"
+                                                     @touchstart="startDrag($event, n)">
+                                                    
+                                                    <!-- Proximity Aura Ring -->
+                                                    <div class="spatial-aura-ring" :style="`border-color: ${n.color}50; background: ${n.color}0a;`"></div>
+
+                                                    <!-- Avatar Disc -->
+                                                    <div class="spatial-avatar-disc" :style="`border-color: ${n.color};`">
+                                                        <img :src="n.avatar" :alt="n.name">
+                                                        <span class="spatial-node-pulse" x-show="n.speaking" :style="`border-color: ${n.color};`"></span>
+                                                    </div>
+
+                                                    <!-- Node Info Tag -->
+                                                    <div class="spatial-node-tag">
+                                                        <span class="spatial-node-name" x-text="n.name"></span>
+                                                        <span class="spatial-node-role" :style="`color: ${n.color};`" x-text="n.role"></span>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SLIDE 3: Synchronized Music Stage -->
+                                <div class="showcase-slide-item" x-show="activeSlide === 3" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0" style="width: 100%; display: flex;" x-data="{ isPlaying: true, progress: 45 }">
+                                    <div class="music-stage-layout" style="width: 100%; display: flex; align-items: center; justify-content: space-around; padding: 25px 20px; box-sizing: border-box; gap: 20px;">
+                                        <!-- Vinyl Spinning Deck -->
+                                        <div class="music-vinyl-deck">
+                                            <div class="vinyl-record-wrap" :class="isPlaying ? 'spinning' : ''">
+                                                <div class="vinyl-grooves"></div>
+                                                <img src="{% static 'img/chillzone_logo.svg' %}" alt="Vinyl Center" class="vinyl-center-art">
+                                            </div>
+                                        </div>
+
+                                        <!-- Track Information & Player Controls -->
+                                        <div class="music-player-panel" style="flex: 1; max-width: 440px;">
+                                            <div class="music-track-meta">
+                                                <span class="track-badge">LIVE IN MUSIC ROOM</span>
+                                                <h3 class="track-title">Chillzone Midnight Beats</h3>
+                                                <p class="track-artist">Lofi & Synthwave Collective • Lossless 320kbps</p>
+                                            </div>
+
+                                            <!-- Interactive Progress Bar -->
+                                            <div class="music-scrub-bar">
+                                                <div class="scrub-fill" :style="`width: ${progress}%;`"></div>
+                                            </div>
+                                            <div class="scrub-times">
+                                                <span>1:42</span>
+                                                <span>3:50</span>
+                                            </div>
+
+                                            <!-- Controls -->
+                                            <div class="music-controls-row">
+                                                <button type="button" class="music-ctrl-btn" title="Previous Track"><i class="ph-bold ph-skip-back"></i></button>
+                                                <button type="button" class="music-play-btn" @click="isPlaying = !isPlaying" :title="isPlaying ? 'Pause' : 'Play'">
+                                                    <i :class="isPlaying ? 'ph-fill ph-pause' : 'ph-fill ph-play'"></i>
+                                                </button>
+                                                <button type="button" class="music-ctrl-btn" title="Next Track"><i class="ph-bold ph-skip-forward"></i></button>
+                                                <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: auto;">4 listeners connected</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SLIDE 4: Custom Spaces & Roles -->
+                                <div class="showcase-slide-item" x-show="activeSlide === 4" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0" style="width: 100%; display: flex;" x-data="{ copiedInvite: false }">
+                                    <div class="roles-stage-layout" style="width: 100%; padding: 25px 30px; box-sizing: border-box; display: flex; gap: 30px; justify-content: space-between;">
+                                        <!-- Role Hierarchy Column -->
+                                        <div style="flex: 1;">
+                                            <h4 style="margin: 0 0 14px 0; font-size: 0.95rem; font-weight: 700; color: #fff;">Server Roles & Permissions</h4>
+                                            <div class="role-preview-card" style="margin-bottom: 10px;">
+                                                <span class="role-pill-color" style="background: #FACC15;"></span>
+                                                <div>
+                                                    <div style="font-weight: 700; font-size: 0.9rem; color: #FACC15;">Server Owner</div>
+                                                    <div style="font-size: 0.75rem; color: var(--text-muted);">Administrator • All Permissions</div>
+                                                </div>
+                                            </div>
+                                            <div class="role-preview-card" style="margin-bottom: 10px;">
+                                                <span class="role-pill-color" style="background: #4CAF50;"></span>
+                                                <div>
+                                                    <div style="font-weight: 700; font-size: 0.9rem; color: #4CAF50;">Moderator</div>
+                                                    <div style="font-size: 0.75rem; color: var(--text-muted);">Manage Channels, Kick & Ban, Delete Messages</div>
+                                                </div>
+                                            </div>
+                                            <div class="role-preview-card">
+                                                <span class="role-pill-color" style="background: #A855F7;"></span>
+                                                <div>
+                                                    <div style="font-weight: 700; font-size: 0.9rem; color: #A855F7;">VIP Member</div>
+                                                    <div style="font-size: 0.75rem; color: var(--text-muted);">Priority Speaker, Embed Links, GIF Reactions</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Instant Invite & Security Card -->
+                                        <div style="width: 320px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 18px; box-sizing: border-box;">
+                                            <h4 style="margin: 0 0 8px 0; font-size: 0.9rem; color: #fff;">Instant Invite Link</h4>
+                                            <p style="font-size: 0.78rem; color: var(--text-muted); margin: 0 0 14px 0;">Share with friends to join your space instantly.</p>
+                                            <div style="display: flex; gap: 8px;">
+                                                <input type="text" value="chillzone.app/invite/cz-official" readonly style="flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; padding: 8px; font-size: 0.8rem;">
+                                                <button type="button" class="btn btn-primary" style="padding: 8px 14px; font-size: 0.82rem;" @click="copiedInvite = true; setTimeout(() => copiedInvite = false, 2500)">
+                                                    <span x-text="copiedInvite ? 'Copied!' : 'Copy'"></span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Showcase Window Body -->
-                    <div class="window-body">
-                        <!-- Left Server Bar Mock -->
-                        <div class="showcase-server-rail">
-                            <div class="rail-icon active" title="Chillzone Official">
-                                <img src="{% static 'img/chillzone_logo.svg' %}" alt="Chillzone">
-                            </div>
-                            <div class="rail-icon" title="Gaming Lounge">
-                                <img src="{% static 'img/default_server.svg' %}" alt="Gaming">
-                            </div>
-                            <div class="rail-icon add" title="Create Server">
-                                <i class="ph ph-plus"></i>
-                            </div>
+                    <!-- Bottom Indicator Dots & Autoplay status -->
+                    <div class="slideshow-bottom-bar">
+                        <div class="slideshow-dots">
+                            <template x-for="(s, idx) in slides" :key="s.id">
+                                <button type="button" 
+                                        class="slideshow-dot-btn" 
+                                        :class="activeSlide === idx ? 'active' : ''"
+                                        @click="setSlide(idx)" 
+                                        :aria-label="'Go to slide ' + (idx + 1)">
+                                    <span class="dot-fill"></span>
+                                </button>
+                            </template>
                         </div>
-
-                        <!-- Sidebar Channels Mock -->
-                        <div class="showcase-channels-rail desktop-only">
-                            <div class="rail-header">
-                                <strong>CHILLZONE OFFICIAL</strong>
-                                <i class="ph-fill ph-seal-check" style="color: #4CAF50;"></i>
-                            </div>
-                            <div class="channel-group-title">TEXT CHANNELS</div>
-                            <div class="mock-channel active"><i class="ph ph-hash"></i> welcome-rules</div>
-                            <div class="mock-channel"><i class="ph ph-hash"></i> general-chat</div>
-                            <div class="mock-channel"><i class="ph ph-hash"></i> memes-media</div>
-                            <div class="channel-group-title" style="margin-top: 15px;">VOICE ROOMS</div>
-                            <div class="mock-channel voice active"><i class="ph ph-speaker-high"></i> Chill Lounge (3)</div>
-                            <div class="mock-channel voice"><i class="ph ph-speaker-high"></i> Music Room</div>
-                        </div>
-
-                        <!-- Main Chat & Voice Stage -->
-                        <div class="showcase-content-area">
-                            <div class="stage-chat-header">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <i class="ph ph-hash" style="color: var(--text-muted); font-size: 1.2rem;"></i>
-                                    <strong style="color: #fff;">welcome-rules</strong>
-                                    <span style="font-size: 0.8rem; color: var(--text-muted);" class="desktop-only">— Read the guidelines & start vibing</span>
-                                </div>
-                                <div style="display: flex; gap: 10px; color: var(--text-muted);">
-                                    <i class="ph ph-bell"></i>
-                                    <i class="ph ph-users"></i>
-                                    <i class="ph ph-magnifying-glass"></i>
-                                </div>
-                            </div>
-
-                            <div class="stage-messages-list">
-                                <div class="stage-message-row">
-                                    <img src="{% static 'img/default_avatar_orange.svg' %}" alt="Adarsh" class="stage-avatar">
-                                    <div class="stage-msg-content">
-                                        <div class="stage-author-bar">
-                                            <span class="stage-author-name">Adarsh</span>
-                                            <span class="role-badge-pill" style="background: rgba(255,107,43,0.15); color: var(--accent); border: 1px solid var(--accent);">FOUNDER</span>
-                                            <span class="stage-time">10:45 AM</span>
-                                        </div>
-                                        <p class="stage-text">Welcome to CHILL ZONE! Grab a cup of coffee, customize your profile in settings, and jump into voice! ☕🎉</p>
-                                    </div>
-                                </div>
-
-                                <div class="stage-message-row">
-                                    <img src="{% static 'img/default_avatar_green.svg' %}" alt="Sarah" class="stage-avatar">
-                                    <div class="stage-msg-content">
-                                        <div class="stage-author-bar">
-                                            <span class="stage-author-name">Sarah</span>
-                                            <span class="role-badge-pill" style="background: rgba(76,175,80,0.15); color: #4CAF50; border: 1px solid #4CAF50;">MOD</span>
-                                            <span class="stage-time">10:48 AM</span>
-                                        </div>
-                                        <p class="stage-text">Audio sounds pristine on the new WebRTC engine. Love the instant theme switching too!</p>
-                                        <div class="stage-attachment-pill">
-                                            <i class="ph-fill ph-file-audio" style="color: var(--accent);"></i>
-                                            <span>chillzone_intro.mp3 (320kbps stereo)</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="stage-input-dock">
-                                <div class="stage-input-field">
-                                    <i class="ph ph-plus-circle" style="color: var(--text-muted); font-size: 1.2rem;"></i>
-                                    <span style="color: var(--text-muted); font-size: 0.9rem;">Message #welcome-rules...</span>
-                                    <div style="margin-left: auto; display: flex; gap: 12px; color: var(--text-muted);">
-                                        <i class="ph ph-gif"></i>
-                                        <i class="ph ph-smiley"></i>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="slideshow-autoplay-indicator" @click="toggleAutoplay()" title="Click to toggle auto-rotation">
+                            <i :class="autoplay ? 'ph-bold ph-play-circle' : 'ph-bold ph-pause-circle'" style="color: var(--accent);"></i>
+                            <span x-text="autoplay ? 'Autoplay Active (Hover to pause)' : 'Paused (Click to resume)'"></span>
                         </div>
                     </div>
                 </div>

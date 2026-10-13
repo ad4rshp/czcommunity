@@ -1,5 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse
+from django.urls import reverse
 from django.contrib.auth.models import User
 from django.contrib import messages
 from .models import Profile
@@ -218,10 +221,14 @@ def profile_edit(request):
             profile.status_setting = status_setting
         profile.dm_setting = request.POST.get('dm_setting', 'everyone')
         
+        is_ajax = request.headers.get('Accept') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.POST.get('ajax') == '1'
+        
         if 'avatar' in request.FILES:
             avatar_file = request.FILES['avatar']
             # Limit maximum size to 1MB (1 * 1024 * 1024 bytes)
             if avatar_file.size > 1 * 1024 * 1024:
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': 'Avatar file size must be less than 1MB.'}, status=400)
                 return render(request, 'profiles/edit.html', {
                     'profile': profile,
                     'error': 'Avatar file size must be less than 1MB.',
@@ -230,11 +237,37 @@ def profile_edit(request):
             profile.avatar = avatar_file
             
         profile.save()
+        
+        if is_ajax:
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Profile and status have been updated successfully!',
+                'status_setting': profile.status_setting,
+                'status_display': profile.get_status_setting_display(),
+                'avatar_url': profile.get_avatar_url(),
+            })
+            
         messages.success(request, 'Your profile and status have been updated successfully!')
-        return redirect('profile_edit')
+        tab = request.POST.get('current_tab', 'profile')
+        return redirect(f"{reverse('profile_edit')}?tab={tab}")
         
     base_template = 'base_empty.html' if (request.headers.get('HX-Request') or request.headers.get('X-Requested-With') == 'XMLHttpRequest') else 'authenticated_base.html'
     return render(request, 'profiles/edit.html', {'profile': profile, 'base_template': base_template})
+
+@login_required
+@require_POST
+def quick_status_update(request):
+    new_status = request.POST.get('status')
+    if new_status in ['online', 'idle', 'dnd', 'offline']:
+        profile, _ = Profile.objects.get_or_create(user=request.user)
+        profile.status_setting = new_status
+        profile.save()
+        return JsonResponse({
+            'status': 'success',
+            'status_setting': profile.status_setting,
+            'status_display': profile.get_status_setting_display()
+        })
+    return JsonResponse({'status': 'error', 'message': 'Invalid status option.'}, status=400)
 
 @login_required
 def friends_list(request):

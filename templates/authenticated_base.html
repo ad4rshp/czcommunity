@@ -42,7 +42,7 @@
             <a href="{% url 'edit_dashboard' %}" class="action-icon desktop-only" title="Community Settings"><i class="ph ph-gear"></i></a>
             {% endif %}
             
-            <a href="{% url 'profile' request.user.username %}" class="profile-pill" onclick="event.preventDefault(); openProfileModalFromUrl('{% url 'profile_card_fragment' request.user.username %}');" title="User Profile">
+            <a href="{% url 'profile' request.user.username %}" class="profile-pill desktop-only" onclick="event.preventDefault(); openProfileModalFromUrl('{% url 'profile_card_fragment' request.user.username %}');" title="User Profile">
                 <div class="profile-avatar">
                     <img src="{{ request.user.profile.get_avatar_url }}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
                     
@@ -65,16 +65,31 @@
     </header>
 
     <main class="main-content">
-        {% if messages %}
-        <div class="cz-global-messages-wrap" style="max-width: 900px; margin: 15px auto 0 auto; padding: 0 16px;">
+        <div class="cz-global-messages-wrap" id="czGlobalToastContainer">
+            {% if messages %}
             {% for message in messages %}
-            <div class="alert alert-{{ message.tags|default:'info' }}" style="padding: 12px 18px; border-radius: var(--radius-md); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; background: {% if message.tags == 'success' %}rgba(76, 175, 80, 0.15){% elif message.tags == 'error' %}rgba(244, 67, 54, 0.15){% else %}rgba(255, 107, 43, 0.15){% endif %}; border: 1px solid {% if message.tags == 'success' %}#4CAF50{% elif message.tags == 'error' %}#F44336{% else %}var(--accent){% endif %}; color: #fff;">
-                <i class="ph-fill {% if message.tags == 'success' %}ph-check-circle{% elif message.tags == 'error' %}ph-warning-circle{% else %}ph-info{% endif %}" style="font-size: 1.25rem;"></i>
-                <span>{{ message }}</span>
+            <div class="cz-global-toast toast-{{ message.tags|default:'info' }}" role="alert">
+                <i class="cz-toast-icon ph-fill {% if message.tags == 'success' %}ph-check-circle{% elif message.tags == 'error' %}ph-warning-circle{% else %}ph-info{% endif %}"></i>
+                <span class="cz-toast-text">{{ message }}</span>
+                <button type="button" class="cz-toast-close" onclick="this.closest('.cz-global-toast').remove()" aria-label="Dismiss">
+                    <i class="ph ph-x"></i>
+                </button>
             </div>
             {% endfor %}
+            <script>
+                (function() {
+                    setTimeout(function() {
+                        var toasts = document.querySelectorAll('.cz-global-toast');
+                        toasts.forEach(function(t) {
+                            t.style.opacity = '0';
+                            t.style.transform = 'translateY(-12px)';
+                            setTimeout(function() { if (t && t.parentNode) t.parentNode.removeChild(t); }, 300);
+                        });
+                    }, 4000);
+                })();
+            </script>
+            {% endif %}
         </div>
-        {% endif %}
         {% block content %}
         {% endblock %}
     </main>

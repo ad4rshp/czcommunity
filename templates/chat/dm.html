@@ -90,13 +90,12 @@
                         {% if message.edited_at %}
                         <span class="edited-tag">(edited)</span>
                         {% endif %}
+                    <div class="message-actions">
+                        {% if message.author == request.user %}
+                        <button type="button" class="msg-action-btn" onclick="startEdit({{ message.id }})" title="Edit" aria-label="Edit"><i class="ph-bold ph-pencil-simple"></i></button>
+                        <button type="button" class="msg-action-btn danger" onclick="deleteMessage({{ message.id }})" title="Delete" aria-label="Delete"><i class="ph-bold ph-trash"></i></button>
+                        {% endif %}
                     </div>
-                </div>
-                <div class="message-actions">
-                    {% if message.author == request.user %}
-                    <button type="button" onclick="startEdit({{ message.id }})">Edit</button>
-                    <button type="button" onclick="deleteMessage({{ message.id }})">Delete</button>
-                    {% endif %}
                 </div>
             </div>
             {% endfor %}
