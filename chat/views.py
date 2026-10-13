@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.http import JsonResponse
@@ -414,7 +415,6 @@ def edit_channel(request, channel_slug):
                 except Exception as e:
                     print("Error saving permissions:", e)
                     
-            from django.contrib import messages
             messages.success(request, f"Channel #{channel.name} updated successfully.")
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Accept') == 'application/json':
                 return JsonResponse({'status': 'ok', 'slug': channel.slug, 'name': channel.name})
@@ -456,7 +456,6 @@ def delete_channel(request, channel_slug):
         except Exception:
             pass
             
-        from django.contrib import messages
         messages.success(request, f"Channel #{c_name} deleted successfully.")
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'status': 'ok'})
