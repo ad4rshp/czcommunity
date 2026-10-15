@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -32,8 +34,7 @@ IS_PRODUCTION = (
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 if not SECRET_KEY:
     if IS_PRODUCTION:
-        import warnings
-        warnings.warn("DJANGO_SECRET_KEY is not set in production! Using fallback key.")
+        raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set in production")
     SECRET_KEY = 'django-insecure-gus3sx2x9nl(9m$9)_^$-(_khj$ux2ehusd#sgv+@-4y!#_me-'
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -49,7 +50,6 @@ if allowed_hosts_env:
     ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(',') if h.strip()]
 else:
     ALLOWED_HOSTS = [
-        '*', 
         'localhost', 
         '127.0.0.1', 
         '.railway.app', 
