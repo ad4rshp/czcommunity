@@ -225,7 +225,8 @@ class CommunityMember(models.Model):
         return False
 
     async def ahas_permission(self, perm_name):
-        if getattr(self, 'user', None) and getattr(self.community, 'owner', None) and self.user == self.community.owner:
+        # Use _id fields to avoid synchronous DB access in async context
+        if self.user_id == self.community.owner_id:
             return True
             
         roles_to_check = []

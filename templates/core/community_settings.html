@@ -405,12 +405,13 @@
             <h1 style="margin-top: 0; margin-bottom: 20px;">Server Invites</h1>
             <div class="settings-section">
                 <h4 style="margin-top: 0; color: var(--text-primary);">Create New Invite</h4>
-                <form method="post" style="display: flex; gap: 15px; align-items: flex-end;">
+                <form method="post" id="inviteCreateForm" style="display: flex; gap: 15px; align-items: flex-end;" onsubmit="return validateInviteForm()">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="create_invite">
                     <div class="settings-field" style="margin: 0; flex: 1;">
                         <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">MAX USES (0 for unlimited)</label>
-                        <input type="number" name="max_uses" value="0" min="0" style="width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary);">
+                        <input type="number" name="max_uses" id="invite_max_uses" value="0" min="0" max="10000" style="width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary);">
+                        <small id="invite_max_uses_error" style="color: #F44336; display: none; margin-top: 4px; font-size: 0.8rem;"></small>
                     </div>
                     <div class="settings-field" style="margin: 0; flex: 1;">
                         <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">EXPIRATION</label>
@@ -423,6 +424,30 @@
                     </div>
                     <button type="submit" class="btn btn-primary" style="height: 44px; padding: 0 20px;">Generate Code</button>
                 </form>
+                <script>
+                function validateInviteForm() {
+                    const input = document.getElementById('invite_max_uses');
+                    const errEl = document.getElementById('invite_max_uses_error');
+                    const val = parseInt(input.value, 10);
+                    if (isNaN(val) || val < 0) {
+                        errEl.textContent = 'Max uses cannot be negative.';
+                        errEl.style.display = 'block';
+                        input.style.borderColor = '#F44336';
+                        input.focus();
+                        return false;
+                    }
+                    if (val > 10000) {
+                        errEl.textContent = 'Max uses cannot exceed 10,000.';
+                        errEl.style.display = 'block';
+                        input.style.borderColor = '#F44336';
+                        input.focus();
+                        return false;
+                    }
+                    errEl.style.display = 'none';
+                    input.style.borderColor = '';
+                    return true;
+                }
+                </script>
             </div>
             
             <div class="settings-section" style="padding: 0;">

@@ -85,8 +85,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
                 # Save message to DB via ChatService
                 result = await ChatService.create_message(self.channel_slug, self.scope["user"], message_content, embed_data)
-                if result:
+                
+                # CRITICAL: (None, None) is truthy — must check payload is a valid dict
+                message = None
+                payload = None
+                if result and isinstance(result, tuple) and len(result) == 2:
                     message, payload = result
+                
+                if message and payload and isinstance(payload, dict):
                     await self.channel_layer.group_send(
                         self.room_group_name,
                         payload
@@ -115,6 +121,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     import asyncio
                     from bots.framework import registry
                     asyncio.create_task(registry.dispatch_message(message, message_content))
+                else:
+                    # Send error back to the sender — keep WebSocket alive
+                    await self.send(text_data=json.dumps({
+                        "type": "chat.error",
+                        "message": "Could not send message. You may lack permission or the channel is unavailable."
+                    }))
         elif action == "message.update":
             message_id = text_data_json.get("message_id")
             new_content = text_data_json.get("content", "")

@@ -559,6 +559,7 @@
             setTimeout(() => { msg.style.display = 'none'; }, 2000);
         }
     }
+    window.saveUserPref = saveUserPref;
 
     function getUserPref(key, defaultValue) {
         const stored = localStorage.getItem('cz_pref_' + key);
@@ -816,6 +817,7 @@
         });
         showSettingsToast('Notification preferences saved successfully!', 'success');
     }
+    window.saveAllNotificationPrefs = saveAllNotificationPrefs;
 
     document.addEventListener('DOMContentLoaded', () => {
         // Initialize audio devices

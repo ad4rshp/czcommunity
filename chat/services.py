@@ -9,8 +9,8 @@ class ChatService:
             channel = await Channel.objects.select_related('category__community').aget(slug=channel_slug)
             community = channel.category.community
             
-            # Use async ORM for related objects
-            membership = await CommunityMember.objects.filter(community=community, user=user).afirst()
+            # Use async ORM for related objects — select_related avoids lazy loads in async
+            membership = await CommunityMember.objects.select_related('community', 'user').filter(community=community, user=user).afirst()
             is_owner = (user.id == community.owner_id)
             
             # Check SEND_MESSAGES
