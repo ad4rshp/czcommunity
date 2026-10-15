@@ -93,21 +93,23 @@
             
             <div style="display: flex; flex-direction: column; gap: 10px;">
                 {% for friend in friends %}
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: rgba(255,255,255,0.02); border-radius: var(--radius-md); border: 1px solid var(--border); transition: transform 0.2s, background 0.2s;" onmouseover="this.style.background='var(--bg-surface)'; this.style.transform='translateX(5px)';" onmouseout="this.style.background='rgba(255,255,255,0.02)'; this.style.transform='translateX(0)';">
+                <div class="friend-card-row" data-friend-username="{{ friend.username }}" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: rgba(255,255,255,0.02); border-radius: var(--radius-md); border: 1px solid var(--border); transition: transform 0.2s, background 0.2s;" onmouseover="this.style.background='var(--bg-surface)'; this.style.transform='translateX(5px)';" onmouseout="this.style.background='rgba(255,255,255,0.02)'; this.style.transform='translateX(0)';">
                     <a href="{% url 'profile' friend.username %}" style="display: flex; align-items: center; gap: 15px; text-decoration: none; flex: 1;">
                         <div style="width: 40px; height: 40px; position: relative; flex-shrink: 0;">
                             <img src="{{ friend.profile.get_avatar_url }}" alt="{{ friend.username }}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
                             {% if friend.profile.status_setting == 'online' %}
-                            <div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #4CAF50; border: 2px solid var(--bg-surface); border-radius: 50%;"></div>
+                            <div class="friend-status-dot" style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #4CAF50; border: 2px solid var(--bg-surface); border-radius: 50%;"></div>
                             {% elif friend.profile.status_setting == 'idle' %}
-                            <div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #FF9800; border: 2px solid var(--bg-surface); border-radius: 50%;"></div>
+                            <div class="friend-status-dot" style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #FFC107; border: 2px solid var(--bg-surface); border-radius: 50%;"></div>
                             {% elif friend.profile.status_setting == 'dnd' %}
-                            <div style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #F44336; border: 2px solid var(--bg-surface); border-radius: 50%;"></div>
+                            <div class="friend-status-dot" style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #F44336; border: 2px solid var(--bg-surface); border-radius: 50%;"></div>
+                            {% else %}
+                            <div class="friend-status-dot" style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #747f8d; border: 2px solid var(--bg-surface); border-radius: 50%;"></div>
                             {% endif %}
                         </div>
                         <div>
                             <span style="font-weight: bold; font-size: 1.1rem; color: var(--text-primary);">{{ friend.username }}</span>
-                            <div style="font-size: 0.85rem; color: var(--text-muted);">{{ friend.profile.get_status_setting_display }}</div>
+                            <div class="friend-status-text" style="font-size: 0.85rem; color: var(--text-muted);">{{ friend.profile.get_status_setting_display }}</div>
                         </div>
                     </a>
                     <div style="display: flex; gap: 10px;">

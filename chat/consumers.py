@@ -10,21 +10,106 @@ from .models import Channel, Message, Reaction, DirectMessage, DirectMessageSess
 from .services import ChatService
 
 class NotificationConsumer(AsyncWebsocketConsumer):
+    # Class-level connection tracking
+    _active_connections = {}  # user_id -> set of channel_names
+    _offline_tasks = {}       # user_id -> asyncio.Task
+
     async def connect(self):
         if self.scope["user"].is_anonymous:
             await self.close()
             return
             
-        self.user_group_name = f"user_notifications_{self.scope['user'].id}"
+        self.user = self.scope["user"]
+        self.user_group_name = f"user_notifications_{self.user.id}"
         await self.channel_layer.group_add(self.user_group_name, self.channel_name)
+        await self.channel_layer.group_add("user_presence", self.channel_name)
         await self.accept()
+
+        user_id = self.user.id
+        if user_id not in NotificationConsumer._active_connections:
+            NotificationConsumer._active_connections[user_id] = set()
+
+        prev_count = len(NotificationConsumer._active_connections[user_id])
+        NotificationConsumer._active_connections[user_id].add(self.channel_name)
+
+        # Cancel any pending offline task if user reconnected or opened a new page
+        if user_id in NotificationConsumer._offline_tasks:
+            task = NotificationConsumer._offline_tasks.pop(user_id)
+            if not task.done():
+                task.cancel()
+
+        # If this is the user's first active connection (opened website):
+        if prev_count == 0:
+            await self.on_user_online(user_id)
 
     async def disconnect(self, close_code):
         if hasattr(self, 'user_group_name'):
             await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
+        await self.channel_layer.group_discard("user_presence", self.channel_name)
+
+        user_id = getattr(self.user, 'id', None)
+        if user_id and user_id in NotificationConsumer._active_connections:
+            NotificationConsumer._active_connections[user_id].discard(self.channel_name)
+            if len(NotificationConsumer._active_connections[user_id]) == 0:
+                # Schedule offline transition with a 6-second grace period (handles page reloads & fast navigation)
+                task = asyncio.create_task(self.delayed_offline_check(user_id))
+                NotificationConsumer._offline_tasks[user_id] = task
+
+    async def delayed_offline_check(self, user_id):
+        try:
+            await asyncio.sleep(6)
+            if len(NotificationConsumer._active_connections.get(user_id, set())) == 0:
+                await self.on_user_offline(user_id)
+        except asyncio.CancelledError:
+            pass
+
+    async def on_user_online(self, user_id):
+        from profiles.models import Profile
+        profile = await Profile.objects.filter(user_id=user_id).select_related('user').afirst()
+        if profile and profile.manual_status != 'offline':
+            target_status = profile.manual_status or 'online'
+            if profile.status_setting != target_status:
+                profile.status_setting = target_status
+                await profile.asave(update_fields=['status_setting'])
+            await self.channel_layer.group_send(
+                "user_presence",
+                {
+                    "type": "presence_update",
+                    "user_id": user_id,
+                    "username": profile.user.username,
+                    "status": target_status,
+                    "status_display": profile.get_status_setting_display(),
+                }
+            )
+
+    async def on_user_offline(self, user_id):
+        from profiles.models import Profile
+        profile = await Profile.objects.filter(user_id=user_id).select_related('user').afirst()
+        if profile:
+            profile.status_setting = 'offline'
+            await profile.asave(update_fields=['status_setting'])
+            await self.channel_layer.group_send(
+                "user_presence",
+                {
+                    "type": "presence_update",
+                    "user_id": user_id,
+                    "username": profile.user.username,
+                    "status": "offline",
+                    "status_display": "Offline",
+                }
+            )
 
     async def send_notification(self, event):
         await self.send(text_data=json.dumps(event["payload"]))
+
+    async def presence_update(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "presence.update",
+            "user_id": event["user_id"],
+            "username": event["username"],
+            "status": event["status"],
+            "status_display": event["status_display"],
+        }))
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -84,7 +169,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 self.last_message_content = message_content.strip()
 
                 # Save message to DB via ChatService
-                result = await ChatService.create_message(self.channel_slug, self.scope["user"], message_content, embed_data)
+                reply_to_id = text_data_json.get("reply_to_id")
+                result = await ChatService.create_message(self.channel_slug, self.scope["user"], message_content, embed_data, reply_to_id=reply_to_id)
                 
                 # CRITICAL: (None, None) is truthy — must check payload is a valid dict
                 message = None
@@ -110,6 +196,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                                         "type": "send_notification",
                                         "payload": {
                                             "type": "mention",
+                                            "community_id": message.channel.community.id,
+                                            "community_slug": message.channel.community.slug,
                                             "title": f"New mention from {self.scope['user'].username}",
                                             "message": message_content[:50] + ("..." if len(message_content) > 50 else ""),
                                             "url": f"/community/chat/?c={message.channel.community.slug}&channel={message.channel.name}"

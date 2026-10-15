@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/chat.css' %}?v=7">
+<link rel="stylesheet" href="{% static 'css/chat.css' %}?v=8">
 {% endblock %}
 
 {% block content %}
@@ -30,13 +30,6 @@
                 {% endif %}
             </div>
             <div class="header-actions">
-                {% if can_manage_channels %}
-                <!-- Edit Channel Button -->
-                <button type="button" class="header-action-btn edit-channel-btn" onclick="openEditModal('{{ active_channel.slug }}', '{{ active_channel.name }}', '{{ active_channel.channel_type }}', '{{ active_channel.cooldown|default:0 }}', '{{ active_channel.user_limit|default:0 }}')" title="Edit Channel Settings" aria-label="Edit Channel">
-                    <i class="ph-bold ph-gear"></i>
-                </button>
-                {% endif %}
-                
                 <!-- Members Button -->
                 <button type="button" class="header-action-btn members-btn" onclick="toggleRightPanel('members')" title="Members List" aria-label="Members">
                     <i class="ph-bold ph-users"></i>
@@ -52,10 +45,13 @@
                     <div id="searchContainer" class="search-container">
                         <div class="search-input-box">
                             <i class="ph ph-magnifying-glass search-leading-icon"></i>
-                            <input type="text" id="searchInput" placeholder="Search (from: in: has: sort:)..." class="search-input" autocomplete="off">
+                            <input type="text" id="searchInput" placeholder="Search (from: in: has: @user)..." class="search-input" autocomplete="off">
                             <button type="button" class="clear-search-btn" id="clearSearchBtn" onclick="clearSearchInput()" style="display: none;" title="Clear search"><i class="ph ph-x-circle"></i></button>
                             <button type="button" class="close-search" onclick="toggleSearch()" title="Close search"><i class="ph ph-x"></i></button>
                         </div>
+
+                        <!-- Autocomplete popup for @user and @mention suggestions -->
+                        <div id="searchUserSuggestions" class="search-user-suggestions-menu" style="display: none;"></div>
 
                         <!-- Dropdown panel with filters & live results -->
                         <div id="searchFlyout" class="search-flyout" style="display: none;">
@@ -64,6 +60,9 @@
                                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                     <span class="filter-label">Filter:</span>
                                     <div class="filter-pills-list">
+                                        <button type="button" class="cz-search-pill" onclick="triggerSearchMentionSuggestions()" title="Suggest @user or @mention">
+                                            <i class="ph ph-at"></i> @mention
+                                        </button>
                                         <button type="button" class="cz-search-pill" onclick="insertSearchToken('from:')" title="Filter by author">
                                             <i class="ph ph-user"></i> from:
                                         </button>
@@ -99,7 +98,10 @@
                             <div id="searchResultsArea" class="search-results-area">
                                 <!-- Default helper tips when query is empty -->
                                 <div id="searchHelperTips" class="search-helper-box">
-                                    <div class="helper-title"><i class="ph ph-sparkle"></i> Search Filter Tips</div>
+                                    <div class="helper-title"><i class="ph ph-at"></i> Quick Mention Suggestions</div>
+                                    <div id="quickMentionChips" class="quick-mentions-row"></div>
+
+                                    <div class="helper-title" style="margin-top: 14px;"><i class="ph ph-sparkle"></i> Search Filter Tips</div>
                                     <div class="helper-grid">
                                         <div class="helper-item" onclick="insertSearchToken('from:')">
                                             <code>from:user</code>
@@ -140,77 +142,6 @@
                                     <div class="empty-title">No messages found</div>
                                     <div class="empty-desc">Try different keywords or remove filter parameters.</div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Notifications Dropdown Wrapper -->
-                <div class="dropdown-wrapper">
-                    <button type="button" class="header-action-btn bell-btn" onclick="toggleNotifications()" title="Inbox & Notifications" aria-label="Notifications">
-                        <i class="ph-bold ph-bell"></i>
-                        <span id="notifBadge" class="cz-notif-badge" style="display: none;">0</span>
-                    </button>
-                    <div id="notificationsDropdown" class="notifications-menu cz-inbox-menu">
-                        <!-- Header -->
-                        <div class="cz-inbox-header">
-                            <div class="cz-inbox-title">
-                                <i class="ph ph-bell-simple" style="color: var(--accent);"></i>
-                                <span>Inbox</span>
-                            </div>
-                            <button type="button" class="cz-mark-read-all-btn" onclick="markAllNotificationsRead()" title="Mark all as read">
-                                <i class="ph ph-check-circle"></i>
-                                <span>Mark Read</span>
-                            </button>
-                        </div>
-
-                        <!-- Tab switcher: Mentions vs Unread Messages -->
-                        <div class="cz-inbox-tabs">
-                            <button type="button" class="cz-inbox-tab active" id="tabMentionsBtn" onclick="switchInboxTab('mentions')">
-                                <span>Mentions</span>
-                                <span id="mentionsCountBadge" class="cz-tab-counter" style="display: none;">0</span>
-                            </button>
-                            <button type="button" class="cz-inbox-tab" id="tabUnreadsBtn" onclick="switchInboxTab('unreads')">
-                                <span>Unread Messages</span>
-                                <span id="unreadsCountBadge" class="cz-tab-counter" style="display: none;">0</span>
-                            </button>
-                        </div>
-
-                        <!-- Tab 1: Mentions List -->
-                        <div id="inboxMentionsView" class="cz-inbox-content">
-                            <div id="mentionsLoading" class="cz-inbox-loading">
-                                <div class="cz-inapp-loader" style="padding: 12px;">
-                                    <div class="cz-inapp-icon-wrap" style="width: 36px; height: 36px;">
-                                        <div class="cz-inapp-spinner-ring"></div>
-                                        <img src="{% static 'img/chillzone_logo.svg' %}" alt="Loading">
-                                    </div>
-                                    <span class="cz-inapp-loader-text">Loading mentions...</span>
-                                </div>
-                            </div>
-                            <div id="mentionsList" class="cz-mentions-list" style="display: none;"></div>
-                            <div id="mentionsEmpty" class="cz-inbox-empty" style="display: none;">
-                                <i class="ph ph-at" style="font-size: 2.2rem; opacity: 0.35;"></i>
-                                <div style="font-weight: 700; color: #f1f5f9; margin-top: 8px;">No recent mentions</div>
-                                <div style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">When someone tags @{{ request.user.username }}, it will appear here.</div>
-                            </div>
-                        </div>
-
-                        <!-- Tab 2: Unread Messages List -->
-                        <div id="inboxUnreadsView" class="cz-inbox-content" style="display: none;">
-                            <div id="unreadsLoading" class="cz-inbox-loading">
-                                <div class="cz-inapp-loader" style="padding: 12px;">
-                                    <div class="cz-inapp-icon-wrap" style="width: 36px; height: 36px;">
-                                        <div class="cz-inapp-spinner-ring"></div>
-                                        <img src="{% static 'img/chillzone_logo.svg' %}" alt="Loading">
-                                    </div>
-                                    <span class="cz-inapp-loader-text">Loading unreads...</span>
-                                </div>
-                            </div>
-                            <div id="unreadsList" class="cz-unreads-list" style="display: none;"></div>
-                            <div id="unreadsEmpty" class="cz-inbox-empty" style="display: none;">
-                                <i class="ph ph-chat-circle-check" style="font-size: 2.2rem; opacity: 0.35;"></i>
-                                <div style="font-weight: 700; color: #f1f5f9; margin-top: 8px;">You're all caught up!</div>
-                                <div style="font-size: 0.78rem; color: #64748b; margin-top: 2px;">No unread messages across your channels.</div>
                             </div>
                         </div>
                     </div>
@@ -829,6 +760,24 @@
                 </div>
             </div>
 
+            <!-- Discord-Style Reply Banner -->
+            <div id="replyBar" class="composer-reply-bar" style="display: none;">
+                <div class="reply-bar-left">
+                    <i class="ph-bold ph-arrow-bend-up-left reply-bar-icon"></i>
+                    <span class="reply-bar-label">Replying to <strong id="replyAuthorName">@user</strong></span>
+                    <span id="replyPreviewText" class="reply-bar-snippet"></span>
+                </div>
+                <div class="reply-bar-right">
+                    <label class="reply-mention-toggle" title="Toggle author mention on reply">
+                        <input type="checkbox" id="replyMentionToggle" checked onchange="toggleReplyMention(this.checked)">
+                        <span class="reply-mention-badge" id="replyMentionBadge"><i class="ph-bold ph-at"></i> ON</span>
+                    </label>
+                    <button type="button" class="reply-dismiss-btn" onclick="cancelReply()" title="Cancel Reply (Esc)" aria-label="Cancel reply">
+                        <i class="ph-bold ph-x"></i>
+                    </button>
+                </div>
+            </div>
+
             <form id="chatForm" class="cz-composer-form">
                 <input type="file" id="fileInput" style="display: none;">
                 
@@ -842,7 +791,17 @@
                         <i class="ph-bold ph-plus-circle"></i>
                     </button>
                     {% endif %}
-                    
+                </div>
+                
+                <div class="composer-input-wrap">
+                    {% if can_send_messages %}
+                    <textarea id="messageInput" placeholder="Message #{{ active_channel.name }}" rows="1"></textarea>
+                    {% else %}
+                    <textarea id="messageInput" placeholder="You do not have permission to send messages in this channel." rows="1" disabled></textarea>
+                    {% endif %}
+                </div>
+
+                <div class="composer-tools-right">
                     {% if can_embed_links %}
                     <button type="button" class="composer-tool-btn" id="gifBtn" title="Send GIF" aria-label="Send GIF">
                         <i class="ph-bold ph-gif"></i>
@@ -856,17 +815,7 @@
                     <button type="button" class="composer-tool-btn" id="emojiPickerBtn" onclick="toggleEmojiPalette()" title="Add Emoji" aria-label="Add Emoji">
                         <i class="ph-bold ph-smiley"></i>
                     </button>
-                </div>
-                
-                <div class="composer-input-wrap">
-                    {% if can_send_messages %}
-                    <textarea id="messageInput" placeholder="Message #{{ active_channel.name }}" rows="1"></textarea>
-                    {% else %}
-                    <textarea id="messageInput" placeholder="You do not have permission to send messages in this channel." rows="1" disabled></textarea>
-                    {% endif %}
-                </div>
 
-                <div class="composer-tools-right">
                     {% if can_send_messages %}
                     <button type="submit" class="composer-send-btn" id="sendMessageBtn" title="Send Message (Enter)" aria-label="Send Message">
                         <i class="ph-fill ph-paper-plane-tilt"></i>
@@ -878,7 +827,6 @@
                     {% endif %}
                 </div>
             </form>
-            <div id="mentionSuggestions" class="command-suggestions hidden"></div>
             <div id="commandSuggestions" class="command-suggestions hidden">
                 <div class="suggestion-item" data-cmd="/help">/help - Command information</div>
                 <div class="suggestion-item" data-cmd="/profile">/profile - View profile</div>
@@ -904,19 +852,19 @@
                 </div>
                 {% for membership in group.members %}
                 {% with member=membership.user %}
-                <div class="panel-member-item">
+                <div class="panel-member-item" data-member-username="{{ member.username }}">
                     <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: inherit;" onclick="openProfileModal('{{ member.username }}', '{{ community.slug }}')">
                         <div style="position: relative;">
                             <img src="{{ member.profile.get_avatar_url }}" alt="avatar" class="panel-member-avatar" style="object-fit: cover; {% if member.profile.status_setting == 'offline' %}opacity: 0.6; filter: grayscale(40%);{% endif %}">
                             
                             {% if member.profile.status_setting == 'idle' %}
-                            <div style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #FFC107; border: 2px solid var(--bg-surface); border-radius: 50%;" title="Idle"></div>
+                            <div class="member-status-dot" style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #FFC107; border: 2px solid var(--bg-surface); border-radius: 50%;" title="Idle"></div>
                             {% elif member.profile.status_setting == 'dnd' %}
-                            <div style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #F44336; border: 2px solid var(--bg-surface); border-radius: 50%;" title="Do Not Disturb"></div>
+                            <div class="member-status-dot" style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #F44336; border: 2px solid var(--bg-surface); border-radius: 50%;" title="Do Not Disturb"></div>
                             {% elif member.profile.status_setting == 'offline' %}
-                            <div style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #747f8d; border: 2px solid var(--bg-surface); border-radius: 50%;" title="Offline"></div>
+                            <div class="member-status-dot" style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #747f8d; border: 2px solid var(--bg-surface); border-radius: 50%;" title="Offline"></div>
                             {% else %}
-                            <div style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #4CAF50; border: 2px solid var(--bg-surface); border-radius: 50%;" title="Online"></div>
+                            <div class="member-status-dot" style="position: absolute; bottom: -2px; right: -2px; width: 10px; height: 10px; background: #4CAF50; border: 2px solid var(--bg-surface); border-radius: 50%;" title="Online"></div>
                             {% endif %}
                         </div>
                         <div class="panel-member-info">
@@ -973,17 +921,164 @@
 <script src="{% static 'js/chat.js' %}?v=5"></script>
 <script src="{% static 'js/autocomplete_and_files.js' %}?v=5"></script>
 <script>
-    // --- ADVANCED SEARCH ENGINE ---
+    // --- ADVANCED SEARCH & USER MENTION SUGGESTIONS ENGINE ---
     let searchDebounceTimer = null;
     let currentSearchSort = 'newest';
+    let selectedSuggestionIndex = -1;
+
+    function getCommunityUsers() {
+        try {
+            const node = document.getElementById('community-data');
+            if (node) {
+                const data = JSON.parse(node.textContent);
+                return data.users || [];
+            }
+        } catch(e) {}
+        return [];
+    }
+
+    function populateQuickMentions() {
+        const chipsContainer = document.getElementById('quickMentionChips');
+        if (!chipsContainer) return;
+        const users = getCommunityUsers();
+        let html = `
+            <div class="quick-mention-chip" onclick="insertSearchToken('mention:@everyone')">
+                <i class="ph-bold ph-users" style="color: #ff9a62;"></i>
+                <span>@everyone</span>
+            </div>
+        `;
+        users.slice(0, 8).forEach(u => {
+            const avatar = u.avatar || '/static/img/default_avatar.svg';
+            const color = u.color || '#f1f5f9';
+            html += `
+                <div class="quick-mention-chip" onclick="insertSearchToken('mention:@${escapeHtml(u.username)}')">
+                    <img src="${avatar}" alt="${escapeHtml(u.username)}">
+                    <span style="color: ${color};">@${escapeHtml(u.username)}</span>
+                </div>
+            `;
+        });
+        chipsContainer.innerHTML = html;
+    }
+
+    function triggerSearchMentionSuggestions() {
+        const input = document.getElementById('searchInput');
+        const container = document.getElementById('searchContainer');
+        const flyout = document.getElementById('searchFlyout');
+        if (!container.classList.contains('active')) {
+            container.classList.add('active');
+            flyout.style.display = 'flex';
+        }
+        let val = input.value.trim();
+        if (val && !val.endsWith(' ')) val += ' ';
+        val += 'mention:@';
+        input.value = val;
+        document.getElementById('clearSearchBtn').style.display = 'block';
+        input.focus();
+        renderSearchUserSuggestions('', 'mention', 'mention:@');
+    }
+
+    function renderSearchUserSuggestions(query, prefixType, fullToken) {
+        const menu = document.getElementById('searchUserSuggestions');
+        if (!menu) return;
+
+        const users = getCommunityUsers();
+        const cleanQ = (query || '').toLowerCase().trim();
+        
+        let matches = users.filter(u => u.username.toLowerCase().includes(cleanQ));
+        let html = '';
+
+        if ('everyone'.includes(cleanQ)) {
+            html += `
+                <div class="search-suggestion-item" data-username="everyone" data-prefix="${prefixType || 'mention'}" data-token="${fullToken}" onclick="selectSearchUserSuggestion('everyone', '${prefixType || 'mention'}', '${fullToken}')">
+                    <div style="width: 24px; height: 24px; border-radius: 50%; background: rgba(255,107,43,0.25); display: flex; align-items: center; justify-content: center; color: #ff9a62; flex-shrink: 0;">
+                        <i class="ph-bold ph-users" style="font-size: 0.85rem;"></i>
+                    </div>
+                    <div>
+                        <div class="search-suggestion-name" style="color: #ff9a62;">@everyone</div>
+                        <div style="font-size: 0.68rem; color: #94a3b8;">All community members</div>
+                    </div>
+                    <span class="search-suggestion-hint">Select</span>
+                </div>
+            `;
+        }
+
+        matches.slice(0, 10).forEach(u => {
+            const avatar = u.avatar || '/static/img/default_avatar.svg';
+            const color = u.color || '#ffffff';
+            html += `
+                <div class="search-suggestion-item" data-username="${escapeHtml(u.username)}" data-prefix="${prefixType || 'mention'}" data-token="${fullToken}" onclick="selectSearchUserSuggestion('${escapeHtml(u.username)}', '${prefixType || 'mention'}', '${fullToken}')">
+                    <img src="${avatar}" class="search-suggestion-avatar" alt="${escapeHtml(u.username)}">
+                    <div>
+                        <div class="search-suggestion-name" style="color: ${color};">@${escapeHtml(u.username)}</div>
+                        <div style="font-size: 0.68rem; color: #94a3b8;">${prefixType === 'from' ? 'Messages by this user' : 'Messages mentioning user'}</div>
+                    </div>
+                    <span class="search-suggestion-hint">Select</span>
+                </div>
+            `;
+        });
+
+        if (!html) {
+            html = `<div style="padding: 10px; text-align: center; color: #64748b; font-size: 0.76rem;">No members match "@${escapeHtml(query)}"</div>`;
+        }
+
+        menu.innerHTML = html;
+        menu.style.display = 'block';
+        selectedSuggestionIndex = -1;
+    }
+
+    function hideSearchUserSuggestions() {
+        const menu = document.getElementById('searchUserSuggestions');
+        if (menu) menu.style.display = 'none';
+        selectedSuggestionIndex = -1;
+    }
+
+    function selectSearchUserSuggestion(username, prefixType, fullToken) {
+        const input = document.getElementById('searchInput');
+        let val = input.value;
+        const replacement = `${prefixType || 'mention'}:@${username} `;
+        
+        if (fullToken && val.includes(fullToken)) {
+            const lastIdx = val.lastIndexOf(fullToken);
+            val = val.slice(0, lastIdx) + replacement + val.slice(lastIdx + fullToken.length);
+        } else {
+            val = val.trim();
+            if (val && !val.endsWith(' ')) val += ' ';
+            val += replacement;
+        }
+        
+        input.value = val;
+        hideSearchUserSuggestions();
+        document.getElementById('clearSearchBtn').style.display = 'block';
+        input.focus();
+        performSearch();
+    }
+
+    function handleSearchInputAutocomplete() {
+        const input = document.getElementById('searchInput');
+        const val = input.value;
+        const selStart = input.selectionStart || val.length;
+        const textBeforeCursor = val.slice(0, selStart);
+
+        const match = textBeforeCursor.match(/(?:(from|mention):)?@([a-zA-Z0-9_.-]*)$/i);
+        if (match) {
+            const prefix = match[1] ? match[1].toLowerCase() : 'mention';
+            const query = match[2] || '';
+            renderSearchUserSuggestions(query, prefix, match[0]);
+        } else {
+            hideSearchUserSuggestions();
+        }
+    }
 
     function toggleSearch() {
         const container = document.getElementById('searchContainer');
         const flyout = document.getElementById('searchFlyout');
+        const notifDropdown = document.getElementById('notificationsDropdown');
+        if (notifDropdown) notifDropdown.classList.remove('active');
+
         const isActive = container.classList.toggle('active');
-        
         if (isActive) {
             flyout.style.display = 'flex';
+            populateQuickMentions();
             const input = document.getElementById('searchInput');
             input.focus();
             if (input.value.trim()) {
@@ -992,8 +1087,7 @@
                 showSearchHelperTips();
             }
         } else {
-            flyout.style.display = 'none';
-            closeHasDropdown();
+            closeSearch();
         }
     }
 
@@ -1002,6 +1096,7 @@
         const flyout = document.getElementById('searchFlyout');
         if (container) container.classList.remove('active');
         if (flyout) flyout.style.display = 'none';
+        hideSearchUserSuggestions();
         closeHasDropdown();
     }
 
@@ -1009,6 +1104,7 @@
         const input = document.getElementById('searchInput');
         input.value = '';
         document.getElementById('clearSearchBtn').style.display = 'none';
+        hideSearchUserSuggestions();
         showSearchHelperTips();
         input.focus();
     }
@@ -1016,6 +1112,7 @@
     function insertSearchToken(token) {
         const input = document.getElementById('searchInput');
         closeHasDropdown();
+        hideSearchUserSuggestions();
         let val = input.value.trim();
         if (val && !val.endsWith(' ')) val += ' ';
         input.value = val + token + ' ';
@@ -1047,6 +1144,7 @@
         document.getElementById('searchLoading').style.display = 'none';
         document.getElementById('searchResultsList').style.display = 'none';
         document.getElementById('searchEmptyState').style.display = 'none';
+        populateQuickMentions();
     }
 
     const searchInputEl = document.getElementById('searchInput');
@@ -1054,6 +1152,7 @@
         searchInputEl.addEventListener('input', function() {
             const hasVal = Boolean(this.value.trim());
             document.getElementById('clearSearchBtn').style.display = hasVal ? 'block' : 'none';
+            handleSearchInputAutocomplete();
             clearTimeout(searchDebounceTimer);
             if (!hasVal) {
                 showSearchHelperTips();
@@ -1063,6 +1162,34 @@
         });
 
         searchInputEl.addEventListener('keydown', function(e) {
+            const menu = document.getElementById('searchUserSuggestions');
+            const items = menu ? menu.querySelectorAll('.search-suggestion-item') : [];
+            
+            if (menu && menu.style.display !== 'none' && items.length > 0) {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedSuggestionIndex = (selectedSuggestionIndex + 1) % items.length;
+                    items.forEach((it, idx) => it.classList.toggle('selected', idx === selectedSuggestionIndex));
+                    items[selectedSuggestionIndex].scrollIntoView({ block: 'nearest' });
+                    return;
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedSuggestionIndex = (selectedSuggestionIndex - 1 + items.length) % items.length;
+                    items.forEach((it, idx) => it.classList.toggle('selected', idx === selectedSuggestionIndex));
+                    items[selectedSuggestionIndex].scrollIntoView({ block: 'nearest' });
+                    return;
+                } else if (e.key === 'Enter' || e.key === 'Tab') {
+                    if (selectedSuggestionIndex >= 0 && items[selectedSuggestionIndex]) {
+                        e.preventDefault();
+                        items[selectedSuggestionIndex].click();
+                        return;
+                    }
+                } else if (e.key === 'Escape') {
+                    hideSearchUserSuggestions();
+                    return;
+                }
+            }
+
             if (e.key === 'Escape') {
                 toggleSearch();
             } else if (e.key === 'Enter') {
@@ -1205,197 +1332,6 @@
         }
     }
 
-    // --- INBOX & NOTIFICATIONS ENGINE ---
-    let currentInboxTab = 'mentions';
-
-    function toggleNotifications() {
-        const notifDropdown = document.getElementById('notificationsDropdown');
-        const isActive = notifDropdown.classList.toggle('active');
-        if (isActive) {
-            fetchNotifications(true);
-        }
-    }
-
-    function switchInboxTab(tab) {
-        currentInboxTab = tab;
-        document.getElementById('tabMentionsBtn').classList.toggle('active', tab === 'mentions');
-        document.getElementById('tabUnreadsBtn').classList.toggle('active', tab === 'unreads');
-        document.getElementById('inboxMentionsView').style.display = (tab === 'mentions') ? 'block' : 'none';
-        document.getElementById('inboxUnreadsView').style.display = (tab === 'unreads') ? 'block' : 'none';
-    }
-
-    function fetchNotifications(showLoading = false) {
-        const commSlug = window.activeCommunitySlug || '';
-        const mentionsLoading = document.getElementById('mentionsLoading');
-        const unreadsLoading = document.getElementById('unreadsLoading');
-        if (showLoading) {
-            if (mentionsLoading) mentionsLoading.style.display = 'block';
-            if (unreadsLoading) unreadsLoading.style.display = 'block';
-        }
-
-        fetch(`/community/chat/api/notifications/?c=${encodeURIComponent(commSlug)}`)
-            .then(res => res.json())
-            .then(data => {
-                if (mentionsLoading) mentionsLoading.style.display = 'none';
-                if (unreadsLoading) unreadsLoading.style.display = 'none';
-                updateNotificationsUI(data);
-            })
-            .catch(err => {
-                console.error('Error fetching notifications:', err);
-                if (mentionsLoading) mentionsLoading.style.display = 'none';
-                if (unreadsLoading) unreadsLoading.style.display = 'none';
-            });
-    }
-
-    function updateNotificationsUI(data) {
-        // Bell icon badge
-        const notifBadge = document.getElementById('notifBadge');
-        const totalCount = data.total_badge_count || 0;
-        if (notifBadge) {
-            if (totalCount > 0) {
-                notifBadge.textContent = totalCount > 99 ? '99+' : totalCount;
-                notifBadge.style.display = 'flex';
-            } else {
-                notifBadge.style.display = 'none';
-            }
-        }
-
-        // Tab count badges
-        const mentionsBadge = document.getElementById('mentionsCountBadge');
-        if (mentionsBadge) {
-            if (data.unread_mention_count > 0) {
-                mentionsBadge.textContent = data.unread_mention_count;
-                mentionsBadge.style.display = 'inline-block';
-            } else {
-                mentionsBadge.style.display = 'none';
-            }
-        }
-
-        const unreadsBadge = document.getElementById('unreadsCountBadge');
-        if (unreadsBadge) {
-            if (data.unread_messages_count > 0) {
-                unreadsBadge.textContent = data.unread_messages_count;
-                unreadsBadge.style.display = 'inline-block';
-            } else {
-                unreadsBadge.style.display = 'none';
-            }
-        }
-
-        // Render Mentions List
-        const mentionsList = document.getElementById('mentionsList');
-        const mentionsEmpty = document.getElementById('mentionsEmpty');
-        if (mentionsList && mentionsEmpty) {
-            if (!data.mentions || data.mentions.length === 0) {
-                mentionsList.style.display = 'none';
-                mentionsEmpty.style.display = 'block';
-            } else {
-                mentionsEmpty.style.display = 'none';
-                mentionsList.style.display = 'block';
-                let html = '';
-                data.mentions.forEach(m => {
-                    html += `
-                        <div class="cz-mention-card ${m.is_unread ? 'unread' : ''}" onclick="onMentionClick('${m.channel_slug}', ${m.id})">
-                            ${m.is_unread ? '<div class="cz-unread-dot"></div>' : ''}
-                            <img src="${m.author_avatar}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">
-                            <div style="flex: 1; min-width: 0;">
-                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
-                                    <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
-                                        <span style="font-weight: 700; font-size: 0.84rem; color: #ffffff;">${escapeHtml(m.author)}</span>
-                                        <span style="font-size: 0.72rem; color: #ff9a62;">#${escapeHtml(m.channel_name)}</span>
-                                    </div>
-                                    <span style="font-size: 0.7rem; color: #64748b;">${m.created_at}</span>
-                                </div>
-                                <div style="font-size: 0.8rem; color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    ${escapeHtml(m.content)}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                mentionsList.innerHTML = html;
-            }
-        }
-
-        // Render Unreads List
-        const unreadsList = document.getElementById('unreadsList');
-        const unreadsEmpty = document.getElementById('unreadsEmpty');
-        if (unreadsList && unreadsEmpty) {
-            if (!data.unreads || data.unreads.length === 0) {
-                unreadsList.style.display = 'none';
-                unreadsEmpty.style.display = 'block';
-            } else {
-                unreadsEmpty.style.display = 'none';
-                unreadsList.style.display = 'block';
-                let html = '';
-                data.unreads.forEach(u => {
-                    html += `
-                        <div class="cz-unread-channel-card" onclick="onUnreadChannelClick('${u.channel_slug}')">
-                            <img src="${u.latest_avatar}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">
-                            <div style="flex: 1; min-width: 0;">
-                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
-                                    <div style="display: flex; align-items: center; gap: 6px;">
-                                        <span style="font-weight: 700; font-size: 0.86rem; color: #ffffff;">#${escapeHtml(u.channel_name)}</span>
-                                        <span style="font-size: 0.68rem; font-weight: 800; background: var(--accent, #ff6b2b); color: #fff; padding: 1px 6px; border-radius: 8px;">${u.unread_count} new</span>
-                                    </div>
-                                    <span style="font-size: 0.7rem; color: #64748b;">${u.latest_time}</span>
-                                </div>
-                                <div style="font-size: 0.78rem; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    <strong style="color: #e2e8f0;">${escapeHtml(u.latest_author)}:</strong> ${escapeHtml(u.latest_content)}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-                unreadsList.innerHTML = html;
-            }
-        }
-    }
-
-    function onMentionClick(channelSlug, messageId) {
-        document.getElementById('notificationsDropdown').classList.remove('active');
-        const commSlug = window.activeCommunitySlug || '';
-        const currentSlug = "{{ active_channel.slug|default:'' }}";
-        
-        // Mark channel read
-        markChannelRead(channelSlug);
-
-        if (channelSlug === currentSlug) {
-            jumpToMessage(messageId);
-        } else {
-            window.location.href = `/community/chat/${channelSlug}/?c=${encodeURIComponent(commSlug)}&jump=${messageId}`;
-        }
-    }
-
-    function onUnreadChannelClick(channelSlug) {
-        document.getElementById('notificationsDropdown').classList.remove('active');
-        const commSlug = window.activeCommunitySlug || '';
-        markChannelRead(channelSlug);
-        window.location.href = `/community/chat/${channelSlug}/?c=${encodeURIComponent(commSlug)}`;
-    }
-
-    function markChannelRead(channelSlug) {
-        const formData = new FormData();
-        formData.append('channel', channelSlug);
-        fetch('/community/chat/api/notifications/read/', {
-            method: 'POST',
-            body: formData
-        }).then(() => fetchNotifications(false)).catch(console.error);
-    }
-
-    function markAllNotificationsRead() {
-        const commSlug = window.activeCommunitySlug || '';
-        const formData = new FormData();
-        formData.append('c', commSlug);
-        fetch('/community/chat/api/notifications/read/', {
-            method: 'POST',
-            body: formData
-        })
-        .then(() => {
-            fetchNotifications(false);
-        })
-        .catch(console.error);
-    }
-
     // Check URL parameters for ?jump=<id> on load
     window.addEventListener('DOMContentLoaded', function() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -1405,22 +1341,10 @@
                 jumpToMessage(jumpId);
             }, 400);
         }
-        // Initial fetch of notifications & unread counts
-        fetchNotifications(false);
     });
 
-    // Listen for incoming notifications from WebSocket (via authenticated_base)
-    window.addEventListener('cz-notification', function(e) {
-        fetchNotifications(false);
-    });
-
-    // Close popovers if clicked outside
+    // Close search popovers if clicked outside
     document.addEventListener('click', function(event) {
-        const notifDropdown = document.getElementById('notificationsDropdown');
-        const bellBtn = document.querySelector('.bell-btn');
-        if (notifDropdown && notifDropdown.classList.contains('active') && !notifDropdown.contains(event.target) && !bellBtn.contains(event.target)) {
-            notifDropdown.classList.remove('active');
-        }
 
         const searchContainer = document.getElementById('searchContainer');
         const searchBtn = document.querySelector('.search-btn');

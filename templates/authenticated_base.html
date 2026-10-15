@@ -19,16 +19,24 @@
             <div class="nav-divider desktop-only"></div>
             <a href="{% url 'friends' %}" class="social-link desktop-only">
                 <i class="ph-fill ph-chat-circle-text"></i> Social
-                <span id="socialPingBadge" class="social-ping-badge" style="display: none;"></span>
+                <span id="socialPingBadge" class="social-ping-badge" {% if not pending_social_count %}style="display: none;"{% endif %} onclick="clearSocialPing(event)" oncontextmenu="clearSocialPing(event); return false;" title="Click or right-click to clear notification ping">{{ pending_social_count|default:0 }}</span>
             </a>
         </div>
 
         <!-- Center: Communities / Servers (Horizontal Pill List) -->
         <div class="nav-communities">
             {% for c in user_communities %}
-            <a href="{% url 'chat' %}?c={{ c.slug }}" class="community-pill {% if active_community and active_community.id == c.id %}active{% endif %}" title="{{ c.name }}">
+            <a href="{% url 'chat' %}?c={{ c.slug }}" 
+               class="community-pill {% if active_community and active_community.id == c.id %}active{% endif %}" 
+               title="{{ c.name }}"
+               data-community-id="{{ c.id }}"
+               data-community-slug="{{ c.slug }}"
+               data-community-name="{{ c.name }}"
+               data-community-icon="{{ c.get_icon_url }}"
+               data-is-owner="{% if c.owner_id == request.user.id %}true{% else %}false{% endif %}">
                 <img src="{{ c.get_icon_url }}" class="community-icon" alt="{{ c.name }}" onerror="this.src='/static/img/default_server.svg'">
                 <span class="community-name">{{ c.name }}</span>
+                <span class="server-mention-badge" id="serverMentionBadge_{{ c.id }}" {% if not c.pending_mentions_count %}style="display: none;"{% endif %}>{{ c.pending_mentions_count|default:0 }}</span>
             </a>
             {% endfor %}
             <a href="{% url 'create_community' %}" class="community-pill new-space">
@@ -38,6 +46,50 @@
 
         <!-- Right: Profile & Settings -->
         <div class="nav-actions">
+            <!-- Global Inbox / Notifications -->
+            <div class="global-notif-wrapper" id="globalNotifWrapper">
+                <button type="button" class="action-icon global-bell-btn" id="globalBellBtn" onclick="toggleGlobalNotifications(event)" title="Inbox & Notifications" aria-label="Notifications">
+                    <i class="ph ph-bell"></i>
+                    <span id="globalNotifBadge" class="global-notif-badge" style="display: none;">0</span>
+                </button>
+
+                <!-- Global Inbox Dropdown -->
+                <div id="globalNotificationsDropdown" class="global-inbox-dropdown" style="display: none;" onclick="event.stopPropagation()">
+                    <div class="global-inbox-header">
+                        <div class="global-inbox-title-group">
+                            <i class="ph-bold ph-tray"></i>
+                            <span class="global-inbox-title">Inbox</span>
+                        </div>
+                        <div class="global-inbox-actions">
+                            <button type="button" class="global-mark-read-btn" id="globalMarkAllReadBtn" onclick="markAllGlobalNotificationsRead(event)" title="Mark all notifications as read">
+                                <i class="ph-bold ph-check"></i> Mark All Read
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="global-inbox-tabs">
+                        <button type="button" class="global-inbox-tab active" data-tab="mentions" onclick="switchGlobalInboxTab('mentions', event)">
+                            Mentions <span class="tab-badge" id="globalMentionsCount">0</span>
+                        </button>
+                        <button type="button" class="global-inbox-tab" data-tab="unread" onclick="switchGlobalInboxTab('unread', event)">
+                            Unread <span class="tab-badge" id="globalUnreadCount">0</span>
+                        </button>
+                    </div>
+
+                    <div class="global-inbox-body" id="globalInboxBody">
+                        <div class="global-inbox-loading">
+                            <div class="cz-inapp-loader" style="padding: 10px;">
+                                <div class="cz-inapp-icon-wrap" style="width: 32px; height: 32px;">
+                                    <div class="cz-inapp-spinner-ring"></div>
+                                    <img src="{% static 'img/chillzone_logo.svg' %}" alt="Loading">
+                                </div>
+                                <span class="cz-inapp-loader-text">Loading notifications...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {% if request.user.is_superuser %}
             <a href="{% url 'edit_dashboard' %}" class="action-icon desktop-only" title="Community Settings"><i class="ph ph-gear"></i></a>
             {% endif %}
@@ -59,7 +111,7 @@
                 <span class="profile-name desktop-only">{{ request.user.username }}</span>
             </a>
             
-            <a href="{% url 'profile_edit' %}" class="action-icon" title="User Settings"><i class="ph ph-sliders"></i></a>
+            <a href="{% url 'profile_edit' %}" class="action-icon desktop-only" title="User Settings"><i class="ph ph-sliders"></i></a>
         </div>
     </header>
 
@@ -100,9 +152,9 @@
             <span>Chat</span>
         </a>
         <a href="{% url 'friends' %}" class="mobile-nav-item {% if request.path == '/profiles/friends/' or request.path|slice:':8' == '/chat/dm' %}active{% endif %}" title="Social & Friends">
-            <div class="mobile-nav-icon-wrap">
+            <div class="mobile-nav-icon-wrap" style="position: relative;">
                 <i class="ph-fill ph-users"></i>
-                <span id="mobileSocialPingBadge" class="social-ping-badge" style="display: none;"></span>
+                <span id="mobileSocialPingBadge" class="social-ping-badge" {% if not pending_social_count %}style="display: none;"{% endif %} onclick="clearSocialPing(event)" oncontextmenu="clearSocialPing(event); return false;" title="Tap or right-click to clear notification ping">{{ pending_social_count|default:0 }}</span>
             </div>
             <span>Social</span>
         </a>
@@ -160,6 +212,155 @@
             <!-- Loaded via JS -->
         </div>
     </div>
+
+    <!-- Global Server Right-Click Context Menu -->
+    <div id="serverContextMenu" class="cz-context-menu" style="display: none; position: fixed;">
+        <div class="cz-ctx-header" id="serverCtxHeader">
+            <img id="serverCtxIcon" src="/static/img/default_server.svg" alt="" onerror="this.src='/static/img/default_server.svg'">
+            <span id="serverCtxName">Server</span>
+        </div>
+        <div class="cz-ctx-item" onclick="openServerNotificationFromCtx()">
+            <i class="ph-bold ph-bell"></i>
+            <span>Notification Settings</span>
+        </div>
+        <a id="serverCtxSettingsLink" href="#" class="cz-ctx-item" style="display: none;">
+            <i class="ph-bold ph-gear"></i>
+            <span>Server Settings</span>
+        </a>
+        <div class="cz-ctx-divider" id="serverCtxLeaveDivider"></div>
+        <div class="cz-ctx-item danger" id="serverCtxLeaveBtn" onclick="leaveServerFromCtx()">
+            <i class="ph-bold ph-sign-out"></i>
+            <span>Leave Server</span>
+        </div>
+    </div>
+
+    <!-- Global Server Notification Settings Modal -->
+    <div id="serverNotificationModal" class="cz-modal-backdrop" style="display: none;" onclick="if(event.target===this) closeServerNotificationModal()">
+        <div class="cz-modal-card">
+            <div class="cz-modal-header">
+                <div class="cz-modal-title-group">
+                    <i class="ph-bold ph-bell modal-icon-accent"></i>
+                    <div>
+                        <h3 id="serverNotifTitle">Notification Settings</h3>
+                        <p id="serverNotifSubtitle" class="cz-modal-sub">Configure notifications for this server</p>
+                    </div>
+                </div>
+                <button type="button" class="cz-modal-close-btn" onclick="closeServerNotificationModal()"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <div class="cz-modal-body">
+                <div class="cz-setting-section-label">SERVER NOTIFICATION LEVEL</div>
+                <div class="cz-radio-cards">
+                    <label class="cz-radio-card">
+                        <input type="radio" name="serverNotifLevel" value="all" id="notifLevelAll" checked>
+                        <div class="cz-radio-card-content">
+                            <div class="cz-radio-title"><i class="ph-bold ph-bell-ringing"></i> All Messages</div>
+                            <div class="cz-radio-desc">Receive notifications for all new messages sent in this server.</div>
+                        </div>
+                    </label>
+                    <label class="cz-radio-card">
+                        <input type="radio" name="serverNotifLevel" value="mentions" id="notifLevelMentions">
+                        <div class="cz-radio-card-content">
+                            <div class="cz-radio-title"><i class="ph-bold ph-at"></i> Only @mentions</div>
+                            <div class="cz-radio-desc">Only get notified when you are directly pinged or your roles are mentioned.</div>
+                        </div>
+                    </label>
+                    <label class="cz-radio-card">
+                        <input type="radio" name="serverNotifLevel" value="nothing" id="notifLevelNothing">
+                        <div class="cz-radio-card-content">
+                            <div class="cz-radio-title"><i class="ph-bold ph-bell-slash"></i> Nothing</div>
+                            <div class="cz-radio-desc">Completely mute all message notifications from this server.</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="cz-setting-section-label" style="margin-top: 18px;">NOTIFICATION OVERRIDES</div>
+                <div class="cz-checkbox-list">
+                    <label class="cz-checkbox-item">
+                        <input type="checkbox" id="suppressEveryoneToggle">
+                        <div class="cz-checkbox-text">
+                            <strong>Suppress @everyone and @here</strong>
+                            <small>Prevents this server from pinging you with mass mentions.</small>
+                        </div>
+                    </label>
+                    <label class="cz-checkbox-item">
+                        <input type="checkbox" id="suppressRolesToggle">
+                        <div class="cz-checkbox-text">
+                            <strong>Suppress All Role @mentions</strong>
+                            <small>Prevents any role you hold from triggering notifications.</small>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <div class="cz-modal-footer">
+                <button type="button" class="cz-btn cz-btn-ghost" onclick="closeServerNotificationModal()">Cancel</button>
+                <button type="button" class="cz-btn cz-btn-primary" id="saveServerNotifBtn" onclick="saveServerNotifications()"><i class="ph-bold ph-check"></i> Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Report Message Modal -->
+    <div id="reportMessageModal" class="cz-modal-backdrop" style="display: none;" onclick="if(event.target===this) closeReportModal()">
+        <div class="cz-modal-card">
+            <div class="cz-modal-header">
+                <div class="cz-modal-title-group">
+                    <i class="ph-bold ph-flag modal-icon-danger"></i>
+                    <div>
+                        <h3>Report Message</h3>
+                        <p class="cz-modal-sub">Help moderators keep Chill Zone safe</p>
+                    </div>
+                </div>
+                <button type="button" class="cz-modal-close-btn" onclick="closeReportModal()"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <div class="cz-modal-body">
+                <input type="hidden" id="reportTargetMsgId" value="">
+                <div class="cz-setting-section-label">REASON FOR REPORT</div>
+                <div class="cz-radio-cards">
+                    <label class="cz-radio-card">
+                        <input type="radio" name="reportReason" value="spam" checked>
+                        <div class="cz-radio-card-content">
+                            <div class="cz-radio-title"><i class="ph-bold ph-warning-octagon"></i> Spam / Scam</div>
+                            <div class="cz-radio-desc">Unsolicited ads, malicious links, phishing, or bot behavior.</div>
+                        </div>
+                    </label>
+                    <label class="cz-radio-card">
+                        <input type="radio" name="reportReason" value="harassment">
+                        <div class="cz-radio-card-content">
+                            <div class="cz-radio-title"><i class="ph-bold ph-user-minus"></i> Harassment / Bullying</div>
+                            <div class="cz-radio-desc">Targeted attacks, personal threats, or doxxing.</div>
+                        </div>
+                    </label>
+                    <label class="cz-radio-card">
+                        <input type="radio" name="reportReason" value="inappropriate">
+                        <div class="cz-radio-card-content">
+                            <div class="cz-radio-title"><i class="ph-bold ph-eye-slash"></i> Inappropriate / NSFW</div>
+                            <div class="cz-radio-desc">Explicit imagery, gore, or sexually suggestive material.</div>
+                        </div>
+                    </label>
+                    <label class="cz-radio-card">
+                        <input type="radio" name="reportReason" value="hate_speech">
+                        <div class="cz-radio-card-content">
+                            <div class="cz-radio-title"><i class="ph-bold ph-megaphone-simple-slash"></i> Hate Speech</div>
+                            <div class="cz-radio-desc">Discrimination, hate speech, or severe toxicity.</div>
+                        </div>
+                    </label>
+                    <label class="cz-radio-card">
+                        <input type="radio" name="reportReason" value="other">
+                        <div class="cz-radio-card-content">
+                            <div class="cz-radio-title"><i class="ph-bold ph-dots-three-circle"></i> Other Issue</div>
+                            <div class="cz-radio-desc">Something else violating server or platform rules.</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="cz-setting-section-label" style="margin-top: 16px;">ADDITIONAL DETAILS (OPTIONAL)</div>
+                <textarea id="reportDetailsInput" class="cz-modal-textarea" rows="3" placeholder="Provide extra context to help moderators understand the issue..."></textarea>
+            </div>
+            <div class="cz-modal-footer">
+                <button type="button" class="cz-btn cz-btn-ghost" onclick="closeReportModal()">Cancel</button>
+                <button type="button" class="cz-btn cz-btn-danger" id="submitReportBtn" onclick="submitMessageReport()"><i class="ph-bold ph-flag"></i> Submit Report</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -184,8 +385,42 @@
 
     // Track current user status (e.g. 'dnd', 'online', 'idle')
     window.currentUserStatus = "{{ request.user.profile.status_setting|default:'online' }}";
+    window.currentUserManualStatus = "{{ request.user.profile.manual_status|default:'online' }}";
 
-    // Global Notification WebSocket & Floating In-App Banners
+    function updateGlobalStatusIndicators(status, manualStatus) {
+        window.currentUserStatus = status;
+        if (manualStatus) window.currentUserManualStatus = manualStatus;
+        const navDots = document.querySelectorAll('.profile-avatar .status-indicator, .mobile-nav-avatar-wrap .status-indicator, .profile-pill .status-indicator');
+        navDots.forEach(dot => {
+            dot.className = 'status-indicator ' + status;
+        });
+        const cardDots = document.querySelectorAll('.profile-status-indicator');
+        cardDots.forEach(cardDot => {
+            cardDot.className = 'profile-status-indicator ' + status;
+            let inner = '';
+            if (status === 'idle') inner = '<i class="ph-fill ph-moon"></i>';
+            else if (status === 'dnd') inner = '<div class="dnd-dash"></div>';
+            else if (status === 'offline') inner = '<div class="offline-dot"></div>';
+            cardDot.innerHTML = inner;
+        });
+        const cardPills = document.querySelectorAll('.profile-status-pill');
+        cardPills.forEach(pill => {
+            pill.className = 'profile-status-pill ' + status;
+        });
+        const statusLabels = {
+            'online': 'Online',
+            'idle': 'Idle',
+            'dnd': 'Do Not Disturb',
+            'offline': 'Invisible'
+        };
+        const cardText = document.getElementById('cardStatusDisplayText') || document.getElementById('detailStatusDisplayText');
+        if (cardText && statusLabels[status]) {
+            cardText.textContent = statusLabels[status];
+        }
+    }
+    window.updateGlobalStatusIndicators = updateGlobalStatusIndicators;
+
+    // Global Notification WebSocket & Floating In-App Banners & Live Presence
     (function initNotifications() {
         if (!window.WebSocket) return;
         const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
@@ -198,24 +433,96 @@
                 notifSocket.onmessage = function(e) {
                     try {
                         const data = JSON.parse(e.data);
+                        if (data.type === 'presence.update') {
+                            handlePresenceUpdate(data);
+                            return;
+                        }
                         handleIncomingNotification(data);
                     } catch(err) {
                         console.error('Error handling notification', err);
                     }
                 };
                 notifSocket.onclose = function() {
-                    setTimeout(connect, 5000);
+                    setTimeout(connect, 4000);
                 };
             } catch(err) {}
         }
 
+        function handlePresenceUpdate(data) {
+            window.dispatchEvent(new CustomEvent('cz-presence-update', { detail: data }));
+            
+            // If the presence update is for the currently logged-in user:
+            if (data.username === "{{ request.user.username }}") {
+                updateGlobalStatusIndicators(data.status);
+            }
+
+            const statusColors = {
+                'online': '#4CAF50',
+                'idle': '#FFC107',
+                'dnd': '#F44336',
+                'offline': '#747f8d'
+            };
+            const color = statusColors[data.status] || '#4CAF50';
+
+            // 1. Live update member items in right sidebar (chat.html)
+            const memberItems = document.querySelectorAll(`[data-member-username="${data.username}"]`);
+            memberItems.forEach(item => {
+                const dot = item.querySelector('.member-status-dot');
+                if (dot) {
+                    dot.style.background = color;
+                    dot.setAttribute('title', data.status_display || data.status);
+                }
+                const avatar = item.querySelector('.panel-member-avatar');
+                if (avatar) {
+                    if (data.status === 'offline') {
+                        avatar.style.opacity = '0.6';
+                        avatar.style.filter = 'grayscale(40%)';
+                    } else {
+                        avatar.style.opacity = '1';
+                        avatar.style.filter = 'none';
+                    }
+                }
+            });
+
+            // 2. Live update friend items in friends list (friends.html)
+            const friendItems = document.querySelectorAll(`[data-friend-username="${data.username}"]`);
+            friendItems.forEach(item => {
+                const dot = item.querySelector('.friend-status-dot');
+                if (dot) dot.style.background = color;
+                const statusText = item.querySelector('.friend-status-text');
+                if (statusText && data.status_display) statusText.textContent = data.status_display;
+            });
+        }
+
         function handleIncomingNotification(data) {
             window.dispatchEvent(new CustomEvent('cz-notification', { detail: data }));
-            // Update social ping badge on top navbar if unread badge is enabled
+            // Update social or server mention badge count
             const badgePref = localStorage.getItem('cz_pref_unread_badge');
             if (badgePref === null || JSON.parse(badgePref) === true) {
-                const badge = document.getElementById('socialPingBadge');
-                if (badge) badge.style.display = 'inline-block';
+                if (data.type === 'dm' || data.type === 'friend_request') {
+                    const sBadge = document.getElementById('socialPingBadge');
+                    const mBadge = document.getElementById('mobileSocialPingBadge');
+                    [sBadge, mBadge].forEach(b => {
+                        if (b) {
+                            let curr = parseInt(b.textContent.trim()) || 0;
+                            curr += 1;
+                            b.textContent = curr > 99 ? '99+' : curr;
+                            b.style.display = 'inline-flex';
+                        }
+                    });
+                } else if (data.type === 'mention' && data.community_id) {
+                    const commBadge = document.getElementById(`serverMentionBadge_${data.community_id}`);
+                    if (commBadge) {
+                        let curr = parseInt(commBadge.textContent.trim()) || 0;
+                        curr += 1;
+                        commBadge.textContent = curr > 99 ? '99+' : curr;
+                        commBadge.style.display = 'inline-flex';
+                    }
+                }
+            }
+
+            if (typeof fetchGlobalNotifications === 'function') {
+                fetchGlobalNotifications(false);
             }
 
             // CRITICAL DND CHECK:
@@ -272,6 +579,337 @@
 
         connect();
     })();
+
+    // ==========================================================================
+    // GLOBAL INBOX & NOTIFICATION SYSTEM
+    // ==========================================================================
+    let globalNotificationsData = { mentions: [], unreads: [] };
+    let activeGlobalInboxTab = 'mentions';
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function toggleGlobalNotifications(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        const dropdown = document.getElementById('globalNotificationsDropdown');
+        if (!dropdown) return;
+        const isShowing = dropdown.style.display !== 'none';
+        if (isShowing) {
+            dropdown.style.display = 'none';
+        } else {
+            dropdown.style.display = 'flex';
+            fetchGlobalNotifications(true);
+        }
+    }
+
+    function switchGlobalInboxTab(tab, e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        activeGlobalInboxTab = tab;
+        document.querySelectorAll('.global-inbox-tab').forEach(b => {
+            b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+        });
+        renderGlobalInboxContent();
+    }
+
+    function fetchGlobalNotifications(showLoading) {
+        const body = document.getElementById('globalInboxBody');
+        if (showLoading && body && (!globalNotificationsData.mentions || globalNotificationsData.mentions.length === 0)) {
+            body.innerHTML = `
+                <div class="global-inbox-loading" style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                    <i class="ph ph-spinner ph-spin" style="font-size: 1.5rem; margin-bottom: 8px; display: block; margin-left: auto; margin-right: auto;"></i>
+                    Loading notifications...
+                </div>
+            `;
+        }
+
+        fetch('/chat/api/notifications/?c=global')
+            .then(res => res.json())
+            .then(data => {
+                globalNotificationsData = data;
+                updateGlobalBadgeUI(data);
+                renderGlobalInboxContent();
+            })
+            .catch(err => {
+                console.error('Error fetching global notifications:', err);
+                if (body && showLoading) {
+                    body.innerHTML = `
+                        <div class="global-inbox-empty">
+                            <i class="ph ph-warning-circle"></i>
+                            <span>Failed to load notifications</span>
+                        </div>
+                    `;
+                }
+            });
+    }
+
+    function updateGlobalBadgeUI(data) {
+        const badge = document.getElementById('globalNotifBadge');
+        const totalCount = (data.unread_mention_count || 0);
+        if (badge) {
+            if (totalCount > 0) {
+                badge.textContent = totalCount > 99 ? '99+' : totalCount;
+                badge.style.display = 'block';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+        const mentionsTabCount = document.getElementById('globalMentionsCount');
+        if (mentionsTabCount) {
+            mentionsTabCount.textContent = (data.unread_mention_count || 0);
+        }
+        const unreadTabCount = document.getElementById('globalUnreadCount');
+        if (unreadTabCount) {
+            unreadTabCount.textContent = (data.unread_messages_count || 0);
+        }
+    }
+
+    function renderGlobalInboxContent() {
+        const body = document.getElementById('globalInboxBody');
+        if (!body) return;
+
+        if (activeGlobalInboxTab === 'mentions') {
+            const mentions = globalNotificationsData.mentions || [];
+            if (mentions.length === 0) {
+                body.innerHTML = `
+                    <div class="global-inbox-empty">
+                        <i class="ph ph-at"></i>
+                        <span>No mentions yet</span>
+                        <span style="font-size: 0.75rem; opacity: 0.7;">When someone @mentions you or your roles, they will appear here.</span>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            mentions.forEach(m => {
+                html += `
+                    <a href="${m.jump_url}" class="global-inbox-item ${m.is_unread ? 'unread' : ''}">
+                        <div class="global-inbox-item-meta">
+                            <span class="global-inbox-item-target">
+                                <i class="ph-bold ph-hash"></i> ${escapeHtml(m.community_name)} &gt; #${escapeHtml(m.channel_name)}
+                            </span>
+                            <span class="global-inbox-item-time">${escapeHtml(m.created_at)}</span>
+                        </div>
+                        <div class="global-inbox-item-content">
+                            <img src="${escapeHtml(m.author_avatar)}" class="global-inbox-item-avatar" alt="${escapeHtml(m.author)}" onerror="this.src='/static/img/default_avatar.svg'">
+                            <div class="global-inbox-item-detail">
+                                <div class="global-inbox-item-author">${escapeHtml(m.author)}</div>
+                                <div class="global-inbox-item-snippet">${escapeHtml(m.content)}</div>
+                            </div>
+                        </div>
+                    </a>
+                `;
+            });
+            body.innerHTML = html;
+        } else {
+            const unreads = globalNotificationsData.unreads || [];
+            if (unreads.length === 0) {
+                body.innerHTML = `
+                    <div class="global-inbox-empty">
+                        <i class="ph ph-check-circle"></i>
+                        <span>All caught up!</span>
+                        <span style="font-size: 0.75rem; opacity: 0.7;">No unread channel messages.</span>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            unreads.forEach(u => {
+                html += `
+                    <a href="${u.channel_url}" class="global-inbox-item unread">
+                        <div class="global-inbox-item-meta">
+                            <span class="global-inbox-item-target">
+                                <i class="ph-bold ph-hash"></i> ${escapeHtml(u.community_name)} &gt; #${escapeHtml(u.channel_name)}
+                            </span>
+                            <span class="global-inbox-item-time" style="background: var(--accent); color: white; padding: 2px 7px; border-radius: 10px; font-weight: 700; font-size: 0.68rem;">${u.unread_count} new</span>
+                        </div>
+                        <div class="global-inbox-item-content">
+                            <img src="${escapeHtml(u.latest_avatar)}" class="global-inbox-item-avatar" alt="${escapeHtml(u.latest_author)}" onerror="this.src='/static/img/default_avatar.svg'">
+                            <div class="global-inbox-item-detail">
+                                <div class="global-inbox-item-author">${escapeHtml(u.latest_author)} <span style="font-size: 0.7rem; font-weight: normal; color: var(--text-muted); margin-left: 6px;">${escapeHtml(u.latest_time)}</span></div>
+                                <div class="global-inbox-item-snippet">${escapeHtml(u.latest_content)}</div>
+                            </div>
+                        </div>
+                    </a>
+                `;
+            });
+            body.innerHTML = html;
+        }
+    }
+
+    function markAllGlobalNotificationsRead(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        const btn = document.getElementById('globalMarkAllReadBtn');
+        if (btn) btn.disabled = true;
+
+        fetch('/chat/api/notifications/mark-read/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken') || '',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: ''
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                globalNotificationsData.unread_mention_count = 0;
+                globalNotificationsData.unread_messages_count = 0;
+                if (globalNotificationsData.mentions) {
+                    globalNotificationsData.mentions.forEach(m => m.is_unread = false);
+                }
+                globalNotificationsData.unreads = [];
+                updateGlobalBadgeUI(globalNotificationsData);
+                renderGlobalInboxContent();
+            }
+        })
+        .catch(err => console.error('Error marking all notifications read:', err))
+        .finally(() => {
+            if (btn) btn.disabled = false;
+        });
+    }
+
+    function clearSocialPing(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        fetch('/profiles/api/social/clear-ping/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken') || '',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            const b1 = document.getElementById('socialPingBadge');
+            const b2 = document.getElementById('mobileSocialPingBadge');
+            if (b1) { b1.style.display = 'none'; b1.textContent = '0'; }
+            if (b2) { b2.style.display = 'none'; b2.textContent = '0'; }
+        })
+        .catch(err => console.error('Error clearing social ping:', err));
+    }
+
+    // Global outside-click listener for notifications dropdown
+    document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('globalNotificationsDropdown');
+        const bellBtn = document.getElementById('globalBellBtn');
+        if (dropdown && dropdown.style.display !== 'none') {
+            if (!dropdown.contains(e.target) && (!bellBtn || !bellBtn.contains(e.target))) {
+                dropdown.style.display = 'none';
+            }
+        }
+    });
+
+    // Initial notification check on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        fetchGlobalNotifications(false);
+    });
+
+    // --- AUTOMATIC IDLE & AFK PRESENCE ENGINE ---
+    (function initAutoPresence() {
+        let afkTimer = null;
+        const AFK_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes AFK timeout
+
+        function setPresenceStatus(newStatus, isAuto) {
+            // Respect explicit manual user choices:
+            // If user explicitly chose 'dnd' or 'offline' (invisible), never auto-switch to idle or online
+            if (window.currentUserManualStatus === 'dnd' || window.currentUserManualStatus === 'offline') {
+                return;
+            }
+
+            const csrfToken = (document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '');
+            fetch('/profiles/status/update/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: 'status=' + encodeURIComponent(newStatus) + (isAuto ? '&is_auto=1' : '')
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.currentUserStatus = data.status_setting;
+                    if (data.manual_status) window.currentUserManualStatus = data.manual_status;
+                    updateGlobalStatusIndicators(data.status_setting, data.manual_status);
+                }
+            })
+            .catch(() => {});
+        }
+
+        function onUserInteraction() {
+            if (window.currentUserManualStatus === 'online' && window.currentUserStatus === 'idle') {
+                if (document.visibilityState === 'visible') {
+                    setPresenceStatus('online', true);
+                }
+            }
+            resetAfkTimer();
+        }
+
+        function resetAfkTimer() {
+            clearTimeout(afkTimer);
+            afkTimer = setTimeout(() => {
+                if (window.currentUserManualStatus === 'online' && window.currentUserStatus === 'online' && document.visibilityState === 'visible') {
+                    setPresenceStatus('idle', true);
+                }
+            }, AFK_TIMEOUT_MS);
+        }
+
+        // Automatic idle on tab switch or minimize
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                if (window.currentUserManualStatus === 'online' && window.currentUserStatus === 'online') {
+                    setPresenceStatus('idle', true);
+                }
+            } else if (document.visibilityState === 'visible') {
+                if (window.currentUserManualStatus === 'online' && window.currentUserStatus === 'idle') {
+                    setPresenceStatus('online', true);
+                }
+                resetAfkTimer();
+            }
+        });
+
+        // Activity listeners
+        ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
+            window.addEventListener(evt, onUserInteraction, { passive: true });
+        });
+        resetAfkTimer();
+    })();
     const profileModal = document.getElementById('globalProfileModal');
     const profileModalContent = document.getElementById('globalProfileModalContent');
     
@@ -288,6 +926,13 @@
             .then(res => res.text())
             .then(html => {
                 profileModalContent.innerHTML = html;
+                const scripts = profileModalContent.querySelectorAll('script');
+                scripts.forEach(oldScript => {
+                    const newScript = document.createElement('script');
+                    Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+                    newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+                    oldScript.parentNode.replaceChild(newScript, oldScript);
+                });
                 if (window.htmx) {
                     htmx.process(profileModalContent);
                 }
@@ -296,6 +941,38 @@
                 console.error(err);
                 profileModalContent.innerHTML = '<div class="premium-profile-card profile-popout" style="padding:20px;text-align:center;">Failed to load profile.</div>';
             });
+    };
+
+    // Global Preferences API & Notification Prefs available on all pages
+    window.saveUserPref = window.saveUserPref || function(key, value) {
+        localStorage.setItem('cz_pref_' + key, JSON.stringify(value));
+        const msg = document.getElementById('notifSaveMsg');
+        if (msg) {
+            msg.style.display = 'inline-block';
+            setTimeout(() => { msg.style.display = 'none'; }, 2000);
+        }
+    };
+
+    window.getUserPref = window.getUserPref || function(key, defaultValue) {
+        const stored = localStorage.getItem('cz_pref_' + key);
+        if (stored === null) return defaultValue;
+        try { return JSON.parse(stored); } catch(e) { return defaultValue; }
+    };
+
+    window.saveAllNotificationPrefs = window.saveAllNotificationPrefs || function() {
+        ['floating_notifications', 'sound_alerts', 'unread_badge'].forEach(p => {
+            const el = document.getElementById('pref_' + p);
+            if (el) window.saveUserPref(p, el.checked);
+        });
+        if (typeof showSettingsToast === 'function') {
+            showSettingsToast('Notification preferences saved successfully!', 'success');
+        } else {
+            const msg = document.getElementById('notifSaveMsg');
+            if (msg) {
+                msg.style.display = 'inline-block';
+                setTimeout(() => { msg.style.display = 'none'; }, 2000);
+            }
+        }
     };
 
     window.openProfileModal = function(username, commSlug) {
@@ -430,6 +1107,363 @@
             }
         } catch(e) {}
     });
+
+    // Helper: Global CSRF Token Retrieval
+    window.getCSRFToken = function() {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, 10) === ('csrftoken=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(10));
+                    break;
+                }
+            }
+        }
+        if (!cookieValue) {
+            const tokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (tokenInput) cookieValue = tokenInput.value;
+        }
+        return cookieValue || '';
+    };
+
+    // Helper: Global Sleek Toast Notification
+    window.showCzToast = function(msg, type) {
+        type = type || 'success';
+        let container = document.getElementById('czGlobalToastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'czGlobalToastContainer';
+            container.className = 'cz-global-messages-wrap';
+            document.body.appendChild(container);
+        }
+        const toast = document.createElement('div');
+        toast.className = 'cz-global-toast toast-' + (type === 'error' ? 'error' : (type === 'warning' ? 'warning' : 'success'));
+        toast.setAttribute('role', 'alert');
+        const iconClass = type === 'success' ? 'ph-check-circle' : (type === 'error' ? 'ph-warning-circle' : 'ph-info');
+        toast.innerHTML = `
+            <i class="cz-toast-icon ph-fill ${iconClass}"></i>
+            <span class="cz-toast-text">${msg}</span>
+            <button type="button" class="cz-toast-close" onclick="this.closest('.cz-global-toast').remove()" aria-label="Dismiss">
+                <i class="ph ph-x"></i>
+            </button>
+        `;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-12px)';
+            setTimeout(() => {
+                if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
+            }, 300);
+        }, 4000);
+    };
+
+    // Global Server Right-Click Context Menu Logic
+    let activeServerCtx = null;
+    const serverContextMenu = document.getElementById('serverContextMenu');
+
+    function hideServerContextMenu() {
+        if (serverContextMenu) serverContextMenu.style.display = 'none';
+    }
+
+    document.addEventListener('click', hideServerContextMenu);
+    document.addEventListener('scroll', hideServerContextMenu, true);
+
+    function showServerContextMenu(x, y, targetEl) {
+        if (!serverContextMenu || !targetEl) return;
+        const commId = targetEl.getAttribute('data-community-id');
+        const commSlug = targetEl.getAttribute('data-community-slug');
+        const commName = targetEl.getAttribute('data-community-name') || 'Server';
+        const commIcon = targetEl.getAttribute('data-community-icon') || '/static/img/default_server.svg';
+        const isOwner = targetEl.getAttribute('data-is-owner') === 'true';
+        const canManage = targetEl.getAttribute('data-can-manage') === 'true';
+
+        activeServerCtx = { id: commId, slug: commSlug, name: commName, icon: commIcon, isOwner, canManage };
+
+        // Set header info
+        const nameEl = document.getElementById('serverCtxName');
+        const iconEl = document.getElementById('serverCtxIcon');
+        if (nameEl) nameEl.textContent = commName;
+        if (iconEl) iconEl.src = commIcon;
+
+        // Settings link
+        const settingsLink = document.getElementById('serverCtxSettingsLink');
+        if (settingsLink) {
+            if (isOwner || canManage) {
+                settingsLink.href = `/community/settings/?c=${commSlug}`;
+                settingsLink.style.display = 'flex';
+            } else {
+                settingsLink.style.display = 'none';
+            }
+        }
+
+        // Leave server button & divider
+        const leaveBtn = document.getElementById('serverCtxLeaveBtn');
+        const leaveDivider = document.getElementById('serverCtxLeaveDivider');
+        if (leaveBtn && leaveDivider) {
+            if (isOwner) {
+                leaveBtn.style.display = 'none';
+                leaveDivider.style.display = 'none';
+            } else {
+                leaveBtn.style.display = 'flex';
+                leaveDivider.style.display = 'block';
+            }
+        }
+
+        serverContextMenu.style.display = 'block';
+        const rect = serverContextMenu.getBoundingClientRect();
+        if (x + rect.width > window.innerWidth) x -= rect.width;
+        if (y + rect.height > window.innerHeight) y -= rect.height;
+        serverContextMenu.style.left = Math.max(8, x) + 'px';
+        serverContextMenu.style.top = Math.max(8, y) + 'px';
+    }
+
+    // Attach Right-Click / Contextmenu on server pills and sidebar header
+    document.addEventListener('contextmenu', function(e) {
+        const serverEl = e.target.closest('.community-pill:not(.new-space), .community-header');
+        if (serverEl) {
+            e.preventDefault();
+            e.stopPropagation();
+            showServerContextMenu(e.clientX, e.clientY, serverEl);
+        }
+    });
+
+    // Mobile Long-Press for Server Context Menu
+    let serverTouchTimer = null;
+    document.addEventListener('touchstart', function(e) {
+        const serverEl = e.target.closest('.community-pill:not(.new-space), .community-header');
+        if (serverEl) {
+            serverTouchTimer = setTimeout(() => {
+                const touch = e.touches[0];
+                showServerContextMenu(touch.clientX, touch.clientY, serverEl);
+            }, 550);
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', function() {
+        if (serverTouchTimer) clearTimeout(serverTouchTimer);
+    });
+    document.addEventListener('touchmove', function() {
+        if (serverTouchTimer) clearTimeout(serverTouchTimer);
+    });
+
+    // Server Notification Modal Logic
+    let activeServerNotifSlug = null;
+    let activeServerNotifName = null;
+
+    window.openServerNotificationFromCtx = function() {
+        hideServerContextMenu();
+        if (!activeServerCtx) return;
+        window.openServerNotificationModal(activeServerCtx.slug, activeServerCtx.name, activeServerCtx.id);
+    };
+
+    window.openServerNotificationModal = function(communitySlug, communityName, communityId) {
+        activeServerNotifSlug = communitySlug;
+        activeServerNotifName = communityName;
+        const modal = document.getElementById('serverNotificationModal');
+        const titleEl = document.getElementById('serverNotifTitle');
+        const subEl = document.getElementById('serverNotifSubtitle');
+        if (titleEl) titleEl.textContent = `${communityName} Notifications`;
+        if (subEl) subEl.textContent = `Notification and mention settings for ${communityName}`;
+        if (modal) modal.style.display = 'flex';
+
+        // Fetch current settings
+        fetch(`/community/${communitySlug}/notifications/`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const level = data.notification_level || 'all';
+                    const rad = document.querySelector(`input[name="serverNotifLevel"][value="${level}"]`);
+                    if (rad) rad.checked = true;
+
+                    const supEv = document.getElementById('suppressEveryoneToggle');
+                    if (supEv) supEv.checked = !!data.suppress_everyone;
+
+                    const supRoles = document.getElementById('suppressRolesToggle');
+                    if (supRoles) supRoles.checked = !!data.suppress_roles;
+                }
+            })
+            .catch(err => console.error('Error fetching server notifications:', err));
+    };
+
+    window.closeServerNotificationModal = function() {
+        const modal = document.getElementById('serverNotificationModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    window.saveServerNotifications = function() {
+        if (!activeServerNotifSlug) return;
+        const btn = document.getElementById('saveServerNotifBtn');
+        const origHtml = btn ? btn.innerHTML : 'Save Changes';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Saving...';
+        }
+
+        const selectedLevel = (document.querySelector('input[name="serverNotifLevel"]:checked') || {}).value || 'all';
+        const suppressEveryone = document.getElementById('suppressEveryoneToggle')?.checked || false;
+        const suppressRoles = document.getElementById('suppressRolesToggle')?.checked || false;
+
+        const bodyData = new URLSearchParams();
+        bodyData.append('notification_level', selectedLevel);
+        bodyData.append('suppress_everyone', suppressEveryone ? 'true' : 'false');
+        bodyData.append('suppress_roles', suppressRoles ? 'true' : 'false');
+
+        fetch(`/community/${activeServerNotifSlug}/notifications/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': window.getCSRFToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: bodyData.toString()
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+            if (data.status === 'success') {
+                window.closeServerNotificationModal();
+                window.showCzToast(`Notification settings updated for ${activeServerNotifName || 'server'}`, 'success');
+            } else {
+                window.showCzToast('Failed to save settings: ' + (data.message || 'Unknown error'), 'error');
+            }
+        })
+        .catch(err => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+            window.showCzToast('Network error while saving notification settings', 'error');
+        });
+    };
+
+    // Leave Server Action
+    window.leaveServerFromCtx = function() {
+        hideServerContextMenu();
+        if (!activeServerCtx) return;
+        window.leaveServer(activeServerCtx.id, activeServerCtx.name);
+    };
+
+    window.leaveServer = function(communityId, communityName) {
+        if (!communityId) return;
+        if (confirm(`Are you sure you want to leave ${communityName || 'this server'}? You will need an invite to rejoin.`)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/community/${communityId}/leave/`;
+
+            const csrf = document.createElement('input');
+            csrf.type = 'hidden';
+            csrf.name = 'csrfmiddlewaretoken';
+            csrf.value = window.getCSRFToken();
+            form.appendChild(csrf);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+    };
+
+    // Global Report Modal Logic
+    window.openReportModal = function(messageId) {
+        const modal = document.getElementById('reportMessageModal');
+        const idInput = document.getElementById('reportTargetMsgId');
+        const detailsInput = document.getElementById('reportDetailsInput');
+        const defaultRadio = document.querySelector('input[name="reportReason"][value="spam"]');
+
+        if (idInput) idInput.value = messageId || '';
+        if (detailsInput) detailsInput.value = '';
+        if (defaultRadio) defaultRadio.checked = true;
+
+        if (modal) modal.style.display = 'flex';
+    };
+
+    window.closeReportModal = function() {
+        const modal = document.getElementById('reportMessageModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    window.submitMessageReport = function() {
+        const msgId = document.getElementById('reportTargetMsgId')?.value;
+        const reason = (document.querySelector('input[name="reportReason"]:checked') || {}).value || 'other';
+        const details = document.getElementById('reportDetailsInput')?.value || '';
+
+        if (!msgId) {
+            window.showCzToast('Invalid message to report', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('submitReportBtn');
+        const origText = btn ? btn.innerHTML : 'Submit Report';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner ph-spin"></i> Submitting...';
+        }
+
+        const params = new URLSearchParams();
+        params.append('message_id', msgId);
+        params.append('reason', reason);
+        params.append('details', details);
+
+        fetch('/accounts/report/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': window.getCSRFToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: params.toString()
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+            if (data.status === 'success') {
+                window.closeReportModal();
+                window.showCzToast(data.message || 'Report submitted to moderators successfully!', 'success');
+            } else {
+                window.showCzToast(data.message || 'Could not submit report', 'error');
+            }
+        })
+        .catch(err => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+            window.showCzToast('Network error while submitting report', 'error');
+        });
+    };
+
+    // Global Toggle Block User Logic
+    window.toggleBlockUser = function(username, reloadOnSuccess) {
+        if (!username) return;
+        fetch(`/accounts/block/${encodeURIComponent(username)}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': window.getCSRFToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'blocked' || data.status === 'unblocked') {
+                window.showCzToast(data.message, data.status === 'blocked' ? 'warning' : 'success');
+                if (reloadOnSuccess) {
+                    setTimeout(() => window.location.reload(), 600);
+                }
+            } else {
+                window.showCzToast(data.message || 'Action failed', 'error');
+            }
+        })
+        .catch(err => {
+            window.showCzToast('Network error while updating block status', 'error');
+        });
+    };
 </script>
 
 <!-- Global Voice State & SPA Routing -->

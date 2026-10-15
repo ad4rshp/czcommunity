@@ -21,6 +21,7 @@ class Profile(models.Model):
     ]
     dm_setting = models.CharField(max_length=20, choices=DM_CHOICES, default='everyone')
     status_setting = models.CharField(max_length=20, choices=STATUS_CHOICES, default='online')
+    manual_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='online')
 
     def __str__(self):
         return f"{self.user.username}'s Profile"

@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/chat.css' %}">
+<link rel="stylesheet" href="{% static 'css/chat.css' %}?v=8">
 {% endblock %}
 
 {% block content %}
@@ -67,20 +67,28 @@
         </div>
 
         <div class="message-area" id="messageArea">
-            {% if not chat_messages %}
-            <div class="empty-state">
-                <img src="{{ target_user.profile.get_avatar_url }}" alt="{{ target_user.username }}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 20px;" onerror="this.src='/static/img/default_avatar.svg'">
+            <div class="channel-start-welcome dm-start-welcome">
+                <div class="channel-start-avatar" style="margin-bottom: 12px;">
+                    <img src="{{ target_user.profile.get_avatar_url }}" alt="{{ target_user.username }}" style="width: 72px; height: 72px; border-radius: 50%; object-fit: cover; box-shadow: 0 4px 16px rgba(0,0,0,0.4);" onerror="this.src='/static/img/default_avatar.svg'">
+                </div>
                 <h3>{{ target_user.username }}</h3>
-                <p>This is the beginning of your direct message history with @{{ target_user.username }}.</p>
+                <p>This is the beginning of your direct message history with <strong>@{{ target_user.username }}</strong>.</p>
             </div>
-            {% endif %}
             
             {% for message in chat_messages %}
-            <div class="message-group" id="msg-{{ message.id }}" data-raw-content="{{ message.content }}">
+            <div class="message-group {% if '@'|add:request.user.username in message.content %}mentioned{% endif %}" id="msg-{{ message.id }}" data-raw-content="{{ message.content|escape }}" data-msg-id="{{ message.id }}" data-author="{{ message.author.username }}">
                 <div class="message-avatar">
-                    <img src="{{ message.author.profile.get_avatar_url }}" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
+                    <img src="{{ message.author.profile.get_avatar_url }}" alt="{{ message.author.username }}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
                 </div>
                 <div class="message-content-wrapper">
+                    {% if message.reply_to %}
+                    <div class="message-reply-preview" onclick="scrollToMessage({{ message.reply_to.id }})" title="Jump to message">
+                        <div class="reply-spine-curve"></div>
+                        <img src="{{ message.reply_to.author.profile.get_avatar_url }}" class="reply-avatar" alt="{{ message.reply_to.author.username }}" onerror="this.src='/static/img/default_avatar.svg'">
+                        <span class="reply-author">@{{ message.reply_to.author.username }}</span>
+                        <span class="reply-snippet">{{ message.reply_to.content|truncatechars:65 }}</span>
+                    </div>
+                    {% endif %}
                     <div class="message-meta">
                         <span class="author">{{ message.author.username }}</span>
                         <span class="timestamp">{{ message.created_at|date:"h:i A" }}</span>
@@ -90,19 +98,45 @@
                         {% if message.edited_at %}
                         <span class="edited-tag">(edited)</span>
                         {% endif %}
+                    </div>
                     <div class="message-actions">
-                        {% if message.author == request.user %}
-                        <button type="button" class="msg-action-btn" onclick="startEdit({{ message.id }})" title="Edit" aria-label="Edit"><i class="ph-bold ph-pencil-simple"></i></button>
-                        <button type="button" class="msg-action-btn danger" onclick="deleteMessage({{ message.id }})" title="Delete" aria-label="Delete"><i class="ph-bold ph-trash"></i></button>
-                        {% endif %}
+                        <button type="button" class="msg-action-btn" onclick="replyToMessage({{ message.id }}, '{{ message.author.username }}')" title="Reply to message" aria-label="Reply">
+                            <i class="ph-bold ph-arrow-bend-up-left"></i>
+                        </button>
                     </div>
                 </div>
             </div>
             {% endfor %}
         </div>
 
+        {% if is_blocked %}
+        <div style="padding: 16px 20px; background: rgba(244,67,54,0.12); border-top: 1px solid rgba(244,67,54,0.3); text-align: center; color: #fca5a5; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; gap: 10px;">
+            <i class="ph-bold ph-prohibit" style="font-size: 1.2rem;"></i>
+            <span>You cannot send messages to @{{ target_user.username }} because this user is blocked.</span>
+            {% if is_blocked_by_me %}
+            <button type="button" onclick="toggleBlockUser('{{ target_user.username }}', true)" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; font-weight: 600;">Unblock</button>
+            {% endif %}
+        </div>
+        {% else %}
         <div class="composer-area">
-            <div id="typingIndicator" class="typing-indicator"></div>
+            <!-- Discord-Style Reply Banner -->
+            <div id="replyBar" class="composer-reply-bar" style="display: none;">
+                <div class="reply-bar-left">
+                    <i class="ph-bold ph-arrow-bend-up-left reply-bar-icon"></i>
+                    <span class="reply-bar-label">Replying to <strong id="replyAuthorName">@user</strong></span>
+                    <span id="replyPreviewText" class="reply-bar-snippet"></span>
+                </div>
+                <div class="reply-bar-right">
+                    <label class="reply-mention-toggle" title="Toggle author mention on reply">
+                        <input type="checkbox" id="replyMentionToggle" checked onchange="toggleReplyMention(this.checked)">
+                        <span class="reply-mention-badge" id="replyMentionBadge"><i class="ph-bold ph-at"></i> ON</span>
+                    </label>
+                    <button type="button" class="reply-dismiss-btn" onclick="cancelReply()" title="Cancel Reply (Esc)" aria-label="Cancel reply">
+                        <i class="ph-bold ph-x"></i>
+                    </button>
+                </div>
+            </div>
+
             <form id="chatForm">
                 <input type="file" id="fileInput" style="display: none;">
                 <button type="button" class="attach-btn" onclick="document.getElementById('fileInput').click();" title="Upload File"><i class="ph ph-plus-circle"></i></button>
@@ -111,6 +145,7 @@
                 <button type="submit" class="send-btn" title="Send (Enter)">➤</button>
             </form>
         </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

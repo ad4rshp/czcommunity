@@ -9,24 +9,25 @@
 
 @media (min-width: 769px) {
     .chat-layout {
-        padding: 8px 10px 10px 10px;
-        gap: 10px;
+        padding: 0;
+        gap: 0;
         box-sizing: border-box;
     }
 }
 
 .channel-sidebar {
     width: 270px;
-    background: rgba(22, 23, 27, 0.78);
+    background: rgba(20, 22, 27, 0.95);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: var(--radius-lg);
+    border: none;
+    border-right: 1px solid var(--border);
+    border-radius: 0;
     display: flex;
     flex-direction: column;
     padding: 10px 0;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), 0 0 1px rgba(255, 255, 255, 0.08);
-    transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1), transform 300ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 300ms ease;
+    box-shadow: none;
+    transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1), transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     flex-shrink: 0;
     overflow-x: hidden;
@@ -252,13 +253,11 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: rgba(20, 21, 25, 0.72);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: var(--radius-lg);
+    background: rgba(18, 19, 23, 0.85);
+    border: none;
+    border-radius: 0;
     overflow: hidden;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    box-shadow: none;
     min-width: 0;
     height: 100%;
     position: relative;
@@ -267,12 +266,12 @@
 .chat-header {
     height: 56px;
     flex-shrink: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 18px;
-    background: rgba(22, 23, 27, 0.72);
+    background: rgba(20, 22, 27, 0.95);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     gap: 12px;
@@ -285,7 +284,7 @@
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 16px 20px;
+    padding: 12px 16px 16px 16px;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -596,52 +595,233 @@
     margin-left: 5px;
 }
 
-/* Floating Message Action Toolbar (Anchored right above the message content) */
+/* Hide intrusive automatic hover toolbar - message actions are handled via right-click context menu */
 .message-actions {
-    position: absolute;
-    top: -14px;
-    right: 0;
-    background: rgba(24, 26, 32, 0.96);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 9px;
-    padding: 3px 6px;
+    display: none !important;
+}
+
+/* Mention Styles & Highlights */
+.message-group.mentioned {
+    background: rgba(255, 107, 43, 0.08) !important;
+    border-left: 3px solid var(--accent, #ff6b2b) !important;
+    padding-left: 13px !important;
+    position: relative;
+    transition: background 0.15s ease;
+}
+
+.message-group.mentioned:hover {
+    background: rgba(255, 107, 43, 0.13) !important;
+}
+
+.mention-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.93em;
+    background: rgba(88, 101, 242, 0.2);
+    color: #c4c9ff;
+    cursor: pointer;
+    vertical-align: baseline;
+    transition: all 0.15s ease;
+    user-select: text;
+}
+
+.mention-tag:hover {
+    background: rgba(88, 101, 242, 0.38);
+    color: #ffffff;
+}
+
+/* Highlight for when the current user is mentioned */
+.mention-tag.mention-me {
+    background: rgba(255, 107, 43, 0.28);
+    color: #ffb58e;
+    border: 1px solid rgba(255, 107, 43, 0.5);
+    font-weight: 700;
+    box-shadow: 0 0 10px rgba(255, 107, 43, 0.2);
+}
+
+.mention-tag.mention-me:hover {
+    background: rgba(255, 107, 43, 0.45);
+    color: #ffffff;
+    border-color: rgba(255, 107, 43, 0.8);
+}
+
+/* Voice Player Dock display support */
+.cz-voice-dock-container {
+    display: flex;
+}
+.cz-voice-dock-container[style*="display: none"] {
+    display: none !important;
+}
+
+/* Discord-Style Reply System */
+.composer-reply-bar {
+    background: rgba(26, 28, 36, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: none;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    padding: 6px 12px;
     display: flex;
     align-items: center;
-    gap: 4px;
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(3px);
-    transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1), transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
-    z-index: 20;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    animation: slideDownReply 0.15s ease-out;
 }
 
-/* Fallback for direct children of message-group */
-.message-group > .message-actions {
-    top: 4px;
-    right: 14px;
+@keyframes slideDownReply {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-/* Seamless Hover: visible when message-group or actions are hovered */
-.message-group:hover .message-actions,
-.message-content-wrapper:hover .message-actions,
-.message-actions:hover {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateY(0);
+.reply-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
 }
 
-/* Invisible hover bridge to prevent accidental hover drop while moving cursor to actions */
-.message-actions::before {
-    content: '';
+.reply-bar-icon {
+    color: var(--accent);
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.reply-bar-label {
+    white-space: nowrap;
+    color: #cbd5e1;
+}
+
+.reply-bar-label strong {
+    color: #ffffff;
+}
+
+.reply-bar-snippet {
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-style: italic;
+}
+
+.reply-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.reply-mention-toggle {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.reply-mention-toggle input {
+    display: none;
+}
+
+.reply-mention-badge {
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: rgba(255, 107, 43, 0.2);
+    color: var(--accent);
+    border: 1px solid rgba(255, 107, 43, 0.35);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    transition: all 0.15s ease;
+}
+
+.reply-dismiss-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.reply-dismiss-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Quoted Reply Spine Above Message */
+.message-reply-preview {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-left: 18px;
+    transition: color 0.15s ease;
+}
+
+.message-reply-preview:hover {
+    color: #e2e8f0;
+}
+
+.message-reply-preview:hover .reply-author {
+    text-decoration: underline;
+}
+
+.reply-spine-curve {
     position: absolute;
-    top: -8px;
-    bottom: -8px;
-    left: -8px;
-    right: -8px;
-    z-index: -1;
+    left: 0;
+    top: 50%;
+    width: 14px;
+    height: 10px;
+    border-left: 2px solid rgba(255, 255, 255, 0.25);
+    border-top: 2px solid rgba(255, 255, 255, 0.25);
+    border-top-left-radius: 6px;
+}
+
+.reply-avatar {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.reply-author {
+    font-weight: 600;
+    color: #94a3b8;
+    flex-shrink: 0;
+}
+
+.reply-snippet {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 450px;
+    font-style: normal;
+}
+
+/* Pulse Highlight when jumping to replied message */
+@keyframes replyPulse {
+    0% { background: rgba(255, 107, 43, 0.35); }
+    100% { background: transparent; }
+}
+
+.message-group.pulse-highlight {
+    animation: replyPulse 1.8s ease-out;
 }
 
 .msg-action-btn {
@@ -783,6 +963,7 @@
 .composer-tools-right {
     display: flex;
     align-items: center;
+    gap: 6px;
     flex-shrink: 0;
 }
 
@@ -1607,16 +1788,87 @@
     padding: 0 2px;
 }
 
-/* Highlight animation when jumping to message */
-.message-jump-highlight {
-    background: rgba(255, 107, 43, 0.28) !important;
-    border-left: 3px solid var(--accent, #ff6b2b) !important;
-    transition: background 1s ease, border-color 1s ease;
-    animation: czJumpPulse 2.5s ease-out;
+/* Search User Suggestions & Quick Mentions */
+.search-user-suggestions-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 320px;
+    max-width: 90vw;
+    background: rgba(18, 20, 26, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 107, 43, 0.35);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 20px rgba(255, 107, 43, 0.2);
+    padding: 6px;
+    z-index: 10050;
+    max-height: 260px;
+    overflow-y: auto;
+    animation: czDropdownEnter 180ms var(--ease-out-decel);
 }
-@keyframes czJumpPulse {
-    0% { background: rgba(255, 107, 43, 0.45); }
-    100% { background: transparent; }
+.search-suggestion-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+}
+.search-suggestion-item:hover,
+.search-suggestion-item.selected {
+    background: rgba(255, 107, 43, 0.2);
+}
+.search-suggestion-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.search-suggestion-name {
+    font-weight: 700;
+    font-size: 0.84rem;
+    color: #ffffff;
+}
+.search-suggestion-hint {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    margin-left: auto;
+}
+.quick-mentions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+.quick-mention-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 4px 10px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: var(--transition-btn);
+}
+.quick-mention-chip:hover {
+    background: rgba(255, 107, 43, 0.2);
+    border-color: rgba(255, 107, 43, 0.4);
+    color: #ffffff;
+    transform: translateY(-2px);
+}
+.quick-mention-chip img {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    object-fit: cover;
 }
 
 @media (max-width: 768px) {
@@ -1746,25 +1998,299 @@
 }
 
 
-.message-context-menu {
+.message-context-menu, .cz-context-menu {
     font-size: 0.9rem;
     color: var(--text-primary);
+    background: #18191c;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 6px 0;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55), 0 0 1px rgba(255, 255, 255, 0.1);
+    min-width: 190px;
+    z-index: 10000;
+    user-select: none;
+    animation: czMenuPop 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.ctx-item {
-    padding: 8px 15px;
+@keyframes czMenuPop {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.cz-ctx-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px 8px 14px;
+    font-weight: 700;
+    font-size: 0.84rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    margin-bottom: 4px;
+}
+.cz-ctx-header img {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.cz-ctx-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    margin: 4px 0;
+}
+.ctx-item, .cz-ctx-item {
+    padding: 8px 14px;
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 10px;
-    transition: background 0.2s;
+    font-size: 0.85rem;
+    color: #dbdee1;
+    text-decoration: none;
+    transition: all 0.15s ease;
 }
-.ctx-item:hover {
-    background: rgba(255,255,255,0.05);
+.ctx-item:hover, .cz-ctx-item:hover {
+    background: #5865f2;
+    color: #ffffff;
 }
-.ctx-item.text-danger {
-    color: #F44336;
+.ctx-item.text-danger, .ctx-item.danger, .cz-ctx-item.danger {
+    color: #f23f43;
 }
-.ctx-item.text-danger:hover {
-    background: rgba(244, 67, 54, 0.1);
+.ctx-item.text-danger:hover, .ctx-item.danger:hover, .cz-ctx-item.danger:hover {
+    background: #da373c;
+    color: #ffffff;
+}
+
+/* ChillZone Global Modals */
+.cz-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+    animation: czFadeIn 0.18s ease-out;
+}
+.cz-modal-card {
+    background: #2b2d31;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: czModalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cz-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 20px 24px 14px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.cz-modal-title-group {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+.cz-modal-title-group h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #f2f3f5;
+}
+.cz-modal-sub {
+    margin: 3px 0 0 0;
+    font-size: 0.8rem;
+    color: #949ba4;
+}
+.modal-icon-accent {
+    font-size: 1.5rem;
+    color: var(--accent, #5865f2);
+    margin-top: 2px;
+}
+.modal-icon-danger {
+    font-size: 1.5rem;
+    color: #f23f43;
+    margin-top: 2px;
+}
+.cz-modal-close-btn {
+    background: transparent;
+    border: none;
+    color: #949ba4;
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 4px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: color 0.15s;
+}
+.cz-modal-close-btn:hover {
+    color: #f2f3f5;
+}
+.cz-modal-body {
+    padding: 18px 24px;
+    overflow-y: auto;
+    max-height: 65vh;
+}
+.cz-setting-section-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #b5bac1;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+}
+.cz-radio-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.cz-radio-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: #1e1f22;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.cz-radio-card:hover {
+    background: #232428;
+    border-color: rgba(255, 255, 255, 0.12);
+}
+.cz-radio-card input[type="radio"] {
+    margin-top: 3px;
+    accent-color: var(--accent, #5865f2);
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+.cz-radio-card-content {
+    flex: 1;
+}
+.cz-radio-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #f2f3f5;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.cz-radio-desc {
+    font-size: 0.78rem;
+    color: #949ba4;
+    margin-top: 2px;
+    line-height: 1.35;
+}
+.cz-checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.cz-checkbox-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: #1e1f22;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.cz-checkbox-item:hover {
+    background: #232428;
+}
+.cz-checkbox-item input[type="checkbox"] {
+    margin-top: 3px;
+    accent-color: var(--accent, #5865f2);
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+.cz-checkbox-text {
+    display: flex;
+    flex-direction: column;
+}
+.cz-checkbox-text strong {
+    font-size: 0.88rem;
+    color: #f2f3f5;
+    font-weight: 600;
+}
+.cz-checkbox-text small {
+    font-size: 0.76rem;
+    color: #949ba4;
+    margin-top: 2px;
+}
+.cz-modal-textarea {
+    width: 100%;
+    background: #1e1f22;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: #f2f3f5;
+    font-size: 0.85rem;
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+}
+.cz-modal-textarea:focus {
+    outline: none;
+    border-color: var(--accent, #5865f2);
+}
+.cz-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 24px;
+    background: #232428;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.cz-btn {
+    padding: 8px 18px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.cz-btn-ghost {
+    background: transparent;
+    color: #f2f3f5;
+}
+.cz-btn-ghost:hover {
+    text-decoration: underline;
+}
+.cz-btn-primary {
+    background: var(--accent, #5865f2);
+    color: #ffffff;
+}
+.cz-btn-primary:hover {
+    background: #4752c4;
+}
+.cz-btn-danger {
+    background: #da373c;
+    color: #ffffff;
+}
+.cz-btn-danger:hover {
+    background: #b52c31;
 }
 

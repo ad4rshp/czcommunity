@@ -12,5 +12,6 @@ urlpatterns = [
     path('<str:username>/card/', views.profile_card_fragment, name='profile_card_fragment'),
     path('action/send-request/', views.send_friend_request_by_username, name='send_friend_request_by_username'),
     path('status/update/', views.quick_status_update, name='quick_status_update'),
+    path('api/social/clear-ping/', views.clear_social_ping, name='clear_social_ping'),
     path('<str:username>/friend/', views.handle_friend_action, name='friend_action'),
 ]

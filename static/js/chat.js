@@ -72,13 +72,22 @@ setInterval(() => {
     }
 }, 1000);
 
-// Basic Markdown Parser (bold, italic, inline code)
+// Basic Markdown Parser (bold, italic, inline code, @mentions)
 function parseMarkdown(text) {
+    if (!text) return '';
     // text is already HTML escaped from the backend
     let parsed = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // Bold
     parsed = parsed.replace(/\*(.*?)\*/g, '<em>$1</em>');               // Italic
     parsed = parsed.replace(/`(.*?)`/g, '<code>$1</code>');             // Code
     parsed = parsed.replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>'); // Quotes
+    
+    // Parse @mentions into interactive styled badges
+    parsed = parsed.replace(/@([a-zA-Z0-9_.-]+)/g, (match, username) => {
+        const isMe = currentUsername && username.toLowerCase() === currentUsername.toLowerCase();
+        const meClass = isMe ? ' mention-me' : '';
+        return `<span class="mention-tag${meClass}" onclick="event.stopPropagation(); mentionUser('${username}')">@${username}</span>`;
+    });
+
     parsed = parsed.replace(/\n/g, '<br>');                             // Line breaks
     return parsed;
 }
@@ -172,7 +181,11 @@ function initChatSocket() {
             const avatarUrl = data.avatar_url || '/static/img/default_avatar.svg';
             const avatarContent = `<img src="${avatarUrl}" alt="${data.author}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">`;
 
-            const isMentioned = data.content.includes('@' + currentUsername);
+            const isMentioned = currentUsername && data.content && (
+                data.content.toLowerCase().includes('@' + currentUsername.toLowerCase()) ||
+                data.content.includes('@everyone') ||
+                data.content.includes('@here')
+            );
             const mentionClass = isMentioned ? 'mentioned' : '';
 
             const botBadge = data.is_bot ? '<span class="bot-badge" style="background: #5865F2; color: white; font-size: 0.65rem; padding: 2px 5px; border-radius: 4px; margin-left: 5px; vertical-align: middle;">APP</span>' : '';
@@ -191,10 +204,23 @@ function initChatSocket() {
             }
 
             const colorStyle = data.author_color ? `color: ${data.author_color};` : '';
+            let replyHtml = '';
+            if (data.reply_to) {
+                replyHtml = `
+                    <div class="message-reply-preview" onclick="scrollToMessage(${data.reply_to.id})" title="Jump to message">
+                        <div class="reply-spine-curve"></div>
+                        <img src="${data.reply_to.avatar_url}" class="reply-avatar" alt="${data.reply_to.author}" onerror="this.src='/static/img/default_avatar.svg'">
+                        <span class="reply-author">@${data.reply_to.author}</span>
+                        <span class="reply-snippet">${data.reply_to.content}</span>
+                    </div>
+                `;
+            }
+
             const messageHtml = `
                 <div class="message-group ${mentionClass}" id="msg-${data.message_id}" data-msg-id="${data.message_id}" data-author="${data.author}" data-raw-content="${data.content}">
                     <div class="message-avatar" style="cursor: pointer;" onclick="openProfileModal('${data.author}', window.activeCommunitySlug)">${avatarContent}</div>
                     <div class="message-content-wrapper">
+                        ${replyHtml}
                         <div class="message-meta">
                             <span class="author" style="cursor: pointer; ${colorStyle}" onclick="mentionUser('${data.author}')">${data.author}</span>
                             ${botBadge}
@@ -282,10 +308,15 @@ let isProcessingQueue = false;
 function sendMessageDirect(content) {
     if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
         recentSentTimestamps.push(Date.now());
-        chatSocket.send(JSON.stringify({
+        const payload = {
             'action': 'message.create',
             'content': content
-        }));
+        };
+        if (window.activeReplyMessageId) {
+            payload.reply_to_id = window.activeReplyMessageId;
+            cancelReply();
+        }
+        chatSocket.send(JSON.stringify(payload));
         try {
             chatSocket.send(JSON.stringify({
                 'action': 'typing.stopped'
@@ -471,20 +502,87 @@ function reactToMessage(messageId) {
 }
 
 function reportMessage(messageId) {
-    alert("This message has been reported to the moderators.");
-}
-
-function replyToMessage(messageId, authorName) {
-    const input = document.getElementById('messageInput');
-    const msgEl = document.getElementById(`msg-${messageId}`);
-    if (msgEl) {
-        let rawContent = msgEl.getAttribute('data-raw-content');
-        rawContent = rawContent.replace(/^>.*$/gm, '').trim(); // Remove nested quotes
-        const preview = rawContent.length > 50 ? rawContent.substring(0, 50) + '...' : rawContent;
-        input.value = `> **${authorName}**: ${preview}\n` + input.value;
-        input.focus();
+    if (typeof window.openReportModal === 'function') {
+        window.openReportModal(messageId);
+    } else {
+        alert("Report dialog unavailable");
     }
 }
+window.reportMessage = reportMessage;
+
+// Modern Discord-Style Reply State & Controls
+window.activeReplyMessageId = null;
+window.activeReplyAuthor = null;
+window.activeReplyMention = true;
+
+window.replyToMessage = function(messageId, authorName) {
+    const msgEl = document.getElementById(`msg-${messageId}`);
+    if (!msgEl) return;
+    
+    let rawContent = msgEl.getAttribute('data-raw-content') || '';
+    rawContent = rawContent.replace(/^>.*$/gm, '').trim();
+    const preview = rawContent.length > 55 ? rawContent.substring(0, 55) + '...' : rawContent;
+    
+    window.activeReplyMessageId = messageId;
+    window.activeReplyAuthor = authorName;
+    
+    const replyBar = document.getElementById('replyBar');
+    const authorEl = document.getElementById('replyAuthorName');
+    const previewEl = document.getElementById('replyPreviewText');
+    
+    if (replyBar && authorEl && previewEl) {
+        authorEl.textContent = '@' + authorName;
+        previewEl.textContent = preview;
+        replyBar.style.display = 'flex';
+    }
+    
+    if (messageInput) {
+        messageInput.focus();
+    }
+};
+
+window.cancelReply = function() {
+    window.activeReplyMessageId = null;
+    window.activeReplyAuthor = null;
+    const replyBar = document.getElementById('replyBar');
+    if (replyBar) replyBar.style.display = 'none';
+};
+
+window.toggleReplyMention = function(checked) {
+    window.activeReplyMention = checked;
+    const badge = document.getElementById('replyMentionBadge');
+    if (badge) {
+        badge.innerHTML = `<i class="ph-bold ph-at"></i> ${checked ? 'ON' : 'OFF'}`;
+        badge.style.opacity = checked ? '1' : '0.5';
+    }
+};
+
+window.scrollToMessage = function(messageId) {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('pulse-highlight');
+        setTimeout(() => el.classList.remove('pulse-highlight'), 1800);
+    }
+};
+
+// Auto scroll on direct jump link (?jump=<id>)
+(function checkJumpOnLoad() {
+    function runJump() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const jumpId = urlParams.get('jump');
+        if (jumpId) {
+            setTimeout(() => {
+                window.scrollToMessage(jumpId);
+            }, 350);
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', runJump);
+    } else {
+        runJump();
+    }
+})();
 
 function mentionUser(username) {
     const input = document.getElementById('messageInput');
@@ -530,10 +628,10 @@ function renderSuggestions(type, query, cursorIndex) {
                      </div>`;
         });
     } else if (type === '#') {
-        matches = communityData.channels.filter(c => c.name.toLowerCase().includes(query.toLowerCase()));
+        matches = communityData.channels.filter(c => c.type !== 'voice' && c.name.toLowerCase().includes(query.toLowerCase()));
         matches.forEach(m => {
             html += `<div class="suggestion-item" style="padding: 8px 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'" onclick="insertAutocomplete('#${m.name}', ${cursorIndex})">
-                        <strong style="color: var(--text-primary);">#${m.name}</strong>
+                        <strong style="color: var(--text-primary);"><i class="ph ph-hash"></i> ${m.name}</strong>
                      </div>`;
         });
     }
@@ -613,6 +711,7 @@ messageInput.addEventListener('keydown', function (e) {
         }
     }
     if (e.key === 'Escape') {
+        if (window.activeReplyMessageId) cancelReply();
         if (editingMessageId) cancelEdit();
         if (commandSuggestions) commandSuggestions.classList.add('hidden');
     }
@@ -704,21 +803,22 @@ document.getElementById('messageArea').addEventListener('touchend', function (e)
     }
 }, { passive: true });
 
-// Parse markdown for existing messages on page load
-document.querySelectorAll('.markdown-content').forEach(el => {
-    // We only want to parse if it's not a deleted message
-    if (!el.querySelector('em')) {
-        let rawHtml = el.innerHTML;
-        // Simple extraction to handle the edited tag separately if needed, 
-        // but for now parseMarkdown handles it fine if we just run it.
-        // To be safe, we just replace the text nodes or innerHTML without breaking the span
-        let editedTag = el.querySelector('.edited-tag');
-        let textToParse = el.textContent.replace('(edited)', '').trim();
+// Parse markdown and mentions for existing messages on page load
+document.querySelectorAll('.message-group').forEach(msgEl => {
+    const rawContent = msgEl.getAttribute('data-raw-content') || '';
+    if (currentUsername && rawContent.toLowerCase().includes('@' + currentUsername.toLowerCase())) {
+        msgEl.classList.add('mentioned');
+    }
+    const textEl = msgEl.querySelector('.markdown-content, .message-text');
+    if (textEl && !textEl.dataset.parsed) {
+        textEl.dataset.parsed = 'true';
+        let editedTag = textEl.querySelector('.edited-tag');
+        let textToParse = textEl.textContent.replace('(edited)', '').trim();
         let newHtml = parseMarkdown(textToParse);
         if (editedTag) {
             newHtml += ' <span class="edited-tag">(edited)</span>';
         }
-        el.innerHTML = newHtml;
+        textEl.innerHTML = newHtml;
     }
 });
 
@@ -897,7 +997,8 @@ function showContextMenu(x, y, msgEl) {
     }
 
     if (!isOwn) {
-        menuHtml += `<div class="ctx-item text-danger" onclick="reportMessage('${msgId}')"><i class="ph ph-flag"></i> Report</div>`;
+        menuHtml += `<div class="ctx-item text-danger" onclick="reportMessage('${msgId}')"><i class="ph ph-flag"></i> Report Message</div>`;
+        menuHtml += `<div class="ctx-item text-danger" onclick="toggleBlockUser('${author}')"><i class="ph ph-prohibit"></i> Block @${author}</div>`;
         // Only show Kick/Ban if user has permissions AND target is NOT an admin/owner
         if (canKick && !isTargetProtected) {
             menuHtml += `<div class="ctx-item text-danger" onclick="kickUser('${author}')"><i class="ph ph-user-minus"></i> Kick User</div>`;

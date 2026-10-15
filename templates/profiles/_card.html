@@ -196,12 +196,11 @@ function quickChangeCardStatus(status) {
                 cardIndicator.innerHTML = inner;
             }
             
-            // Sync with navbar & mobile nav
-            const navDots = document.querySelectorAll('.profile-avatar .status-indicator, .mobile-nav-avatar-wrap .status-indicator');
-            navDots.forEach(dot => {
-                dot.className = 'status-indicator ' + status;
-            });
             window.currentUserStatus = status;
+            window.currentUserManualStatus = data.manual_status || status;
+            if (typeof updateGlobalStatusIndicators === 'function') {
+                updateGlobalStatusIndicators(status);
+            }
         }
     })
     .catch(console.error);

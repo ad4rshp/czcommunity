@@ -54,7 +54,7 @@
                 </div>
                 <div class="settings-hub-info">
                     <span class="settings-hub-title">Edit Profile</span>
-                    <span class="settings-hub-subtitle">Avatar, bio, status & DMs</span>
+                    <span class="settings-hub-subtitle">Avatar, bio & DMs</span>
                 </div>
                 <i class="ph ph-caret-right settings-hub-arrow"></i>
             </div>
@@ -112,20 +112,7 @@
                     <span class="settings-hub-subtitle">Color contrast & animations</span>
                 </div>
                 <i class="ph ph-caret-right settings-hub-arrow"></i>
-        </div>
-
-        <!-- Sidebar Log Out Action -->
-        <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid var(--border);">
-            <a href="{% url 'logout' %}" class="settings-hub-card settings-logout-card" style="color: #ff5252; text-decoration: none; margin-bottom: 0;" onclick="return confirm('Are you sure you want to log out of your account?');">
-                <div class="settings-hub-icon-wrap" style="background: rgba(244,67,54,0.15); color: #ff5252;">
-                    <i class="ph-bold ph-sign-out"></i>
-                </div>
-                <div class="settings-hub-info">
-                    <span class="settings-hub-title" style="color: #ff5252;">Log Out</span>
-                    <span class="settings-hub-subtitle">Sign out of session</span>
-                </div>
-                <i class="ph ph-arrow-square-out settings-hub-arrow" style="color: rgba(244,67,54,0.6);"></i>
-            </a>
+            </div>
         </div>
     </div>
 
@@ -191,52 +178,6 @@
                 <div class="form-group" style="margin-bottom: 25px;">
                     <label for="favorite_game" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Favorite Game</label>
                     <input type="text" id="favorite_game" name="favorite_game" class="form-control" value="{{ profile.favorite_game }}" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 15px;">
-                </div>
-
-                <!-- Status Setting Selector -->
-                <div class="form-group" style="margin-bottom: 30px;">
-                    <label style="color: var(--text-secondary); font-weight: 600; margin-bottom: 12px; display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">Status Setting</label>
-                    <div class="status-selector-grid">
-                        <label class="status-choice-card" :class="selectedStatus === 'online' ? 'selected' : ''" @click="selectedStatus = 'online'">
-                            <input type="radio" name="status_setting" value="online" :checked="selectedStatus === 'online'" @change="selectedStatus = 'online'" style="display: none;">
-                            <span class="status-indicator-dot online"></span>
-                            <div class="status-choice-info">
-                                <span class="status-choice-title">Online</span>
-                                <span class="status-choice-desc">Active & visible to all</span>
-                            </div>
-                            <i class="ph-bold ph-check status-check-icon"></i>
-                        </label>
-
-                        <label class="status-choice-card" :class="selectedStatus === 'idle' ? 'selected' : ''" @click="selectedStatus = 'idle'">
-                            <input type="radio" name="status_setting" value="idle" :checked="selectedStatus === 'idle'" @change="selectedStatus = 'idle'" style="display: none;">
-                            <span class="status-indicator-dot idle"></span>
-                            <div class="status-choice-info">
-                                <span class="status-choice-title">Idle</span>
-                                <span class="status-choice-desc">Away from keyboard</span>
-                            </div>
-                            <i class="ph-bold ph-check status-check-icon"></i>
-                        </label>
-
-                        <label class="status-choice-card" :class="selectedStatus === 'dnd' ? 'selected' : ''" @click="selectedStatus = 'dnd'">
-                            <input type="radio" name="status_setting" value="dnd" :checked="selectedStatus === 'dnd'" @change="selectedStatus = 'dnd'" style="display: none;">
-                            <span class="status-indicator-dot dnd"></span>
-                            <div class="status-choice-info">
-                                <span class="status-choice-title">Do Not Disturb</span>
-                                <span class="status-choice-desc">Mutes sound alerts & popups</span>
-                            </div>
-                            <i class="ph-bold ph-check status-check-icon"></i>
-                        </label>
-
-                        <label class="status-choice-card" :class="selectedStatus === 'offline' ? 'selected' : ''" @click="selectedStatus = 'offline'">
-                            <input type="radio" name="status_setting" value="offline" :checked="selectedStatus === 'offline'" @change="selectedStatus = 'offline'" style="display: none;">
-                            <span class="status-indicator-dot offline"></span>
-                            <div class="status-choice-info">
-                                <span class="status-choice-title">Invisible</span>
-                                <span class="status-choice-desc">Appear offline in members list</span>
-                            </div>
-                            <i class="ph-bold ph-check status-check-icon"></i>
-                        </label>
-                    </div>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 35px;">

@@ -4,7 +4,7 @@ from .models import Channel, Message, Reaction, CommunityMember
 
 class ChatService:
     @staticmethod
-    async def create_message(channel_slug, user, content, embed_data=None):
+    async def create_message(channel_slug, user, content, embed_data=None, reply_to_id=None):
         try:
             channel = await Channel.objects.select_related('category__community').aget(slug=channel_slug)
             community = channel.category.community
@@ -27,18 +27,23 @@ class ChatService:
                 if not has_embed:
                     return None, None
 
+            reply_to = None
+            if reply_to_id:
+                reply_to = await Message.objects.select_related('author', 'author__profile').filter(id=reply_to_id).afirst()
+
             message = await Message.objects.acreate(
                 channel=channel,
                 author=user,
                 content=content,
-                embed_data=embed_data
+                embed_data=embed_data,
+                reply_to=reply_to
             )
             
             # Prepare payload
             from django.utils.html import escape
             
             # Re-fetch with select_related for payload data
-            message = await Message.objects.select_related('author', 'author__profile').aget(id=message.id)
+            message = await Message.objects.select_related('author', 'author__profile', 'reply_to__author', 'reply_to__author__profile', 'channel__category__community').aget(id=message.id)
             author = message.author
             profile = getattr(author, 'profile', None)
             
@@ -47,6 +52,17 @@ class ChatService:
                 highest_role = await membership.roles.exclude(name='@everyone').order_by('-position', '-id').afirst()
                 if highest_role and highest_role.color:
                     author_color = highest_role.color
+
+            reply_to_data = None
+            if message.reply_to:
+                rep_auth = message.reply_to.author
+                rep_prof = getattr(rep_auth, 'profile', None)
+                reply_to_data = {
+                    "id": message.reply_to.id,
+                    "author": rep_auth.username,
+                    "content": escape(message.reply_to.content[:60]),
+                    "avatar_url": rep_prof.get_avatar_url() if rep_prof else "/static/img/default_avatar.svg"
+                }
 
             payload = {
                 "type": "chat.message",
@@ -61,6 +77,7 @@ class ChatService:
                 "embed_data": message.embed_data,
                 "attachment_url": message.attachment.url if message.attachment else None,
                 "raw_message_id": message.id,
+                "reply_to": reply_to_data,
             }
             return message, payload
         except Exception as e:

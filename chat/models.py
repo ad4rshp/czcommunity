@@ -78,6 +78,10 @@ class Channel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property
+    def community(self):
+        return self.category.community if self.category else None
+
+    @property
     def bitrate_kbps(self):
         try:
             return int(self.bitrate) // 1000 if self.bitrate else 64
@@ -183,9 +187,18 @@ class ChannelPermission(models.Model):
         return f"{target} perms for #{self.channel.name}"
 
 class CommunityMember(models.Model):
+    NOTIFICATION_LEVELS = [
+        ('all', 'All Messages'),
+        ('mentions', 'Only @mentions'),
+        ('nothing', 'Nothing'),
+    ]
+
     community = models.ForeignKey(Community, on_delete=models.CASCADE, related_name='members')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='community_memberships')
     roles = models.ManyToManyField(Role, blank=True, related_name='members')
+    notification_level = models.CharField(max_length=20, choices=NOTIFICATION_LEVELS, default='all')
+    suppress_everyone = models.BooleanField(default=False)
+    suppress_roles = models.BooleanField(default=False)
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -225,15 +238,22 @@ class CommunityMember(models.Model):
         return False
 
     async def ahas_permission(self, perm_name):
-        # Use _id fields to avoid synchronous DB access in async context
-        if self.user_id == self.community.owner_id:
+        # Check if user is the community owner safely without triggering sync DB access
+        is_owner = False
+        if hasattr(self, '_state') and 'community' in getattr(self._state, 'fields_cache', {}):
+            is_owner = (self.user_id == self.community.owner_id)
+        else:
+            comm_owner_id = await Community.objects.filter(id=self.community_id).values_list('owner_id', flat=True).afirst()
+            is_owner = (self.user_id == comm_owner_id)
+            
+        if is_owner:
             return True
             
         roles_to_check = []
         async for role in self.roles.all():
             roles_to_check.append(role)
             
-        everyone_role = await self.community.roles.filter(name="@everyone").afirst()
+        everyone_role = await Role.objects.filter(community_id=self.community_id, name="@everyone").afirst()
         if everyone_role:
             roles_to_check.append(everyone_role)
             

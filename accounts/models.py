@@ -8,6 +8,9 @@ class Block(models.Model):
 
     class Meta:
         unique_together = ('blocker', 'blocked')
+        verbose_name = 'Blocked User'
+        verbose_name_plural = 'Blocked Users'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.blocker.username} blocked {self.blocked.username}"
@@ -17,6 +20,7 @@ class Report(models.Model):
         ('spam', 'Spam'),
         ('harassment', 'Harassment'),
         ('inappropriate', 'Inappropriate Content'),
+        ('hate_speech', 'Hate Speech'),
         ('other', 'Other'),
     ]
     
@@ -26,6 +30,11 @@ class Report(models.Model):
     details = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     is_resolved = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = 'User Report'
+        verbose_name_plural = 'User Reports'
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"Report by {self.reporter.username} against {self.reported_user.username}"

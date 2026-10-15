@@ -252,9 +252,10 @@ def profile_edit(request):
 
         profile.bio = request.POST.get('bio', '')
         profile.favorite_game = request.POST.get('favorite_game', '')
-        status_setting = request.POST.get('status_setting', 'online')
+        status_setting = request.POST.get('status_setting')
         if status_setting in ['online', 'idle', 'dnd', 'offline']:
             profile.status_setting = status_setting
+            profile.manual_status = status_setting
         profile.dm_setting = request.POST.get('dm_setting', 'everyone')
         
         if 'avatar' in request.FILES:
@@ -275,13 +276,13 @@ def profile_edit(request):
         if is_ajax:
             return JsonResponse({
                 'status': 'success',
-                'message': 'Profile and status have been updated successfully!',
+                'message': 'Profile settings have been updated successfully!',
                 'status_setting': profile.status_setting,
                 'status_display': profile.get_status_setting_display(),
                 'avatar_url': profile.get_avatar_url(),
             })
             
-        messages.success(request, 'Your profile and status have been updated successfully!')
+        messages.success(request, 'Your profile settings have been updated successfully!')
         return redirect(f"{reverse('profile_edit')}?tab={tab}")
         
     base_template = 'base_empty.html' if (request.headers.get('HX-Request') or request.headers.get('X-Requested-With') == 'XMLHttpRequest') else 'authenticated_base.html'
@@ -291,14 +292,49 @@ def profile_edit(request):
 @require_POST
 def quick_status_update(request):
     new_status = request.POST.get('status')
+    is_auto = request.POST.get('is_auto') == '1'
     if new_status in ['online', 'idle', 'dnd', 'offline']:
         profile, _ = Profile.objects.get_or_create(user=request.user)
-        profile.status_setting = new_status
-        profile.save()
+        
+        # If auto-idle or auto-online, only apply if user's manual preference is 'online'
+        if is_auto:
+            if profile.manual_status != 'online':
+                return JsonResponse({
+                    'status': 'ignored',
+                    'status_setting': profile.status_setting,
+                    'status_display': profile.get_status_setting_display()
+                })
+            profile.status_setting = new_status
+        else:
+            profile.manual_status = new_status
+            profile.status_setting = new_status
+            
+        profile.save(update_fields=['status_setting', 'manual_status'])
+        
+        # Broadcast presence update via Channels
+        try:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    "user_presence",
+                    {
+                        "type": "presence_update",
+                        "user_id": request.user.id,
+                        "username": request.user.username,
+                        "status": profile.status_setting,
+                        "status_display": profile.get_status_setting_display()
+                    }
+                )
+        except Exception:
+            pass
+            
         return JsonResponse({
             'status': 'success',
             'status_setting': profile.status_setting,
-            'status_display': profile.get_status_setting_display()
+            'status_display': profile.get_status_setting_display(),
+            'manual_status': profile.manual_status,
         })
     return JsonResponse({'status': 'error', 'message': 'Invalid status option.'}, status=400)
 
@@ -322,12 +358,20 @@ def friends_list(request):
     
     dm_sessions = DirectMessageSession.objects.filter(Q(user1=request.user) | Q(user2=request.user)).order_by('-updated_at')
     
+    # Auto-clear social ping when viewing friends
+    request.session['clear_social_ping'] = True
+    
     return render(request, 'profiles/friends.html', {
         'friends': friends,
         'received_requests': received_requests,
         'sent_requests': sent_requests,
         'dm_sessions': dm_sessions
     })
+
+@login_required
+def clear_social_ping(request):
+    request.session['clear_social_ping'] = True
+    return JsonResponse({'status': 'ok'})
 
 @login_required
 def send_friend_request_by_username(request):

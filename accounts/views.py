@@ -45,3 +45,51 @@ def register_view(request):
 def logout_view(request):
     logout(request)
     return redirect('home')
+
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from .models import Report, Block
+from chat.models import Message
+from django.contrib.auth.models import User
+
+@login_required
+def report_message(request):
+    if request.method == 'POST':
+        message_id = request.POST.get('message_id')
+        reason = request.POST.get('reason', 'other')
+        details = request.POST.get('details', '')
+        
+        message = Message.objects.filter(id=message_id).select_related('author').first()
+        if not message:
+            return JsonResponse({'status': 'error', 'message': 'Message not found'}, status=404)
+            
+        Report.objects.create(
+            reporter=request.user,
+            reported_user=message.author,
+            reason=reason,
+            details=f"Message ID {message.id}: \"{message.content[:200]}\". Details: {details}"
+        )
+        return JsonResponse({'status': 'success', 'message': 'Report submitted to moderators successfully!'})
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
+
+@login_required
+def toggle_block_user(request, username):
+    if request.method == 'POST':
+        target = User.objects.filter(username__iexact=username).first()
+        if not target:
+            return JsonResponse({'status': 'error', 'message': 'User not found'}, status=404)
+        if target == request.user:
+            return JsonResponse({'status': 'error', 'message': 'You cannot block yourself'}, status=400)
+            
+        existing = Block.objects.filter(blocker=request.user, blocked=target).first()
+        if existing:
+            existing.delete()
+            return JsonResponse({'status': 'unblocked', 'message': f'Unblocked @{target.username}'})
+        else:
+            Block.objects.create(blocker=request.user, blocked=target)
+            return JsonResponse({'status': 'blocked', 'message': f'Blocked @{target.username}'})
+            
+    # GET: check block status
+    target = User.objects.filter(username__iexact=username).first()
+    is_blocked = Block.objects.filter(blocker=request.user, blocked=target).exists() if target else False
+    return JsonResponse({'status': 'success', 'is_blocked': is_blocked})

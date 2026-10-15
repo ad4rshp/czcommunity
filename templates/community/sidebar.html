@@ -4,7 +4,14 @@
             <button type="button" id="closeDrawerBtn">×</button>
         </div>
         
-        <div class="community-header" style="padding: 10px 8px; border-bottom: 1px solid var(--border); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; background: {% if community.is_verified %}linear-gradient(135deg, rgba(255,107,43,0.12), rgba(0,0,0,0.2)){% else %}transparent{% endif %}; border-radius: var(--radius-md); margin: 6px 8px 14px 8px;">
+        <div class="community-header" 
+             data-community-id="{{ community.id }}"
+             data-community-slug="{{ community.slug }}"
+             data-community-name="{{ community.name }}"
+             data-community-icon="{{ community.get_icon_url }}"
+             data-is-owner="{% if request.user == community.owner %}true{% else %}false{% endif %}"
+             data-can-manage="{% if can_manage_roles or can_manage_channels or request.user == community.owner %}true{% else %}false{% endif %}"
+             style="padding: 10px 8px; border-bottom: 1px solid var(--border); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; background: {% if community.is_verified %}linear-gradient(135deg, rgba(255,107,43,0.12), rgba(0,0,0,0.2)){% else %}transparent{% endif %}; border-radius: var(--radius-md); margin: 6px 8px 14px 8px;">
             <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; min-width: 0; flex: 1;">
                 <img src="{{ community.get_icon_url }}" alt="{{ community.name }}" title="{{ community.name }}" style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.3);" onerror="this.src='/static/img/default_server.svg'">
                 <div style="display: flex; flex-direction: column; overflow: hidden; min-width: 0; flex: 1;">
@@ -46,19 +53,21 @@
                 <div class="category-actions" style="display: flex; gap: 8px; color: var(--text-muted);" onclick="event.stopPropagation();">
                     {% if can_manage_channels %}
                     <a href="{% url 'add_channel' category.id %}" style="color: inherit;"><i class="ph ph-plus" title="Add Channel" style="cursor: pointer;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'"></i></a>
-                    <a href="{% url 'manage_category' category.id %}" style="color: inherit;"><i class="ph ph-gear" title="Manage Category" style="cursor: pointer;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'"></i></a>
                     {% endif %}
                 </div>
             </div>
             <div class="category-channels" style="display: block;">
                 {% for channel in category.channels.all %}
-                <div class="channel-item-wrapper" style="position: relative;" x-data="{ menuOpen: false }">
+                <div class="channel-item-wrapper" style="position: relative;" x-data="{ menuOpen: false, holdTimer: null }">
                     <a href="{% url 'chat_channel' channel.slug %}" 
                        class="channel-link {% if active_channel and active_channel.id == channel.id %}active{% endif %}" 
                        draggable="true" 
                        data-channel-id="{{ channel.id }}" 
                        data-channel-slug="{{ channel.slug }}"
-                       @contextmenu.prevent="menuOpen = true">
+                       @contextmenu.prevent="menuOpen = true"
+                       @touchstart="holdTimer = setTimeout(() => { menuOpen = true; }, 500)"
+                       @touchend="if(holdTimer) clearTimeout(holdTimer)"
+                       @touchmove="if(holdTimer) clearTimeout(holdTimer)">
                         
                         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
                             <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
@@ -69,10 +78,6 @@
                                 {% endif %}
                                 <span class="channel-name-text">{{ channel.name }}</span>
                             </div>
-                            
-                            {% if can_manage_channels %}
-                            <i class="ph-fill ph-gear channel-edit-icon" @click.prevent="openEditModal('{{ channel.slug }}', '{{ channel.name }}', '{{ channel.channel_type }}', '{{ channel.cooldown }}', '{{ channel.user_limit }}')" style="font-size: 14px; opacity: 0; transition: opacity 0.2s; cursor: pointer;" title="Edit Channel"></i>
-                            {% endif %}
                         </div>
                     </a>
 
@@ -100,18 +105,22 @@
                     
                     <!-- Context Menu -->
                     <div x-show="menuOpen" @click.away="menuOpen = false" style="position: absolute; top: 100%; left: 10px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 5px; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.5); min-width: 180px; display: none;">
+                        {% if can_manage_channels %}
                         <div style="padding: 8px 12px; font-size: 0.85rem; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 8px;" class="menu-item" @click="menuOpen = false; openEditModal('{{ channel.slug }}', '{{ channel.name }}', '{{ channel.channel_type }}', '{{ channel.cooldown }}', '{{ channel.user_limit }}')">
                             <i class="ph ph-pencil-simple"></i> Edit Channel
                         </div>
-                        <div style="padding: 8px 12px; font-size: 0.85rem; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 8px;" class="menu-item" @click="menuOpen = false; navigator.clipboard.writeText('{{ channel.id }}');">
+                        {% endif %}
+                        <div style="padding: 8px 12px; font-size: 0.85rem; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 8px;" class="menu-item" @click="menuOpen = false; navigator.clipboard.writeText('{{ channel.id }}'); if(window.showCzToast) showCzToast('Channel ID copied to clipboard', 'info');">
                             <i class="ph ph-copy"></i> Copy ID
                         </div>
+                        {% if can_manage_channels %}
                         <div style="padding: 8px 12px; font-size: 0.85rem; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 8px; color: #F44336;" class="menu-item menu-danger" @click="menuOpen = false; if(confirm('Delete channel?')) { document.getElementById('delete-form-{{ channel.id }}').submit(); }">
                             <i class="ph ph-trash"></i> Delete Channel
                         </div>
                         <form id="delete-form-{{ channel.id }}" action="{% url 'delete_channel' channel.slug %}" method="POST" style="display: none;">
                             {% csrf_token %}
                         </form>
+                        {% endif %}
                     </div>
                 </div>
                 {% empty %}
@@ -124,6 +133,7 @@
             No categories yet.
         </div>
         {% endfor %}
+
 
     </div>
     
@@ -1365,29 +1375,35 @@
 
             </div>
         </div>
-        <!-- Global Voice Player UI (Visible when connected) -->
-        <div x-data x-show="$store.voice.connected" style="margin-top: auto; padding: 10px; background: var(--bg-elevated); border-top: 1px solid var(--border); display: none; flex-direction: column; gap: 8px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div style="display: flex; flex-direction: column;">
-                    <span style="font-size: 0.85rem; font-weight: bold; color: #4CAF50; display: flex; align-items: center; gap: 4px;">
-                        <i class="ph-fill ph-check-circle"></i> Voice Connected
-                    </span>
-                    <span style="font-size: 0.7rem; color: var(--text-muted);" x-text="$store.voice.rtcStatus + ' • ' + $store.voice.ping + 'ms'"></span>
+        <!-- Global Voice Player UI (Sleek Discord-Style Dock, Visible Only When Connected) -->
+        <div x-data x-show="$store.voice && $store.voice.connected" x-cloak class="cz-voice-dock-container" style="margin-top: auto; padding: 10px 12px; background: rgba(18, 20, 26, 0.96); border-top: 1px solid rgba(35, 165, 90, 0.35); box-shadow: 0 -4px 18px rgba(0,0,0,0.4); display: none; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;">
+                    <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: rgba(35, 165, 90, 0.15); flex-shrink: 0;">
+                        <i class="ph-fill ph-speaker-high" style="color: #23A55A; font-size: 1.1rem;"></i>
+                        <span style="position: absolute; bottom: 0; right: 0; width: 8px; height: 8px; border-radius: 50%; background: #23A55A; box-shadow: 0 0 6px #23A55A;"></span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; min-width: 0;">
+                        <span style="font-size: 0.82rem; font-weight: 700; color: #23A55A; display: flex; align-items: center; gap: 4px; line-height: 1.2;">
+                            Voice Connected
+                        </span>
+                        <span style="font-size: 0.72rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" x-text="($store.voice.activeChannelName ? $store.voice.activeChannelName + ' • ' : '') + ($store.voice.ping ? $store.voice.ping + 'ms' : 'Active')"></span>
+                    </div>
                 </div>
-                <button @click="$store.voice.disconnectVoice()" title="Disconnect" style="background: none; border: none; color: #F44336; cursor: pointer; padding: 5px; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='rgba(244,67,54,0.1)'" onmouseout="this.style.background='none'">
-                    <i class="ph-fill ph-phone-x" style="font-size: 1.2rem;"></i>
+                <button type="button" @click="$store.voice.disconnectVoice()" title="Disconnect from Voice" style="background: rgba(244,67,54,0.15); border: 1px solid rgba(244,67,54,0.25); color: #F44336; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(244,67,54,0.28)'; this.style.transform='scale(1.05)'" onmouseout="this.style.background='rgba(244,67,54,0.15)'; this.style.transform='scale(1)'">
+                    <i class="ph-fill ph-phone-disconnect" style="font-size: 1.1rem;"></i>
                 </button>
             </div>
             
-            <div style="display: flex; gap: 5px; margin-top: 5px;">
-                <button @click="$store.voice.toggleMute()" :style="$store.voice.muted ? 'background: rgba(244,67,54,0.1); color: #F44336;' : 'background: rgba(255,255,255,0.05); color: var(--text-primary);'" style="flex: 1; border: 1px solid var(--border); border-radius: 4px; padding: 5px; cursor: pointer; transition: all 0.2s;">
-                    <i :class="$store.voice.muted ? 'ph-fill ph-microphone-slash' : 'ph-fill ph-microphone'" style="font-size: 1.1rem;"></i>
+            <div style="display: flex; gap: 6px;">
+                <button type="button" @click="$store.voice.toggleMute()" :style="$store.voice.muted ? 'background: rgba(244,67,54,0.2); color: #F44336; border-color: rgba(244,67,54,0.4);' : 'background: rgba(255,255,255,0.06); color: var(--text-primary); border-color: rgba(255,255,255,0.08);'" style="flex: 1; border: 1px solid; border-radius: 6px; padding: 6px 0; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;" :title="$store.voice.muted ? 'Unmute Microphone' : 'Mute Microphone'">
+                    <i :class="$store.voice.muted ? 'ph-fill ph-microphone-slash' : 'ph-fill ph-microphone'" style="font-size: 1.15rem;"></i>
                 </button>
-                <button @click="$store.voice.toggleDeafen()" :style="$store.voice.deafened ? 'background: rgba(244,67,54,0.1); color: #F44336;' : 'background: rgba(255,255,255,0.05); color: var(--text-primary);'" style="flex: 1; border: 1px solid var(--border); border-radius: 4px; padding: 5px; cursor: pointer; transition: all 0.2s;" :title="$store.voice.deafened ? 'Undeafen' : 'Deafen'">
-                    <i :class="$store.voice.deafened ? 'ph-fill ph-speaker-slash' : 'ph-fill ph-headphones'" style="font-size: 1.1rem;"></i>
+                <button type="button" @click="$store.voice.toggleDeafen()" :style="$store.voice.deafened ? 'background: rgba(244,67,54,0.2); color: #F44336; border-color: rgba(244,67,54,0.4);' : 'background: rgba(255,255,255,0.06); color: var(--text-primary); border-color: rgba(255,255,255,0.08);'" style="flex: 1; border: 1px solid; border-radius: 6px; padding: 6px 0; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;" :title="$store.voice.deafened ? 'Undeafen' : 'Deafen'">
+                    <i :class="$store.voice.deafened ? 'ph-fill ph-speaker-slash' : 'ph-fill ph-headphones'" style="font-size: 1.15rem;"></i>
                 </button>
-                <button @click="$store.voice.toggleNoiseCancellation()" :style="$store.voice.noiseCancellation ? 'background: rgba(76,175,80,0.1); color: #4CAF50;' : 'background: rgba(255,255,255,0.05); color: var(--text-primary);'" style="flex: 1; border: 1px solid var(--border); border-radius: 4px; padding: 5px; cursor: pointer; transition: all 0.2s;" title="Noise Cancellation">
-                    <i class="ph-fill ph-ear" style="font-size: 1.1rem;"></i>
+                <button type="button" @click="$store.voice.toggleNoiseCancellation()" :style="$store.voice.noiseCancellation ? 'background: rgba(35,165,90,0.2); color: #23A55A; border-color: rgba(35,165,90,0.4);' : 'background: rgba(255,255,255,0.06); color: var(--text-secondary); border-color: rgba(255,255,255,0.08);'" style="flex: 1; border: 1px solid; border-radius: 6px; padding: 6px 0; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;" title="Toggle Krisp Noise Suppression">
+                    <i class="ph-fill ph-ear" style="font-size: 1.15rem;"></i>
                 </button>
             </div>
         </div>

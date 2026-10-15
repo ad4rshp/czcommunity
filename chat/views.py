@@ -144,12 +144,14 @@ def chat_view(request, channel_slug=None):
     for m in memberships:
         highest_role = m.highest_role
         color = highest_role.color if highest_role else '#F5F5F5'
-        user_data.append({'username': m.user.username, 'color': color})
+        avatar = m.user.profile.get_avatar_url() if hasattr(m.user, 'profile') else '/static/img/default_avatar.svg'
+        user_data.append({'username': m.user.username, 'color': color, 'avatar': avatar})
         
     channel_data = []
     for cat in categories:
         for ch in cat.channels.all():
-            channel_data.append({'name': ch.name, 'slug': ch.slug})
+            if ch.channel_type == 'text':
+                channel_data.append({'name': ch.name, 'slug': ch.slug, 'type': 'text'})
             
     community_data = {'users': user_data, 'channels': channel_data}
 
@@ -202,11 +204,18 @@ def dm_view(request, username):
     from django.db.models import Q
     dm_sessions = DirectMessageSession.objects.filter(Q(user1=request.user) | Q(user2=request.user)).order_by('-updated_at')
     
+    from accounts.models import Block
+    is_blocked_by_me = Block.objects.filter(blocker=request.user, blocked=target_user).exists()
+    is_blocked_by_them = Block.objects.filter(blocker=target_user, blocked=request.user).exists()
+    is_blocked = is_blocked_by_me or is_blocked_by_them
+
     return render(request, 'chat/dm.html', {
         'session': session,
         'target_user': target_user,
         'chat_messages': messages,
-        'dm_sessions': dm_sessions
+        'dm_sessions': dm_sessions,
+        'is_blocked': is_blocked,
+        'is_blocked_by_me': is_blocked_by_me,
     })
 
 @login_required
@@ -628,6 +637,12 @@ def search_messages(request):
         sort_order = sort_order or sort_match.group(1).lower()
         query_str = re.sub(r'\bsort:[^\s]+', '', query_str, flags=re.IGNORECASE)
 
+    # Support direct @username in search query (e.g. "@adarsh hello" or just "@adarsh")
+    at_match = re.search(r'(?<!\S)@([a-zA-Z0-9_.-]+)', query_str)
+    if at_match and not mention_user:
+        mention_user = at_match.group(1)
+        query_str = re.sub(r'(?<!\S)@[a-zA-Z0-9_.-]+', '', query_str)
+
     clean_q = query_str.strip()
 
     # Identify community
@@ -788,14 +803,25 @@ def search_messages(request):
 @login_required
 def get_notifications(request):
     community_slug = request.GET.get('c')
-    community = None
-    if community_slug:
-        community = Community.objects.filter(slug=community_slug).first()
-    if not community:
-        membership = CommunityMember.objects.filter(user=request.user).first()
-        community = membership.community if membership else None
+    
+    user_memberships = list(CommunityMember.objects.filter(user=request.user).select_related('community'))
+    if not user_memberships:
+        return JsonResponse({
+            'mentions': [], 
+            'unreads': [], 
+            'unread_mention_count': 0, 
+            'unread_messages_count': 0, 
+            'total_badge_count': 0
+        })
 
-    if not community:
+    memberships_by_comm_id = {m.community_id: m for m in user_memberships}
+    
+    if community_slug and community_slug != 'global':
+        communities = [m.community for m in user_memberships if m.community.slug == community_slug]
+    else:
+        communities = [m.community for m in user_memberships]
+
+    if not communities:
         return JsonResponse({
             'mentions': [], 
             'unreads': [], 
@@ -806,23 +832,32 @@ def get_notifications(request):
 
     read_states = {
         rs.channel_id: rs.last_read_message_id 
-        for rs in ChannelReadState.objects.filter(user=request.user, channel__category__community=community)
+        for rs in ChannelReadState.objects.filter(user=request.user, channel__category__community__in=communities)
     }
 
-    # 1. Mentions directed at the current user
+    # 1. Global Mentions directed at current user across communities
     mentions_qs = Message.objects.filter(
-        channel__category__community=community
+        channel__category__community__in=communities
     ).filter(
         Q(content__icontains=f"@{request.user.username}") | 
-        Q(content__icontains="@everyone") | 
+        Q(content__contains="@everyone") | 
+        Q(content__contains="@here") |
         Q(reply_to__author=request.user)
     ).exclude(
         author=request.user
-    ).select_related('author', 'author__profile', 'channel').order_by('-created_at')[:30]
+    ).select_related('author', 'author__profile', 'channel', 'channel__category__community').order_by('-created_at')[:40]
 
     mentions_data = []
     unread_mention_count = 0
     for m in mentions_qs:
+        comm = m.channel.category.community
+        mem = memberships_by_comm_id.get(comm.id)
+        # Check suppression rules if set
+        if mem and mem.notification_level == 'nothing':
+            continue
+        if mem and mem.suppress_everyone and ("@everyone" in m.content or "@here" in m.content) and f"@{request.user.username}" not in m.content:
+            continue
+
         last_read_id = read_states.get(m.channel_id, 0)
         is_unread = (m.id > last_read_id)
         if is_unread:
@@ -830,21 +865,33 @@ def get_notifications(request):
 
         mentions_data.append({
             'id': m.id,
+            'community_name': comm.name,
+            'community_slug': comm.slug,
             'channel_name': m.channel.name,
             'channel_slug': m.channel.slug,
             'author': m.author.username,
-            'author_avatar': m.author.profile.get_avatar_url(),
-            'content': m.content[:120],
+            'author_avatar': m.author.profile.get_avatar_url() if hasattr(m.author, 'profile') else '/static/img/default_avatar.svg',
+            'content': m.content[:140],
             'created_at': m.created_at.strftime('%b %d, %I:%M %p'),
-            'is_unread': is_unread
+            'is_unread': is_unread,
+            'jump_url': f"/community/chat/{m.channel.slug}/?c={comm.slug}&jump={m.id}"
         })
 
-    # 2. Unread messages grouped by channel
-    channels = Channel.objects.filter(category__community=community, channel_type='text')
+    # 2. Unread messages grouped by channel across communities
+    channels = Channel.objects.filter(
+        category__community__in=communities, 
+        channel_type='text'
+    ).select_related('category__community')
+    
     unreads_data = []
     total_unread_messages = 0
 
     for ch in channels:
+        comm = ch.category.community
+        mem = memberships_by_comm_id.get(comm.id)
+        if mem and mem.notification_level == 'nothing':
+            continue
+
         last_read_id = read_states.get(ch.id, 0)
         unread_msgs = ch.messages.filter(id__gt=last_read_id).exclude(author=request.user).select_related('author', 'author__profile').order_by('-id')
         count = unread_msgs.count()
@@ -852,13 +899,16 @@ def get_notifications(request):
             total_unread_messages += count
             latest = unread_msgs.first()
             unreads_data.append({
+                'community_name': comm.name,
+                'community_slug': comm.slug,
                 'channel_name': ch.name,
                 'channel_slug': ch.slug,
                 'unread_count': count,
                 'latest_author': latest.author.username,
-                'latest_avatar': latest.author.profile.get_avatar_url(),
+                'latest_avatar': latest.author.profile.get_avatar_url() if hasattr(latest.author, 'profile') else '/static/img/default_avatar.svg',
                 'latest_content': latest.content[:80],
-                'latest_time': latest.created_at.strftime('%I:%M %p')
+                'latest_time': latest.created_at.strftime('%I:%M %p'),
+                'channel_url': f"/community/chat/{ch.slug}/?c={comm.slug}"
             })
 
     return JsonResponse({
@@ -866,7 +916,7 @@ def get_notifications(request):
         'unreads': unreads_data,
         'unread_mention_count': unread_mention_count,
         'unread_messages_count': total_unread_messages,
-        'total_badge_count': unread_mention_count + total_unread_messages
+        'total_badge_count': unread_mention_count
     })
 
 
@@ -890,6 +940,16 @@ def mark_notifications_read(request):
             community = Community.objects.filter(slug=community_slug).first()
             if community:
                 for ch in Channel.objects.filter(category__community=community):
+                    latest = ch.messages.order_by('-id').first()
+                    latest_id = latest.id if latest else 0
+                    ChannelReadState.objects.update_or_create(
+                        user=request.user,
+                        channel=ch,
+                        defaults={'last_read_message_id': latest_id}
+                    )
+        else:
+            for m in CommunityMember.objects.filter(user=request.user):
+                for ch in Channel.objects.filter(category__community=m.community):
                     latest = ch.messages.order_by('-id').first()
                     latest_id = latest.id if latest else 0
                     ChannelReadState.objects.update_or_create(

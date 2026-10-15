@@ -231,76 +231,48 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 JAZZMIN_SETTINGS = {
     'site_title': 'Chillzone Admin',
-    'site_header': 'Chillzone',
+    'site_header': 'Chillzone Admin',
     'site_brand': 'Chillzone',
     'site_logo': None,
     'welcome_sign': 'Welcome to the Chillzone Admin Panel',
     'copyright': 'Chillzone Community Ltd',
-    'search_model': ['auth.User', 'chat.Community', 'accounts.Report'],
+    'search_model': ['accounts.Report', 'auth.User', 'chat.Community'],
     'show_ui_builder': False,
-    
-    # Custom Help and Guide
-    'custom_links': {
-        'chat': [{
-            'name': 'Need Help?', 
-            'url': 'https://docs.djangoproject.com/en/5.2/', 
-            'icon': 'fas fa-info-circle',
-            'permissions': ['auth.view_user']
-        }]
-    },
-    
-    # Grouping Models Logicaly
-    'custom_app_dict': {
-        'auth': {
-            'name': '1. Users & Permissions',
-            'icon': 'fas fa-users-cog',
-            'models': (
-                'auth.User',
-                'auth.Group',
-            )
-        },
-        'profiles': {
-            'name': '2. User Profiles',
-            'icon': 'fas fa-id-card',
-            'models': (
-                'profiles.Profile',
-            )
-        },
-        'chat': {
-            'name': '3. Communities & Servers',
-            'icon': 'fas fa-server',
-            'models': (
-                'chat.Community',
-                'chat.CommunityMember',
-                'chat.Role',
-                'chat.ChannelCategory',
-                'chat.Channel',
-                'chat.Message',
-            )
-        },
-        'accounts': {
-            'name': '4. Moderation & Trust',
-            'icon': 'fas fa-shield-alt',
-            'models': (
-                'accounts.Report',
-                'accounts.Block',
-            )
-        }
-    },
-    
+    'hide_apps': ['django_apscheduler'],
+    'hide_models': ['django_apscheduler.DjangoJob', 'django_apscheduler.DjangoJobExecution', 'core.DashboardConfig'],
+    'order_with_respect_to': [
+        'accounts',
+        'accounts.Report',
+        'accounts.Block',
+        'chat',
+        'chat.Community',
+        'chat.Channel',
+        'chat.Message',
+        'profiles',
+        'auth',
+    ],
     'topmenu_links': [
         {'name': 'Dashboard Home', 'url': 'admin:index', 'permissions': ['auth.view_user']},
         {'name': 'View Live Site', 'url': '/', 'new_window': True},
-        {'name': 'HOW TO USE: Use the left menu sidebar to manage data.', 'url': '#', 'permissions': ['auth.view_user']},
     ],
     'icons': {
         'auth': 'fas fa-users-cog',
         'auth.user': 'fas fa-user',
         'auth.Group': 'fas fa-users',
+        'chat': 'fas fa-comments',
         'chat.Community': 'fas fa-server',
         'chat.Channel': 'fas fa-hashtag',
+        'chat.ChannelCategory': 'fas fa-folder',
         'chat.Message': 'fas fa-comment-dots',
+        'chat.Role': 'fas fa-user-tag',
+        'chat.CommunityMember': 'fas fa-user-friends',
+        'chat.DirectMessageSession': 'fas fa-inbox',
+        'chat.DirectMessage': 'fas fa-envelope',
+        'profiles': 'fas fa-id-card',
         'profiles.Profile': 'fas fa-id-card',
+        'profiles.FriendRequest': 'fas fa-user-plus',
+        'profiles.Friendship': 'fas fa-user-check',
+        'accounts': 'fas fa-shield-alt',
         'accounts.Report': 'fas fa-flag',
         'accounts.Block': 'fas fa-ban',
     },
@@ -334,7 +306,7 @@ JAZZMIN_UI_TWEAKS = {
     "sidebar_nav_legacy_style": False,
     "sidebar_nav_flat_style": True,
     "theme": "darkly",
-    "dark_mode_theme": "darkly",
+    "default_theme_mode": "dark",
     "button_classes": {
         "primary": "btn-primary",
         "secondary": "btn-secondary",

@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from .models import DashboardConfig
@@ -6,6 +6,9 @@ from .forms import DashboardConfigForm
 
 def home(request):
     if request.user.is_authenticated and not request.GET.get('preview'):
+        if request.GET.get('open_profile'):
+            c_param = f"&c={request.GET.get('c')}" if request.GET.get('c') else ""
+            return redirect(f"/friends/?open_profile={request.GET.get('open_profile')}{c_param}")
         return redirect('friends')
     from django.contrib.auth.models import User
     count = User.objects.count()
@@ -398,7 +401,39 @@ def leave_community(request, community_id):
                 return redirect(f"/community/chat/?c={next_membership.community.slug}")
             return redirect('home')
             
-    return redirect('home')
+@login_required
+def community_notification_settings(request, community_slug):
+    from chat.models import Community, CommunityMember
+    from django.http import JsonResponse
+    from django.shortcuts import get_object_or_404
+    
+    community = get_object_or_404(Community, slug=community_slug)
+    member, _ = CommunityMember.objects.get_or_create(community=community, user=request.user)
+    
+    if request.method == 'POST':
+        level = request.POST.get('notification_level', 'all')
+        if level in ['all', 'mentions', 'nothing']:
+            member.notification_level = level
+        member.suppress_everyone = request.POST.get('suppress_everyone') in ['true', '1', True, 'on']
+        member.suppress_roles = request.POST.get('suppress_roles') in ['true', '1', True, 'on']
+        member.save()
+        return JsonResponse({
+            'status': 'success',
+            'notification_level': member.notification_level,
+            'suppress_everyone': member.suppress_everyone,
+            'suppress_roles': member.suppress_roles
+        })
+        
+    return JsonResponse({
+        'status': 'success',
+        'community_name': community.name,
+        'community_slug': community.slug,
+        'notification_level': member.notification_level,
+        'suppress_everyone': member.suppress_everyone,
+        'suppress_roles': member.suppress_roles,
+        'is_owner': (community.owner == request.user),
+        'community_id': community.id
+    })
 
 def custom_404(request, exception=None):
     return render(request, '404.html', status=404)
