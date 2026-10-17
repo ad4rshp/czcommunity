@@ -1,0 +1,731 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static jazzmin %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* ChillZone Admin Command Center Styles */
+    .cz-dash-header {
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .cz-dash-title {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .cz-dash-logo {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: rgba(255, 107, 43, 0.15);
+        border: 2px solid #ff6b2b;
+        padding: 6px;
+        box-shadow: 0 0 16px rgba(255, 107, 43, 0.3);
+    }
+
+    .cz-dash-status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+
+    .cz-status-live {
+        background: rgba(16, 185, 129, 0.15);
+        color: #10b981;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .cz-status-maint {
+        background: rgba(239, 68, 68, 0.15);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .cz-pulse-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: currentColor;
+        box-shadow: 0 0 8px currentColor;
+        animation: czPulse 2s infinite;
+    }
+
+    @keyframes czPulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* KPI Cards */
+    .cz-kpi-card {
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+        transition: transform 0.2s, box-shadow 0.2s;
+        overflow: hidden;
+    }
+
+    .cz-kpi-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .cz-kpi-inner {
+        padding: 18px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .cz-kpi-val {
+        font-size: 2rem;
+        font-weight: 800;
+        line-height: 1.1;
+        margin-bottom: 4px;
+        color: #fff;
+    }
+
+    .cz-kpi-label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #94a3b8;
+    }
+
+    .cz-kpi-icon {
+        font-size: 2.4rem;
+        opacity: 0.85;
+    }
+
+    .cz-kpi-footer {
+        padding: 8px 20px;
+        background: rgba(0, 0, 0, 0.2);
+        font-size: 0.78rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Quick Action Section */
+    .cz-action-box {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 24px;
+    }
+
+    .cz-table-wrap {
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #334155;
+    }
+
+    .cz-badge-reason {
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 6px;
+        text-transform: uppercase;
+    }
+
+    .cz-badge-spam { background: #d97706; color: #fff; }
+    .cz-badge-harassment { background: #dc2626; color: #fff; }
+    .cz-badge-inappropriate { background: #7c3aed; color: #fff; }
+    .cz-badge-other { background: #475569; color: #fff; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+
+    <!-- Operational Header / Command Center Banner -->
+    <div class="cz-dash-header">
+        <div class="cz-dash-title">
+            <img src="{% static 'img/chillzone_logo.svg' %}" alt="Logo" class="cz-dash-logo">
+            <div>
+                <h3 class="m-0 font-weight-bold text-white" style="letter-spacing: 0.5px;">ChillZone Command Center</h3>
+                <div class="mt-1 d-flex align-items-center flex-wrap" style="gap: 12px;">
+                    {% if site_config.is_maintenance_mode %}
+                    <span class="cz-dash-status-pill cz-status-maint">
+                        <span class="cz-pulse-dot"></span> Maintenance Mode Active
+                    </span>
+                    {% else %}
+                    <span class="cz-dash-status-pill cz-status-live">
+                        <span class="cz-pulse-dot"></span> System Live & Operational
+                    </span>
+                    {% endif %}
+                    
+                    {% if site_config.show_beta_warning %}
+                    <span class="badge badge-warning text-dark font-weight-bold" style="padding: 5px 10px;">BETA Warning Visible</span>
+                    {% endif %}
+
+                    {% if site_config.show_announcement %}
+                    <span class="badge badge-info font-weight-bold" style="padding: 5px 10px;"><i class="fas fa-bullhorn"></i> Global Announcement Active</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Switch Controls -->
+        <div class="d-flex align-items-center" style="gap: 10px; flex-wrap: wrap;">
+            <!-- Maintenance Mode Toggle Form -->
+            <form method="post" class="d-inline m-0">
+                {% csrf_token %}
+                <input type="hidden" name="action_type" value="toggle_maintenance">
+                {% if site_config.is_maintenance_mode %}
+                <button type="submit" class="btn btn-success btn-sm font-weight-bold" onclick="return confirm('Disable Maintenance Mode and bring the site fully LIVE?')">
+                    <i class="fas fa-play mr-1"></i> Bring Site Live
+                </button>
+                {% else %}
+                <button type="submit" class="btn btn-danger btn-sm font-weight-bold" onclick="return confirm('Enable Maintenance Mode? Regular users will see the maintenance screen.')">
+                    <i class="fas fa-pause mr-1"></i> Enable Maintenance
+                </button>
+                {% endif %}
+            </form>
+
+            <!-- Beta Badge Toggle Form -->
+            <form method="post" class="d-inline m-0">
+                {% csrf_token %}
+                <input type="hidden" name="action_type" value="toggle_beta">
+                <button type="submit" class="btn btn-outline-warning btn-sm font-weight-bold" title="Toggle Beta badge on landing page">
+                    <i class="fas fa-tag mr-1"></i> {% if site_config.show_beta_warning %}Hide Beta Tag{% else %}Show Beta Tag{% endif %}
+                </button>
+            </form>
+
+            <a href="/" target="_blank" class="btn btn-primary btn-sm font-weight-bold">
+                <i class="fas fa-external-link-alt mr-1"></i> Live Site
+            </a>
+            <a href="/friends/" target="_blank" class="btn btn-secondary btn-sm font-weight-bold">
+                <i class="fas fa-users mr-1"></i> Social & Chat
+            </a>
+        </div>
+    </div>
+
+    <!-- Live Telemetry KPI Cards -->
+    <div class="row">
+        <!-- 1. Total Registered Users -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="cz-kpi-card bg-primary text-white">
+                <div class="cz-kpi-inner">
+                    <div>
+                        <div class="cz-kpi-val">{{ total_users|default:0 }}</div>
+                        <div class="cz-kpi-label text-white-50">Registered Users</div>
+                    </div>
+                    <div class="cz-kpi-icon text-white-50">
+                        <i class="fas fa-users"></i>
+                    </div>
+                </div>
+                <div class="cz-kpi-footer">
+                    <span><strong class="text-white">{{ active_users }}</strong> Active | <strong class="text-warning">{{ banned_users }}</strong> Suspended</span>
+                    <a href="{% url 'admin:auth_user_changelist' %}" class="text-white font-weight-bold">Manage &rarr;</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Communities / Spaces -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="cz-kpi-card bg-success text-white">
+                <div class="cz-kpi-inner">
+                    <div>
+                        <div class="cz-kpi-val">{{ total_communities|default:0 }}</div>
+                        <div class="cz-kpi-label text-white-50">Communities / Servers</div>
+                    </div>
+                    <div class="cz-kpi-icon text-white-50">
+                        <i class="fas fa-server"></i>
+                    </div>
+                </div>
+                <div class="cz-kpi-footer">
+                    <span><strong class="text-white">{{ total_channels }}</strong> Total Channels</span>
+                    <a href="{% url 'admin:chat_community_changelist' %}" class="text-white font-weight-bold">Servers &rarr;</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Total Messages & Communication -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="cz-kpi-card bg-info text-white">
+                <div class="cz-kpi-inner">
+                    <div>
+                        <div class="cz-kpi-val">{{ total_messages|default:0 }}</div>
+                        <div class="cz-kpi-label text-white-50">Total Messages</div>
+                    </div>
+                    <div class="cz-kpi-icon text-white-50">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                </div>
+                <div class="cz-kpi-footer">
+                    <span><strong class="text-white">{{ total_channel_messages }}</strong> Channel | <strong class="text-white">{{ total_dms }}</strong> DMs</span>
+                    <a href="{% url 'admin:chat_message_changelist' %}" class="text-white font-weight-bold">Inspect &rarr;</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Active Moderation Incidents -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="cz-kpi-card {% if pending_reports_count > 0 %}bg-danger{% else %}bg-secondary{% endif %} text-white">
+                <div class="cz-kpi-inner">
+                    <div>
+                        <div class="cz-kpi-val">{{ pending_reports_count|default:0 }}</div>
+                        <div class="cz-kpi-label text-white-50">Pending Reports</div>
+                    </div>
+                    <div class="cz-kpi-icon text-white-50">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                </div>
+                <div class="cz-kpi-footer">
+                    <span>{% if pending_reports_count > 0 %}<strong class="text-warning">Action Required</strong>{% else %}Queue is clean{% endif %}</span>
+                    <a href="{% url 'admin:accounts_report_changelist' %}?is_resolved__exact=0" class="text-white font-weight-bold">Review &rarr;</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Moderation Queue (Primary Focus) -->
+    <div class="card card-dark card-outline mb-4" style="border-top: 3px solid #ef4444; background: #1e293b; border-color: #334155;">
+        <div class="card-header d-flex justify-content-between align-items-center" style="border-bottom: 1px solid #334155;">
+            <h5 class="card-title font-weight-bold text-white m-0">
+                <i class="fas fa-flag text-danger mr-2"></i> Active Moderation & Report Queue ({{ pending_reports_count }})
+            </h5>
+            <div>
+                <a href="{% url 'admin:accounts_report_changelist' %}" class="btn btn-outline-light btn-xs">View All Reports</a>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if pending_reports %}
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0 text-white" style="background: transparent;">
+                    <thead style="background: rgba(0, 0, 0, 0.2); color: #94a3b8; font-size: 0.8rem; text-transform: uppercase;">
+                        <tr>
+                            <th>Report #</th>
+                            <th>Reason</th>
+                            <th>Reported User</th>
+                            <th>Reporter</th>
+                            <th>Details / Snippet</th>
+                            <th>Date / Time</th>
+                            <th class="text-right">Take Direct Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rep in pending_reports %}
+                        <tr style="border-bottom: 1px solid #334155;">
+                            <td class="font-weight-bold">#{{ rep.id }}</td>
+                            <td>
+                                {% if rep.reason == 'spam' %}
+                                <span class="cz-badge-reason cz-badge-spam">Spam</span>
+                                {% elif rep.reason == 'harassment' %}
+                                <span class="cz-badge-reason cz-badge-harassment">Harassment</span>
+                                {% elif rep.reason == 'inappropriate' %}
+                                <span class="cz-badge-reason cz-badge-inappropriate">Inappropriate</span>
+                                {% else %}
+                                <span class="cz-badge-reason cz-badge-other">{{ rep.reason }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if rep.reported_user %}
+                                <a href="{% url 'admin:auth_user_change' rep.reported_user.id %}" class="font-weight-bold text-warning">
+                                    <i class="fas fa-user-circle mr-1"></i> {{ rep.reported_user.username }}
+                                </a>
+                                {% if not rep.reported_user.is_active %}
+                                <span class="badge badge-danger ml-1">BANNED</span>
+                                {% endif %}
+                                {% else %}
+                                <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if rep.reporter %}
+                                <span class="text-white-50">{{ rep.reporter.username }}</span>
+                                {% else %}
+                                <span class="text-muted">Anonymous</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-truncate d-inline-block" style="max-width: 280px;" title="{{ rep.details }}">
+                                    {{ rep.details|default:"No description provided" }}
+                                </span>
+                            </td>
+                            <td class="text-muted font-size-xs" style="font-size: 0.82rem;">
+                                {{ rep.created_at|date:"M d, H:i" }}
+                            </td>
+                            <td class="text-right">
+                                <div class="d-flex justify-content-end" style="gap: 6px;">
+                                    <!-- Mark Resolved Form -->
+                                    <form method="post" class="m-0 d-inline">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action_type" value="resolve_report">
+                                        <input type="hidden" name="report_id" value="{{ rep.id }}">
+                                        <button type="submit" class="btn btn-success btn-xs" title="Mark this report resolved">
+                                            <i class="fas fa-check mr-1"></i> Resolve
+                                        </button>
+                                    </form>
+
+                                    <!-- Quick Ban User Form -->
+                                    {% if rep.reported_user and rep.reported_user.is_active and not rep.reported_user.is_superuser %}
+                                    <form method="post" class="m-0 d-inline" onsubmit="return confirm('Ban user {{ rep.reported_user.username }}?')">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action_type" value="ban_user">
+                                        <input type="hidden" name="user_id" value="{{ rep.reported_user.id }}">
+                                        <button type="submit" class="btn btn-danger btn-xs" title="Suspend/ban this user immediately">
+                                            <i class="fas fa-ban mr-1"></i> Ban User
+                                        </button>
+                                    </form>
+                                    {% endif %}
+
+                                    <a href="{% url 'admin:accounts_report_change' rep.id %}" class="btn btn-secondary btn-xs" title="Inspect full report in detail">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-check-circle text-success" style="font-size: 3rem; opacity: 0.85;"></i>
+                <h5 class="mt-3 text-white font-weight-bold">All Reports Resolved!</h5>
+                <p class="text-muted mb-0">No active incidents or flagged user reports pending review.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Administration Controls & Server Management Grid -->
+    <div class="row">
+        <!-- Left: Quick Moderation Actions Toolkit -->
+        <div class="col-lg-6 mb-4">
+            <div class="cz-action-box">
+                <h5 class="font-weight-bold text-white mb-3">
+                    <i class="fas fa-bolt text-warning mr-2"></i> Fast Action & Control Hub
+                </h5>
+
+                <!-- Action 1: Ban / Unban User Form -->
+                <div class="card bg-dark border-secondary p-3 mb-3">
+                    <label class="text-white-50 font-weight-bold mb-2" style="font-size: 0.85rem;">
+                        <i class="fas fa-user-slash text-danger mr-1"></i> MODERATE USER ACCOUNT (BAN / UNBAN)
+                    </label>
+                    <div class="row">
+                        <div class="col-md-6 mb-2">
+                            <form method="post" onsubmit="return confirm('Suspend selected user?')">
+                                {% csrf_token %}
+                                <input type="hidden" name="action_type" value="ban_user">
+                                <div class="input-group input-group-sm">
+                                    <select name="user_id" class="form-control" required style="background: #0f172a; color: #fff; border-color: #475569;">
+                                        <option value="">Select User to Ban...</option>
+                                        {% for u in recent_users %}
+                                        {% if not u.is_superuser and u.is_active %}
+                                        <option value="{{ u.id }}">{{ u.username }} ({{ u.email|default:"no email" }})</option>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                    <div class="input-group-append">
+                                        <button class="btn btn-danger font-weight-bold" type="submit">Ban</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <form method="post">
+                                {% csrf_token %}
+                                <input type="hidden" name="action_type" value="unban_user">
+                                <div class="input-group input-group-sm">
+                                    <select name="user_id" class="form-control" required style="background: #0f172a; color: #fff; border-color: #475569;">
+                                        <option value="">Select User to Restore...</option>
+                                        {% for u in recent_users %}
+                                        {% if not u.is_active %}
+                                        <option value="{{ u.id }}">{{ u.username }} (Banned)</option>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                    <div class="input-group-append">
+                                        <button class="btn btn-success font-weight-bold" type="submit">Restore</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action 2: Purge Specific Spam Message -->
+                <div class="card bg-dark border-secondary p-3 mb-3">
+                    <label class="text-white-50 font-weight-bold mb-2" style="font-size: 0.85rem;">
+                        <i class="fas fa-trash-alt text-danger mr-1"></i> PURGE SPAM MESSAGE BY ID
+                    </label>
+                    <form method="post" onsubmit="return confirm('Permanently delete this message from channel history?')">
+                        {% csrf_token %}
+                        <input type="hidden" name="action_type" value="delete_message">
+                        <div class="input-group input-group-sm">
+                            <input type="number" name="message_id" class="form-control" placeholder="Enter Message ID to delete..." required style="background: #0f172a; color: #fff; border-color: #475569;">
+                            <div class="input-group-append">
+                                <button class="btn btn-danger font-weight-bold" type="submit">Purge Message</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Action 3: Site Announcement Broadcast -->
+                <div class="card bg-dark border-secondary p-3">
+                    <label class="text-white-50 font-weight-bold mb-2" style="font-size: 0.85rem;">
+                        <i class="fas fa-bullhorn text-info mr-1"></i> BROADCAST GLOBAL ANNOUNCEMENT
+                    </label>
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="action_type" value="update_announcement">
+                        <div class="form-group mb-2">
+                            <input type="text" name="announcement_title" class="form-control form-control-sm" value="{{ site_config.announcement_title }}" placeholder="Announcement Title" required style="background: #0f172a; color: #fff; border-color: #475569;">
+                        </div>
+                        <div class="form-group mb-2">
+                            <textarea name="announcement_content" rows="2" class="form-control form-control-sm" placeholder="Announcement Message..." required style="background: #0f172a; color: #fff; border-color: #475569;">{{ site_config.announcement_content }}</textarea>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="custom-control custom-switch">
+                                <input type="checkbox" name="show_announcement" class="custom-control-input" id="announceSwitch" {% if site_config.show_announcement %}checked{% endif %}>
+                                <label class="custom-control-label text-white-50" for="announceSwitch" style="font-size: 0.82rem;">Visible to users</label>
+                            </div>
+                            <button type="submit" class="btn btn-info btn-sm font-weight-bold">Save & Publish</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Communities & Servers Overview -->
+        <div class="col-lg-6 mb-4">
+            <div class="cz-action-box">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="font-weight-bold text-white m-0">
+                        <i class="fas fa-server text-success mr-2"></i> Communities & Servers Monitor
+                    </h5>
+                    <a href="{% url 'admin:chat_community_add' %}" class="btn btn-success btn-xs font-weight-bold">
+                        <i class="fas fa-plus mr-1"></i> Add Server
+                    </a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped text-white mb-0" style="background: transparent;">
+                        <thead style="background: rgba(0, 0, 0, 0.2); color: #94a3b8; font-size: 0.75rem; text-transform: uppercase;">
+                            <tr>
+                                <th>Server</th>
+                                <th>Owner</th>
+                                <th>Members</th>
+                                <th>Channels</th>
+                                <th class="text-right">Manage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in recent_communities %}
+                            <tr style="border-bottom: 1px solid #334155;">
+                                <td class="font-weight-bold text-white d-flex align-items-center">
+                                    <img src="{{ c.get_icon_url }}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; margin-right: 8px;" onerror="this.src='/static/img/default_server.svg'">
+                                    <span>{{ c.name }}</span>
+                                </td>
+                                <td><span class="text-white-50">@{{ c.owner.username }}</span></td>
+                                <td><span class="badge badge-secondary">{{ c.members_count }}</span></td>
+                                <td><span class="badge badge-info">{{ c.channels_count }}</span></td>
+                                <td class="text-right">
+                                    <a href="{% url 'admin:chat_community_change' c.id %}" class="btn btn-outline-info btn-xs">
+                                        <i class="fas fa-sliders-h"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-center text-muted py-3">No communities created yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Signups & Audit History Row -->
+    <div class="row">
+        <!-- Recent Signups & Accounts -->
+        <div class="col-lg-6 mb-4">
+            <div class="card card-dark card-outline" style="background: #1e293b; border-color: #334155;">
+                <div class="card-header d-flex justify-content-between align-items-center" style="border-bottom: 1px solid #334155;">
+                    <h5 class="card-title text-white font-weight-bold m-0">
+                        <i class="fas fa-user-plus text-primary mr-2"></i> Recent User Registrations
+                    </h5>
+                    <a href="{% url 'admin:auth_user_changelist' %}" class="btn btn-outline-light btn-xs">All Users</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover text-white mb-0" style="background: transparent;">
+                            <thead style="background: rgba(0, 0, 0, 0.2); color: #94a3b8; font-size: 0.75rem; text-transform: uppercase;">
+                                <tr>
+                                    <th>User</th>
+                                    <th>Email</th>
+                                    <th>Joined</th>
+                                    <th>Status</th>
+                                    <th class="text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for u in recent_users %}
+                                <tr style="border-bottom: 1px solid #334155;">
+                                    <td class="font-weight-bold">
+                                        <a href="{% url 'admin:auth_user_change' u.id %}" class="text-white">
+                                            @{{ u.username }}
+                                        </a>
+                                    </td>
+                                    <td class="text-muted font-size-xs" style="font-size: 0.8rem;">{{ u.email|default:"None" }}</td>
+                                    <td class="text-muted font-size-xs" style="font-size: 0.8rem;">{{ u.date_joined|date:"M d, Y" }}</td>
+                                    <td>
+                                        {% if u.is_superuser %}
+                                        <span class="badge badge-warning text-dark font-weight-bold">Admin</span>
+                                        {% elif not u.is_active %}
+                                        <span class="badge badge-danger">Banned</span>
+                                        {% else %}
+                                        <span class="badge badge-success">Active</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right">
+                                        {% if not u.is_superuser %}
+                                        <form method="post" class="d-inline m-0">
+                                            {% csrf_token %}
+                                            {% if u.is_active %}
+                                            <input type="hidden" name="action_type" value="ban_user">
+                                            <input type="hidden" name="user_id" value="{{ u.id }}">
+                                            <button type="submit" class="btn btn-danger btn-xs" title="Suspend user" onclick="return confirm('Ban user {{ u.username }}?')">Ban</button>
+                                            {% else %}
+                                            <input type="hidden" name="action_type" value="unban_user">
+                                            <input type="hidden" name="user_id" value="{{ u.id }}">
+                                            <button type="submit" class="btn btn-success btn-xs" title="Unban user">Unban</button>
+                                            {% endif %}
+                                        </form>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Health & Telemetry -->
+        <div class="col-lg-6 mb-4">
+            <div class="card card-dark card-outline" style="background: #1e293b; border-color: #334155;">
+                <div class="card-header" style="border-bottom: 1px solid #334155;">
+                    <h5 class="card-title text-white font-weight-bold m-0">
+                        <i class="fas fa-microchip text-info mr-2"></i> System Health & Environment Telemetry
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-sm-6 mb-3">
+                            <div class="p-2 border rounded" style="background: #0f172a; border-color: #334155 !important;">
+                                <div class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">Django Framework</div>
+                                <div class="font-weight-bold text-white mt-1">v{{ system_info.django_version }}</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 mb-3">
+                            <div class="p-2 border rounded" style="background: #0f172a; border-color: #334155 !important;">
+                                <div class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">Python Runtime</div>
+                                <div class="font-weight-bold text-white mt-1">v{{ system_info.python_version }}</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 mb-3">
+                            <div class="p-2 border rounded" style="background: #0f172a; border-color: #334155 !important;">
+                                <div class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">Primary Database</div>
+                                <div class="font-weight-bold text-success mt-1"><i class="fas fa-database mr-1"></i> {{ system_info.db_engine|upper }}</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 mb-3">
+                            <div class="p-2 border rounded" style="background: #0f172a; border-color: #334155 !important;">
+                                <div class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">Host Operating System</div>
+                                <div class="font-weight-bold text-white mt-1">{{ system_info.os_info }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Security & Storage Summary -->
+                    <div class="mt-2 pt-2 border-top" style="border-color: #334155 !important;">
+                        <div class="d-flex justify-content-between align-items-center mb-1 font-size-sm" style="font-size: 0.85rem;">
+                            <span class="text-white-50">WebSockets / Channel Layer:</span>
+                            <span class="badge badge-success font-weight-bold"><i class="fas fa-check mr-1"></i> InMemoryChannelLayer Active</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-1 font-size-sm" style="font-size: 0.85rem;">
+                            <span class="text-white-50">Content-Security-Policy (CSP):</span>
+                            <span class="badge badge-primary font-weight-bold"><i class="fas fa-shield-alt mr-1"></i> Enforced</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center font-size-sm" style="font-size: 0.85rem;">
+                            <span class="text-white-50">Debug Mode:</span>
+                            {% if system_info.debug_mode %}
+                            <span class="badge badge-warning text-dark font-weight-bold">DEBUG=True (Dev)</span>
+                            {% else %}
+                            <span class="badge badge-success font-weight-bold">DEBUG=False (Production)</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complete Database Model Registry (Standard Model CRUD Access) -->
+    <div class="card card-dark card-outline" style="background: #1e293b; border-color: #334155;">
+        <div class="card-header" style="border-bottom: 1px solid #334155;">
+            <h5 class="card-title font-weight-bold text-white m-0">
+                <i class="fas fa-th-list text-warning mr-2"></i> Complete Model Management Registry
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for app in app_list %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card bg-dark border-secondary h-100 mb-0">
+                        <div class="card-header bg-secondary py-2">
+                            <h6 class="m-0 font-weight-bold text-white">{{ app.name }}</h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <ul class="list-group list-group-flush bg-transparent">
+                                {% for model in app.models %}
+                                <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center py-2 px-3" style="border-color: #334155;">
+                                    {% if model.admin_url %}
+                                    <a href="{{ model.admin_url }}" class="text-white font-weight-bold" style="font-size: 0.88rem;">{{ model.name }}</a>
+                                    {% else %}
+                                    <span class="text-muted" style="font-size: 0.88rem;">{{ model.name }}</span>
+                                    {% endif %}
+                                    <div>
+                                        {% if model.add_url %}
+                                        <a href="{{ model.add_url }}" class="btn btn-outline-success btn-xs" title="Add {{ model.name }}"><i class="fas fa-plus"></i></a>
+                                        {% endif %}
+                                        {% if model.admin_url %}
+                                        <a href="{{ model.admin_url }}" class="btn btn-outline-info btn-xs" title="Change {{ model.name }}"><i class="fas fa-edit"></i></a>
+                                        {% endif %}
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

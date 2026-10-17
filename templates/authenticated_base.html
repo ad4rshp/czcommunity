@@ -2,6 +2,13 @@
 {% load static %}
 
 {% block body %}
+<!-- ChillZone Connection Offline Bar -->
+<div id="czOfflineBar" class="cz-offline-bar" role="alert" aria-live="assertive">
+    <i class="ph-bold ph-wifi-slash"></i>
+    <span>You are currently offline. ChillZone will reconnect automatically when your internet returns.</span>
+    <button type="button" class="cz-offline-reconnect-btn" onclick="window.location.reload()">Retry Now</button>
+</div>
+
 <div class="app-layout">
     <!-- Top Navigation Bar -->
     <header class="top-navbar">
@@ -147,10 +154,6 @@
 
     <!-- Mobile Bottom Navigation Bar (Thumb-friendly touch bar) -->
     <nav class="mobile-bottom-nav mobile-only" aria-label="Mobile Navigation">
-        <a href="{% if active_community %}{% url 'chat' %}?c={{ active_community.slug }}{% else %}{% url 'chat' %}{% endif %}" class="mobile-nav-item {% if request.path|slice:':11' == '/community/' and request.path != '/community/create/' %}active{% endif %}" title="Servers & Chat">
-            <i class="ph-fill ph-chat-circle-dots"></i>
-            <span>Chat</span>
-        </a>
         <a href="{% url 'friends' %}" class="mobile-nav-item {% if request.path == '/profiles/friends/' or request.path|slice:':8' == '/chat/dm' %}active{% endif %}" title="Social & Friends">
             <div class="mobile-nav-icon-wrap" style="position: relative;">
                 <i class="ph-fill ph-users"></i>
@@ -1782,6 +1785,9 @@
 
                     document.querySelector('.main-content').replaceWith(newMain);
                     window.history.pushState({}, '', link.href);
+                    if (window.czSaveCurrentLocation) {
+                        window.czSaveCurrentLocation(link.href);
+                    }
                     
                     // Update Navbar elements (to show correct active pills)
                     const newNav = doc.querySelector('.top-navbar');
@@ -1808,5 +1814,82 @@
             })
             .catch(() => window.location.href = link.href);
     });
+
+    // --- Offline / Online Connection Resilience & Auto-Restoration ---
+    (function() {
+        function saveCurrentLocation(explicitUrl) {
+            try {
+                let target = explicitUrl;
+                if (!target) {
+                    target = window.location.pathname + window.location.search + window.location.hash;
+                } else {
+                    try {
+                        const u = new URL(explicitUrl, window.location.origin);
+                        target = u.pathname + u.search + u.hash;
+                    } catch(e) {}
+                }
+                if (target && !target.startsWith('//') && (
+                    target.startsWith('/community/chat') || 
+                    target.startsWith('/friends') || 
+                    target.startsWith('/chat/dm') || 
+                    target.startsWith('/profiles/friends')
+                )) {
+                    localStorage.setItem('cz_last_location', target);
+                    document.cookie = `cz_last_location=${encodeURIComponent(target)}; path=/; max-age=2592000; SameSite=Lax`;
+                }
+            } catch(e) {}
+        }
+
+        window.czSaveCurrentLocation = saveCurrentLocation;
+
+        // Save immediately on page load
+        saveCurrentLocation();
+
+        window.addEventListener('popstate', () => saveCurrentLocation());
+        window.addEventListener('hashchange', () => saveCurrentLocation());
+
+        const offlineBar = document.getElementById('czOfflineBar');
+        let wasOffline = !navigator.onLine;
+
+        function handleOfflineState() {
+            wasOffline = true;
+            if (offlineBar) offlineBar.classList.add('show');
+        }
+
+        function handleOnlineState() {
+            if (offlineBar) offlineBar.classList.remove('show');
+            if (wasOffline) {
+                wasOffline = false;
+
+                // Reconnect notification socket
+                if (typeof connectNotificationSocket === 'function') {
+                    try { connectNotificationSocket(); } catch(e) {}
+                }
+
+                // If user was left at root, error or disconnected view, automatically re-open last server channel or social
+                const lastLoc = localStorage.getItem('cz_last_location');
+                const curPath = window.location.pathname;
+                if (lastLoc && (curPath === '/' || curPath === '')) {
+                    window.location.replace(lastLoc);
+                    return;
+                }
+
+                if (typeof showFloatingToast === 'function') {
+                    showFloatingToast({
+                        title: 'Back Online',
+                        message: 'Connection restored. Syncing channels and messages...',
+                        type: 'mention'
+                    });
+                }
+            }
+        }
+
+        window.addEventListener('offline', handleOfflineState);
+        window.addEventListener('online', handleOnlineState);
+
+        if (!navigator.onLine) {
+            handleOfflineState();
+        }
+    })();
 </script>
 {% endblock %}

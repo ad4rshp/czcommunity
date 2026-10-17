@@ -1,6 +1,6 @@
 
 from django.contrib import admin
-from .models import Community, ChannelCategory, Channel, Message, Reaction, Role, CommunityMember, DirectMessageSession, DirectMessage
+from .models import Community, ChannelCategory, Channel, Message, Reaction, Role, CommunityMember, DirectMessageSession, DirectMessage, AuditLog
 
 @admin.register(Community)
 class CommunityAdmin(admin.ModelAdmin):
@@ -51,4 +51,12 @@ class DirectMessageSessionAdmin(admin.ModelAdmin):
 class DirectMessageAdmin(admin.ModelAdmin):
     list_display = ('author', 'session', 'created_at')
     search_fields = ('content', 'author__username')
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ('action', 'user', 'community', 'created_at')
+    list_filter = ('community', 'action', 'created_at')
+    search_fields = ('action', 'details', 'user__username', 'community__name')
+    readonly_fields = ('created_at',)
+
 

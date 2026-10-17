@@ -40,3 +40,30 @@ class RateLimitMiddleware:
         else:
             ip = request.META.get('REMOTE_ADDR')
         return ip
+
+
+class SecurityHeadersMiddleware:
+    """
+    Middleware to inject modern, robust Security Headers including
+    Content-Security-Policy with 'unsafe-eval' and 'unsafe-inline'
+    to allow Alpine.js, HTMX, and Phosphor icons while protecting the application.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        csp_directives = [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net https://fonts.googleapis.com blob:",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://unpkg.com",
+            "font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net https://unpkg.com",
+            "img-src 'self' data: blob: https: http:",
+            "media-src 'self' data: blob: https: http:",
+            "connect-src 'self' ws: wss: https: http:",
+            "worker-src 'self' blob:",
+            "object-src 'none'",
+            "base-uri 'self'",
+        ]
+        response['Content-Security-Policy'] = "; ".join(csp_directives)
+        return response

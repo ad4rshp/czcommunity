@@ -289,8 +289,8 @@ class AuditLog(models.Model):
 
     class Meta:
         ordering = ['-created_at']
-        verbose_name = "Message"
-        verbose_name_plural = "Messages"
+        verbose_name = "Audit Log"
+        verbose_name_plural = "Audit Logs"
 
     def __str__(self):
         return f"{self.user} - {self.action} at {self.created_at}"

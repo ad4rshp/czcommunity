@@ -124,6 +124,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.RateLimitMiddleware',
+    'core.middleware.SecurityHeadersMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -230,16 +231,17 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 JAZZMIN_SETTINGS = {
-    'site_title': 'Chillzone Admin',
-    'site_header': 'Chillzone Admin',
-    'site_brand': 'Chillzone',
-    'site_logo': None,
-    'welcome_sign': 'Welcome to the Chillzone Admin Panel',
-    'copyright': 'Chillzone Community Ltd',
+    'site_title': 'ChillZone Command Center',
+    'site_header': 'ChillZone Ops',
+    'site_brand': 'ChillZone',
+    'site_logo': 'img/chillzone_logo.svg',
+    'site_icon': 'img/chillzone_logo.svg',
+    'welcome_sign': 'Welcome to ChillZone Administration & Moderation Command Center',
+    'copyright': 'ChillZone Community Ltd',
     'search_model': ['accounts.Report', 'auth.User', 'chat.Community'],
     'show_ui_builder': False,
     'hide_apps': ['django_apscheduler'],
-    'hide_models': ['django_apscheduler.DjangoJob', 'django_apscheduler.DjangoJobExecution', 'core.DashboardConfig'],
+    'hide_models': ['django_apscheduler.DjangoJob', 'django_apscheduler.DjangoJobExecution'],
     'order_with_respect_to': [
         'accounts',
         'accounts.Report',
@@ -248,16 +250,20 @@ JAZZMIN_SETTINGS = {
         'chat.Community',
         'chat.Channel',
         'chat.Message',
+        'chat.AuditLog',
         'profiles',
         'auth',
+        'core',
+        'core.DashboardConfig',
     ],
     'topmenu_links': [
         {'name': 'Dashboard Home', 'url': 'admin:index', 'permissions': ['auth.view_user']},
         {'name': 'View Live Site', 'url': '/', 'new_window': True},
+        {'name': 'Social & Friends', 'url': '/friends/', 'new_window': True},
     ],
     'icons': {
         'auth': 'fas fa-users-cog',
-        'auth.user': 'fas fa-user',
+        'auth.user': 'fas fa-user-shield',
         'auth.Group': 'fas fa-users',
         'chat': 'fas fa-comments',
         'chat.Community': 'fas fa-server',
@@ -268,6 +274,7 @@ JAZZMIN_SETTINGS = {
         'chat.CommunityMember': 'fas fa-user-friends',
         'chat.DirectMessageSession': 'fas fa-inbox',
         'chat.DirectMessage': 'fas fa-envelope',
+        'chat.AuditLog': 'fas fa-history',
         'profiles': 'fas fa-id-card',
         'profiles.Profile': 'fas fa-id-card',
         'profiles.FriendRequest': 'fas fa-user-plus',
@@ -275,6 +282,7 @@ JAZZMIN_SETTINGS = {
         'accounts': 'fas fa-shield-alt',
         'accounts.Report': 'fas fa-flag',
         'accounts.Block': 'fas fa-ban',
+        'core.DashboardConfig': 'fas fa-sliders-h',
     },
     'default_icon_parents': 'fas fa-chevron-circle-right',
     'default_icon_children': 'fas fa-circle',

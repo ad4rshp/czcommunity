@@ -9,6 +9,14 @@ def home(request):
         if request.GET.get('open_profile'):
             c_param = f"&c={request.GET.get('c')}" if request.GET.get('c') else ""
             return redirect(f"/friends/?open_profile={request.GET.get('open_profile')}{c_param}")
+        last_loc = request.COOKIES.get('cz_last_location')
+        if last_loc and not last_loc.startswith('//') and (
+            last_loc.startswith('/community/chat') or 
+            last_loc.startswith('/friends') or 
+            last_loc.startswith('/chat/dm') or 
+            last_loc.startswith('/profiles/friends')
+        ):
+            return redirect(last_loc)
         return redirect('friends')
     from django.contrib.auth.models import User
     count = User.objects.count()

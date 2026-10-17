@@ -34,11 +34,18 @@
             </div>
             
             <div class="nav-right desktop-only">
+                {% if user.is_authenticated %}
+                <a href="{% url 'friends' %}" class="btn btn-primary">
+                    <span>Open ChillZone</span>
+                    <i class="ph-bold ph-arrow-right" style="margin-left: 6px;"></i>
+                </a>
+                {% else %}
                 <a href="{% url 'login' %}" class="btn btn-secondary">Log In</a>
                 <a href="{% url 'register' %}" class="btn btn-primary">
                     <span>Join Free</span>
                     <i class="ph-bold ph-arrow-right" style="margin-left: 6px;"></i>
                 </a>
+                {% endif %}
             </div>
             
             <!-- Mobile Toggle -->
@@ -56,8 +63,12 @@
             <a href="#voice" class="mobile-link" @click="mobileMenuOpen = false">Voice & Sound</a>
             <a href="#faq" class="mobile-link" @click="mobileMenuOpen = false">FAQ</a>
             <div class="mobile-drawer-actions">
+                {% if user.is_authenticated %}
+                <a href="{% url 'friends' %}" class="btn btn-primary" style="width: 100%;">Open ChillZone</a>
+                {% else %}
                 <a href="{% url 'login' %}" class="btn btn-secondary" style="width: 100%;">Log In</a>
                 <a href="{% url 'register' %}" class="btn btn-primary" style="width: 100%;">Join Community</a>
+                {% endif %}
             </div>
         </div>
     </nav>
@@ -91,13 +102,20 @@
                     </p>
                     
                     <div class="hero-actions">
+                        {% if user.is_authenticated %}
+                        <a href="{% url 'friends' %}" class="btn btn-primary btn-lg">
+                            <span>Open ChillZone</span>
+                            <i class="ph-bold ph-arrow-right" style="margin-left: 8px;"></i>
+                        </a>
+                        {% else %}
                         <a href="{% url 'register' %}" class="btn btn-primary btn-lg">
                             <span>Get Started Free</span>
                             <i class="ph-bold ph-arrow-right" style="margin-left: 8px;"></i>
                         </a>
+                        {% endif %}
                         <a href="#showcase" class="btn btn-secondary btn-lg">
                             <i class="ph-fill ph-play-circle" style="margin-right: 8px; color: var(--accent);"></i>
-                            <span>Explore Platform</span>
+                            <span>Explore Features</span>
                         </a>
                     </div>
 
@@ -802,6 +820,12 @@
                 <h2>Ready to hang out?</h2>
                 <p>Join the Chillzone community today. Setup takes less than 10 seconds.</p>
                 <div class="cta-buttons">
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'friends' %}" class="btn btn-primary btn-lg">
+                        <span>Open ChillZone</span>
+                        <i class="ph-bold ph-arrow-right" style="margin-left: 8px;"></i>
+                    </a>
+                    {% else %}
                     <a href="{% url 'register' %}" class="btn btn-primary btn-lg">
                         <span>Join Chillzone Free</span>
                         <i class="ph-bold ph-arrow-right" style="margin-left: 8px;"></i>
@@ -809,6 +833,7 @@
                     <a href="{% url 'login' %}" class="btn btn-secondary btn-lg">
                         <span>Log In</span>
                     </a>
+                    {% endif %}
                 </div>
             </div>
         </section>

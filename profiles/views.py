@@ -9,8 +9,7 @@ from .models import Profile
 
 @login_required
 def member_directory(request):
-    users = User.objects.select_related('profile').all().order_by('username')
-    return render(request, 'profiles/directory.html', {'users': users})
+    return redirect('friends')
 
 @login_required
 def profile_detail(request, username):

@@ -1062,3 +1062,12 @@ document.addEventListener('click', function (e) {
     }
 });
 
+// Auto-reconnect chat WebSocket when internet connectivity returns
+window.addEventListener('online', function () {
+    console.log('Network online detected, verifying chat connection...');
+    if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+        initChatSocket();
+    }
+});
+
+
