@@ -17,5 +17,6 @@ urlpatterns = [
     path('api/search/', views.search_messages, name='search_messages'),
     path('api/notifications/', views.get_notifications, name='get_notifications'),
     path('api/notifications/read/', csrf_exempt(views.mark_notifications_read), name='mark_notifications_read'),
+    path('api/notifications/mark-read/', csrf_exempt(views.mark_notifications_read), name='mark_notifications_read_alias'),
     path('<slug:channel_slug>/', views.chat_view, name='chat_channel'),
 ]

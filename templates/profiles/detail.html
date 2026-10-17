@@ -160,7 +160,8 @@
 </div>
 
 <script>
-function quickChangeDetailStatus(status) {
+window.quickChangeDetailStatus = function(status) {
+    window.quickChangeCardStatus = window.quickChangeDetailStatus;
     const menu = document.getElementById('detailQuickStatusMenu');
     if (menu) menu.style.display = 'none';
     

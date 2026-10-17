@@ -161,7 +161,8 @@
 </div>
 
 <script>
-function quickChangeCardStatus(status) {
+window.quickChangeCardStatus = function(status) {
+    window.quickChangeDetailStatus = window.quickChangeCardStatus;
     const menu = document.getElementById('cardQuickStatusMenu');
     if (menu) menu.style.display = 'none';
     
