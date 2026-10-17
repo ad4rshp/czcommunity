@@ -30,11 +30,15 @@ def get_admin_dashboard_context(request=None):
     # All communities for selection
     all_communities = Community.objects.only('id', 'name', 'slug', 'is_verified').order_by('name')
     
-    # Searchable & Paginated Users (scale-ready for 100k+ users)
+    # Searchable & Paginated Users (scale-ready for 100k+ users with UID support)
     user_q = request.GET.get('user_q', '').strip() if request else ''
     user_qs = User.objects.select_related('profile')
     if user_q:
-        user_qs = user_qs.filter(Q(username__icontains=user_q) | Q(email__icontains=user_q))
+        user_qs = user_qs.filter(
+            Q(username__icontains=user_q) |
+            Q(email__icontains=user_q) |
+            Q(profile__unique_id__icontains=user_q)
+        )
     user_qs = user_qs.order_by('-date_joined')
     user_paginator = Paginator(user_qs, 10)
     user_page = request.GET.get('user_page', 1) if request else 1
@@ -52,6 +56,51 @@ def get_admin_dashboard_context(request=None):
     comm_paginator = Paginator(comm_qs, 10)
     comm_page = request.GET.get('comm_page', 1) if request else 1
     comm_page_obj = comm_paginator.get_page(comm_page)
+    
+    # Message Monitoring: Channel Messages Query & Filter
+    msg_q = request.GET.get('msg_q', '').strip() if request else ''
+    msg_type = request.GET.get('msg_type', 'all') if request else 'all'
+    msg_comm_id = request.GET.get('msg_comm', '') if request else ''
+    
+    msg_qs = Message.objects.select_related(
+        'author', 'author__profile', 'channel', 'channel__category__community'
+    )
+    if msg_q:
+        msg_qs = msg_qs.filter(
+            Q(content__icontains=msg_q) |
+            Q(author__username__icontains=msg_q) |
+            Q(author__profile__unique_id__icontains=msg_q) |
+            Q(channel__name__icontains=msg_q) |
+            Q(channel__category__community__name__icontains=msg_q)
+        )
+    if msg_comm_id:
+        msg_qs = msg_qs.filter(channel__category__community_id=msg_comm_id)
+        
+    msg_qs = msg_qs.order_by('-created_at')
+    msg_paginator = Paginator(msg_qs, 12)
+    msg_page = request.GET.get('msg_page', 1) if request else 1
+    messages_page_obj = msg_paginator.get_page(msg_page)
+    
+    # Message Monitoring: Direct Messages Query & Filter
+    dm_qs = DirectMessage.objects.select_related(
+        'author', 'author__profile', 'session__user1__profile', 'session__user2__profile'
+    )
+    if msg_q:
+        dm_qs = dm_qs.filter(
+            Q(content__icontains=msg_q) |
+            Q(author__username__icontains=msg_q) |
+            Q(author__profile__unique_id__icontains=msg_q) |
+            Q(session__user1__username__icontains=msg_q) |
+            Q(session__user2__username__icontains=msg_q)
+        )
+    dm_qs = dm_qs.order_by('-created_at')
+    dm_paginator = Paginator(dm_qs, 12)
+    dm_page = request.GET.get('dm_page', 1) if request else 1
+    dms_page_obj = dm_paginator.get_page(dm_page)
+    
+    # Messages created in last 24h
+    last_24h = timezone.now() - timezone.timedelta(hours=24)
+    messages_24h_count = Message.objects.filter(created_at__gte=last_24h).count() + DirectMessage.objects.filter(created_at__gte=last_24h).count()
     
     recent_audit_logs = AuditLog.objects.select_related('user', 'community').order_by('-created_at')[:8]
     site_config = DashboardConfig.load()
@@ -76,6 +125,7 @@ def get_admin_dashboard_context(request=None):
         'total_messages': total_messages + total_dms,
         'total_channel_messages': total_messages,
         'total_dms': total_dms,
+        'messages_24h_count': messages_24h_count,
         'pending_reports': pending_reports,
         'pending_reports_count': pending_reports_count,
         'all_communities': all_communities,
@@ -83,6 +133,11 @@ def get_admin_dashboard_context(request=None):
         'user_q': user_q,
         'comm_page_obj': comm_page_obj,
         'comm_q': comm_q,
+        'messages_page_obj': messages_page_obj,
+        'dms_page_obj': dms_page_obj,
+        'msg_q': msg_q,
+        'msg_type': msg_type,
+        'msg_comm_id': msg_comm_id,
         'recent_audit_logs': recent_audit_logs,
         'site_config': site_config,
         'system_info': system_info,
@@ -155,53 +210,107 @@ def handle_admin_dashboard_action(request):
     elif action_type == 'ban_user':
         user_identifier = request.POST.get('user_identifier') or request.POST.get('user_id')
         if not user_identifier:
-            messages.error(request, "Please enter a username or user ID to ban.")
-            return redirect(f"/admin/?tab=moderation")
+            messages.error(request, "Please enter a username, user ID, or Unique ID to ban.")
+            return redirect(f"/admin/?tab={redirect_tab}")
             
-        try:
-            if str(user_identifier).isdigit():
-                target = User.objects.get(id=int(user_identifier))
-            else:
-                target = User.objects.get(username__iexact=str(user_identifier).strip())
-                
-            if target.is_superuser:
-                messages.error(request, "Cannot ban a superuser account.")
-            else:
-                target.is_active = False
-                target.save()
-                messages.warning(request, f"User '{target.username}' has been BANNED / SUSPENDED.")
-        except User.DoesNotExist:
+        target = None
+        ident_str = str(user_identifier).strip()
+        if ident_str.isdigit():
+            target = User.objects.filter(id=int(ident_str)).first()
+        if not target:
+            target = User.objects.filter(
+                Q(username__iexact=ident_str) |
+                Q(profile__unique_id__iexact=ident_str) |
+                Q(profile__unique_id__iexact=f"CZ-{ident_str}")
+            ).first()
+            
+        if not target:
             messages.error(request, f"User '{user_identifier}' not found.")
-        return redirect(f"/admin/?tab=users")
+        elif target.is_superuser:
+            messages.error(request, "Cannot ban a superuser account.")
+        else:
+            target.is_active = False
+            target.save()
+            uid = getattr(target, 'profile', None) and target.profile.unique_id
+            messages.warning(request, f"User '{target.username}' (UID: {uid or 'None'}) has been BANNED / SUSPENDED.")
+        return redirect(f"/admin/?tab={redirect_tab}")
 
     elif action_type == 'unban_user':
         user_identifier = request.POST.get('user_identifier') or request.POST.get('user_id')
         if not user_identifier:
-            messages.error(request, "Please enter a username or user ID to restore.")
-            return redirect(f"/admin/?tab=moderation")
+            messages.error(request, "Please enter a username, user ID, or Unique ID to restore.")
+            return redirect(f"/admin/?tab={redirect_tab}")
             
-        try:
-            if str(user_identifier).isdigit():
-                target = User.objects.get(id=int(user_identifier))
-            else:
-                target = User.objects.get(username__iexact=str(user_identifier).strip())
-                
+        target = None
+        ident_str = str(user_identifier).strip()
+        if ident_str.isdigit():
+            target = User.objects.filter(id=int(ident_str)).first()
+        if not target:
+            target = User.objects.filter(
+                Q(username__iexact=ident_str) |
+                Q(profile__unique_id__iexact=ident_str) |
+                Q(profile__unique_id__iexact=f"CZ-{ident_str}")
+            ).first()
+            
+        if not target:
+            messages.error(request, f"User '{user_identifier}' not found.")
+        else:
             target.is_active = True
             target.save()
             messages.success(request, f"User '{target.username}' has been RESTORED (Active).")
+        return redirect(f"/admin/?tab={redirect_tab}")
+
+    elif action_type == 'issue_emergency_pin':
+        user_id = request.POST.get('user_id')
+        try:
+            target = User.objects.select_related('profile').get(id=user_id)
+            import secrets
+            pin = f"{secrets.randbelow(900000) + 100000}"
+            target.profile.emergency_pin = pin
+            target.profile.emergency_pin_expires_at = timezone.now() + timezone.timedelta(hours=2)
+            target.profile.save()
+            messages.success(request, f"🔑 Generated Emergency Recovery PIN for @{target.username} (UID: {target.profile.unique_id}): {pin} (Valid for 2 hours). Share this with the user to recover their account.")
         except User.DoesNotExist:
-            messages.error(request, f"User '{user_identifier}' not found.")
-        return redirect(f"/admin/?tab=users")
+            messages.error(request, "User not found.")
+        return redirect(f"/admin/?tab={redirect_tab}")
+
+    elif action_type == 'force_terminate_sessions':
+        user_id = request.POST.get('user_id')
+        try:
+            target = User.objects.get(id=user_id)
+            from django.contrib.sessions.models import Session
+            user_id_str = str(target.id)
+            purged = 0
+            for s in Session.objects.filter(expire_date__gte=timezone.now()):
+                try:
+                    if str(s.get_decoded().get('_auth_user_id')) == user_id_str:
+                        s.delete()
+                        purged += 1
+                except Exception:
+                    pass
+            messages.success(request, f"Terminated {purged} active sessions across all devices for @{target.username}.")
+        except User.DoesNotExist:
+            messages.error(request, "User not found.")
+        return redirect(f"/admin/?tab={redirect_tab}")
 
     elif action_type == 'delete_message':
         msg_id = request.POST.get('message_id')
-        try:
-            msg = Message.objects.get(id=msg_id)
-            channel_name = msg.channel.name
-            msg.delete()
-            messages.success(request, f"Message #{msg_id} in #{channel_name} was PERMANENTLY DELETED.")
-        except Message.DoesNotExist:
-            messages.error(request, f"Message #{msg_id} not found.")
-        return redirect(f"/admin/?tab=moderation")
+        msg_type = request.POST.get('msg_type', 'channel')
+        if msg_type == 'dm':
+            try:
+                dm = DirectMessage.objects.get(id=msg_id)
+                dm.delete()
+                messages.success(request, f"Direct Message #{msg_id} was PERMANENTLY DELETED.")
+            except DirectMessage.DoesNotExist:
+                messages.error(request, f"Direct Message #{msg_id} not found.")
+        else:
+            try:
+                msg = Message.objects.get(id=msg_id)
+                channel_name = msg.channel.name
+                msg.delete()
+                messages.success(request, f"Message #{msg_id} in #{channel_name} was PERMANENTLY DELETED.")
+            except Message.DoesNotExist:
+                messages.error(request, f"Message #{msg_id} not found.")
+        return redirect(f"/admin/?tab={redirect_tab}")
 
     return redirect(f"/admin/?tab={redirect_tab}")

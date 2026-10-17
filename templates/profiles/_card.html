@@ -20,7 +20,7 @@
                     {% endif %}
                     
                     <button style="width: 100%; text-align: left; display: block; padding: 8px 10px; color: #F44336; text-decoration: none; border-radius: 4px; border: none; background: none; cursor: pointer; font-size: 0.85rem;" onmouseover="this.style.background='rgba(244,67,54,0.1)'" onmouseout="this.style.background='none'">Block</button>
-                    <button onclick="navigator.clipboard.writeText('{{ profile_user.id }}'); document.getElementById('profileMoreOptions-{{ profile_user.id }}').style.display = 'none';" style="width: 100%; text-align: left; display: block; padding: 8px 10px; color: var(--text-primary); text-decoration: none; border-radius: 4px; border: none; background: none; cursor: pointer; font-size: 0.85rem;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">Copy ID</button>
+                    <button onclick="navigator.clipboard.writeText('{{ profile_user.profile.unique_id|default:profile_user.id }}'); alert('Copied ID: {{ profile_user.profile.unique_id|default:profile_user.id }}'); document.getElementById('profileMoreOptions-{{ profile_user.id }}').style.display = 'none';" style="width: 100%; text-align: left; display: block; padding: 8px 10px; color: var(--text-primary); text-decoration: none; border-radius: 4px; border: none; background: none; cursor: pointer; font-size: 0.85rem;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">Copy Unique ID</button>
                 </div>
             </div>
             {% endif %}
@@ -50,8 +50,11 @@
             
             <!-- Smaller Username & Status Pill -->
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <div class="profile-username">
-                    @{{ profile_user.username }}
+                <div class="profile-username" style="display: flex; align-items: center; gap: 6px;">
+                    <span>@{{ profile_user.username }}</span>
+                    {% if profile_user.profile.unique_id %}
+                    <span style="font-family: monospace; font-size: 0.72rem; color: #60a5fa; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); padding: 1px 6px; border-radius: 4px;" title="Unique ID: {{ profile_user.profile.unique_id }}">{{ profile_user.profile.unique_id }}</span>
+                    {% endif %}
                 </div>
                 {% if request.user == profile_user %}
                 <div style="position: relative; display: inline-block;">

@@ -326,7 +326,7 @@
                 </div>
                 <div class="cz-kpi-footer">
                     <span><strong class="text-white">{{ total_channel_messages }}</strong> Channel | <strong class="text-white">{{ total_dms }}</strong> DMs</span>
-                    <a href="{% url 'admin:chat_message_changelist' %}" class="text-white font-weight-bold">Inspect Messages &rarr;</a>
+                    <a href="?tab=messages" class="text-white font-weight-bold">Live Messages Monitor &rarr;</a>
                 </div>
             </div>
         </div>
@@ -356,6 +356,9 @@
         <a href="?tab=overview" class="cz-dash-tab {% if active_tab == 'overview' %}active{% endif %}">
             <i class="fas fa-chart-pie"></i> Overview & Official Server
         </a>
+        <a href="?tab=messages" class="cz-dash-tab {% if active_tab == 'messages' %}active{% endif %}">
+            <i class="fas fa-comment-dots"></i> Messages Monitor ({{ total_messages }})
+        </a>
         <a href="?tab=moderation" class="cz-dash-tab {% if active_tab == 'moderation' %}active{% endif %}">
             <i class="fas fa-shield-alt"></i> Moderation Queue
             {% if pending_reports_count > 0 %}
@@ -366,7 +369,7 @@
             <i class="fas fa-server"></i> Servers & Communities ({{ total_communities }})
         </a>
         <a href="?tab=users" class="cz-dash-tab {% if active_tab == 'users' %}active{% endif %}">
-            <i class="fas fa-user-friends"></i> User Directory ({{ total_users }})
+            <i class="fas fa-user-friends"></i> User Directory & Security ({{ total_users }})
         </a>
         <a href="?tab=models" class="cz-dash-tab {% if active_tab == 'models' %}active{% endif %}">
             <i class="fas fa-database"></i> Database Models
@@ -510,6 +513,294 @@
     </div>
     {% endif %}
 
+    <!-- TAB: LIVE MESSAGES MONITOR -->
+    {% if active_tab == 'messages' %}
+    <div class="cz-action-box mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap" style="gap: 12px;">
+            <div>
+                <h5 class="font-weight-bold text-white m-0">
+                    <i class="fas fa-comment-dots text-info mr-2"></i> Live Message Monitoring & Audit
+                </h5>
+                <small class="text-muted">Real-time inspection of public server channels and direct communications.</small>
+            </div>
+            <!-- Search & Filter Form -->
+            <form method="get" class="form-inline m-0" style="gap: 8px;">
+                <input type="hidden" name="tab" value="messages">
+                <select name="msg_type" class="form-control form-control-sm cz-search-input" onchange="this.form.submit()">
+                    <option value="all" {% if msg_type == 'all' %}selected{% endif %}>All Messages (Channel + DM)</option>
+                    <option value="channel" {% if msg_type == 'channel' %}selected{% endif %}>Channel Messages Only</option>
+                    <option value="dm" {% if msg_type == 'dm' %}selected{% endif %}>Direct Messages (DMs) Only</option>
+                </select>
+                <select name="msg_comm" class="form-control form-control-sm cz-search-input" onchange="this.form.submit()">
+                    <option value="">All Servers / Communities</option>
+                    {% for c in all_communities %}
+                    <option value="{{ c.id }}" {% if msg_comm_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="input-group input-group-sm">
+                    <input type="text" name="msg_q" class="form-control cz-search-input" value="{{ msg_q }}" placeholder="Search text, username, or UID...">
+                    <div class="input-group-append">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i></button>
+                        {% if msg_q or msg_comm_id or msg_type != 'all' %}
+                        <a href="?tab=messages" class="btn btn-secondary" title="Reset Filters"><i class="fas fa-times"></i></a>
+                        {% endif %}
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Telemetry Stats Strip -->
+        <div class="row mb-3">
+            <div class="col-md-3 col-6 mb-2">
+                <div style="background: rgba(0,0,0,0.25); padding: 10px 14px; border-radius: 6px; border: 1px solid #334155;">
+                    <div class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">Total Messages</div>
+                    <div class="text-white font-weight-bold" style="font-size: 1.25rem;">{{ total_messages }}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <div style="background: rgba(0,0,0,0.25); padding: 10px 14px; border-radius: 6px; border: 1px solid #334155;">
+                    <div class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">Channel Messages</div>
+                    <div class="text-info font-weight-bold" style="font-size: 1.25rem;">{{ total_channel_messages }}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <div style="background: rgba(0,0,0,0.25); padding: 10px 14px; border-radius: 6px; border: 1px solid #334155;">
+                    <div class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">Direct Messages (DMs)</div>
+                    <div class="text-warning font-weight-bold" style="font-size: 1.25rem;">{{ total_dms }}</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <div style="background: rgba(0,0,0,0.25); padding: 10px 14px; border-radius: 6px; border: 1px solid #334155;">
+                    <div class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">Activity (Last 24h)</div>
+                    <div class="text-success font-weight-bold" style="font-size: 1.25rem;">{{ messages_24h_count }}</div>
+                </div>
+            </div>
+        </div>
+
+        {% if msg_type != 'dm' %}
+        <!-- Channel Messages Table -->
+        <div class="card card-dark card-outline mb-4" style="background: #1e293b; border-color: #334155; border-top: 3px solid #3b82f6;">
+            <div class="card-header d-flex justify-content-between align-items-center" style="border-bottom: 1px solid #334155;">
+                <h6 class="font-weight-bold text-white m-0">
+                    <i class="fas fa-hashtag text-primary mr-1"></i> Channel Messages History
+                </h6>
+                <span class="badge badge-info">{{ messages_page_obj.paginator.count }} Found</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped text-white mb-0" style="background: transparent;">
+                        <thead style="background: rgba(0, 0, 0, 0.2); color: #94a3b8; font-size: 0.78rem; text-transform: uppercase;">
+                            <tr>
+                                <th style="width: 70px;">ID</th>
+                                <th>Author (User & Unique ID)</th>
+                                <th>Server & Channel</th>
+                                <th>Content</th>
+                                <th>Timestamp</th>
+                                <th class="text-right">Moderation Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for m in messages_page_obj %}
+                            <tr style="border-bottom: 1px solid #334155;">
+                                <td class="font-weight-bold text-muted font-monospace">#{{ m.id }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <img src="{{ m.author.profile.get_avatar_url }}" style="width: 26px; height: 26px; border-radius: 50%; object-fit: cover; margin-right: 8px;" onerror="this.src='/static/img/default_avatar.svg'">
+                                        <div>
+                                            <span class="font-weight-bold text-white">@{{ m.author.username }}</span>
+                                            <span class="badge badge-primary font-monospace ml-1" style="font-size: 0.7rem;">{{ m.author.profile.unique_id|default:"None" }}</span>
+                                            {% if not m.author.is_active %}
+                                            <span class="badge badge-danger ml-1" style="font-size: 0.65rem;">BANNED</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="font-size: 0.82rem;">
+                                        <span class="text-white font-weight-bold">{{ m.channel.category.community.name }}</span>
+                                        <span class="text-muted">&rsaquo;</span>
+                                        <span class="text-info font-weight-bold">#{{ m.channel.name }}</span>
+                                    </div>
+                                </td>
+                                <td style="max-width: 380px;">
+                                    <div class="text-white text-break" style="font-size: 0.88rem; line-height: 1.4;">
+                                        {{ m.content|default:"(No text)" }}
+                                    </div>
+                                    {% if m.attachment %}
+                                    <div class="mt-1">
+                                        <a href="{{ m.attachment.url }}" target="_blank" class="badge badge-secondary" style="font-size: 0.72rem;">
+                                            <i class="fas fa-paperclip mr-1"></i> View Attachment
+                                        </a>
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted font-size-xs" style="white-space: nowrap;">
+                                    {{ m.created_at|date:"M d, Y H:i" }}
+                                </td>
+                                <td class="text-right" style="white-space: nowrap;">
+                                    <div class="d-flex justify-content-end align-items-center" style="gap: 6px;">
+                                        <!-- Delete Message Form -->
+                                        <form method="post" class="d-inline m-0" onsubmit="return confirm('Permanently delete Message #{{ m.id }}?')">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action_type" value="delete_message">
+                                            <input type="hidden" name="msg_type" value="channel">
+                                            <input type="hidden" name="message_id" value="{{ m.id }}">
+                                            <input type="hidden" name="redirect_tab" value="messages">
+                                            <button type="submit" class="btn btn-danger btn-xs" title="Permanently delete message">
+                                                <i class="fas fa-trash-alt mr-1"></i> Delete
+                                            </button>
+                                        </form>
+
+                                        {% if not m.author.is_superuser and m.author.is_active %}
+                                        <!-- Ban Author Form -->
+                                        <form method="post" class="d-inline m-0" onsubmit="return confirm('Ban user @{{ m.author.username }} (UID: {{ m.author.profile.unique_id }})?')">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action_type" value="ban_user">
+                                            <input type="hidden" name="user_id" value="{{ m.author.id }}">
+                                            <input type="hidden" name="redirect_tab" value="messages">
+                                            <button type="submit" class="btn btn-outline-danger btn-xs" title="Suspend author account">
+                                                <i class="fas fa-ban mr-1"></i> Ban Author
+                                            </button>
+                                        </form>
+                                        {% endif %}
+
+                                        <a href="/community/chat/?c={{ m.channel.category.community.slug }}" target="_blank" class="btn btn-secondary btn-xs" title="Open Channel">
+                                            <i class="fas fa-external-link-alt"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="text-center text-muted py-4">No channel messages found matching your filter criteria.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% if messages_page_obj.has_other_pages %}
+            <div class="card-footer d-flex justify-content-between align-items-center" style="border-top: 1px solid #334155; background: rgba(0,0,0,0.15);">
+                <div class="text-muted font-size-xs">
+                    Showing Page {{ messages_page_obj.number }} of {{ messages_page_obj.paginator.num_pages }}
+                </div>
+                <div>
+                    {% if messages_page_obj.has_previous %}
+                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_comm={{ msg_comm_id }}&msg_q={{ msg_q }}&msg_page={{ messages_page_obj.previous_page_number }}" class="btn btn-secondary btn-xs mr-1">&laquo; Previous</a>
+                    {% endif %}
+                    {% if messages_page_obj.has_next %}
+                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_comm={{ msg_comm_id }}&msg_q={{ msg_q }}&msg_page={{ messages_page_obj.next_page_number }}" class="btn btn-primary btn-xs">Next &raquo;</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if msg_type != 'channel' %}
+        <!-- Direct Messages (DMs) Table -->
+        <div class="card card-dark card-outline mb-4" style="background: #1e293b; border-color: #334155; border-top: 3px solid #f59e0b;">
+            <div class="card-header d-flex justify-content-between align-items-center" style="border-bottom: 1px solid #334155;">
+                <h6 class="font-weight-bold text-white m-0">
+                    <i class="fas fa-envelope text-warning mr-1"></i> Direct Messages (DMs) History
+                </h6>
+                <span class="badge badge-warning">{{ dms_page_obj.paginator.count }} Found</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped text-white mb-0" style="background: transparent;">
+                        <thead style="background: rgba(0, 0, 0, 0.2); color: #94a3b8; font-size: 0.78rem; text-transform: uppercase;">
+                            <tr>
+                                <th style="width: 70px;">ID</th>
+                                <th>Author (Sender)</th>
+                                <th>Conversation (Between)</th>
+                                <th>Content</th>
+                                <th>Timestamp</th>
+                                <th class="text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for dm in dms_page_obj %}
+                            <tr style="border-bottom: 1px solid #334155;">
+                                <td class="font-weight-bold text-muted font-monospace">#{{ dm.id }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <img src="{{ dm.author.profile.get_avatar_url }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; margin-right: 8px;" onerror="this.src='/static/img/default_avatar.svg'">
+                                        <div>
+                                            <span class="font-weight-bold text-white">@{{ dm.author.username }}</span>
+                                            <span class="badge badge-primary font-monospace ml-1" style="font-size: 0.68rem;">{{ dm.author.profile.unique_id|default:"None" }}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div style="font-size: 0.82rem; color: #cbd5e1;">
+                                        <span>@{{ dm.session.user1.username }}</span>
+                                        <i class="fas fa-arrows-alt-h mx-1 text-muted"></i>
+                                        <span>@{{ dm.session.user2.username }}</span>
+                                    </div>
+                                </td>
+                                <td style="max-width: 400px;">
+                                    <div class="text-white text-break" style="font-size: 0.88rem; line-height: 1.4;">
+                                        {{ dm.content }}
+                                    </div>
+                                </td>
+                                <td class="text-muted font-size-xs" style="white-space: nowrap;">
+                                    {{ dm.created_at|date:"M d, Y H:i" }}
+                                </td>
+                                <td class="text-right" style="white-space: nowrap;">
+                                    <div class="d-flex justify-content-end align-items-center" style="gap: 6px;">
+                                        <!-- Delete DM Form -->
+                                        <form method="post" class="d-inline m-0" onsubmit="return confirm('Permanently delete Direct Message #{{ dm.id }}?')">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action_type" value="delete_message">
+                                            <input type="hidden" name="msg_type" value="dm">
+                                            <input type="hidden" name="message_id" value="{{ dm.id }}">
+                                            <input type="hidden" name="redirect_tab" value="messages">
+                                            <button type="submit" class="btn btn-danger btn-xs" title="Delete direct message">
+                                                <i class="fas fa-trash-alt mr-1"></i> Delete
+                                            </button>
+                                        </form>
+
+                                        {% if not dm.author.is_superuser and dm.author.is_active %}
+                                        <!-- Ban Author Form -->
+                                        <form method="post" class="d-inline m-0" onsubmit="return confirm('Ban user @{{ dm.author.username }}?')">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action_type" value="ban_user">
+                                            <input type="hidden" name="user_id" value="{{ dm.author.id }}">
+                                            <input type="hidden" name="redirect_tab" value="messages">
+                                            <button type="submit" class="btn btn-outline-danger btn-xs" title="Suspend author">
+                                                <i class="fas fa-ban mr-1"></i> Ban
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="text-center text-muted py-4">No direct messages match the search filter.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% if dms_page_obj.has_other_pages %}
+            <div class="card-footer d-flex justify-content-between align-items-center" style="border-top: 1px solid #334155; background: rgba(0,0,0,0.15);">
+                <div class="text-muted font-size-xs">
+                    Showing Page {{ dms_page_obj.number }} of {{ dms_page_obj.paginator.num_pages }}
+                </div>
+                <div>
+                    {% if dms_page_obj.has_previous %}
+                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_q={{ msg_q }}&dm_page={{ dms_page_obj.previous_page_number }}" class="btn btn-secondary btn-xs mr-1">&laquo; Previous</a>
+                    {% endif %}
+                    {% if dms_page_obj.has_next %}
+                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_q={{ msg_q }}&dm_page={{ dms_page_obj.next_page_number }}" class="btn btn-primary btn-xs">Next &raquo;</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- TAB 2: MODERATION & REPORTS -->
     {% if active_tab == 'moderation' %}
     <!-- Active Moderation Queue -->
@@ -626,17 +917,18 @@
         <div class="col-md-6 mb-4">
             <div class="cz-action-box">
                 <h5 class="font-weight-bold text-white mb-3">
-                    <i class="fas fa-user-slash text-danger mr-2"></i> Moderate User by Username
+                    <i class="fas fa-user-slash text-danger mr-2"></i> Moderate User by Username or Unique ID
                 </h5>
                 <p class="text-muted" style="font-size: 0.85rem;">
-                    Enter any username to suspend or restore their account instantly across the network.
+                    Enter any username or Unique ID (e.g. CZ-858666) to suspend or restore their account instantly.
                 </p>
                 <div class="d-flex" style="gap: 10px;">
                     <form method="post" class="flex-grow-1" onsubmit="return confirm('Ban this user?')">
                         {% csrf_token %}
                         <input type="hidden" name="action_type" value="ban_user">
+                        <input type="hidden" name="redirect_tab" value="moderation">
                         <div class="input-group">
-                            <input type="text" name="user_identifier" class="form-control cz-search-input" placeholder="Username to ban..." required>
+                            <input type="text" name="user_identifier" class="form-control cz-search-input" placeholder="Username or Unique ID (CZ-...)..." required>
                             <div class="input-group-append">
                                 <button type="submit" class="btn btn-danger font-weight-bold">Ban User</button>
                             </div>
@@ -647,8 +939,9 @@
                     <form method="post">
                         {% csrf_token %}
                         <input type="hidden" name="action_type" value="unban_user">
+                        <input type="hidden" name="redirect_tab" value="moderation">
                         <div class="input-group">
-                            <input type="text" name="user_identifier" class="form-control cz-search-input" placeholder="Username to restore..." required>
+                            <input type="text" name="user_identifier" class="form-control cz-search-input" placeholder="Username or Unique ID to restore..." required>
                             <div class="input-group-append">
                                 <button type="submit" class="btn btn-success font-weight-bold">Restore User</button>
                             </div>
@@ -788,7 +1081,7 @@
             <form method="get" class="form-inline m-0">
                 <input type="hidden" name="tab" value="users">
                 <div class="input-group input-group-sm">
-                    <input type="text" name="user_q" class="form-control cz-search-input" value="{{ user_q }}" placeholder="Search username or email...">
+                    <input type="text" name="user_q" class="form-control cz-search-input" value="{{ user_q }}" placeholder="Search username, email, or Unique ID (CZ-...)...">
                     <div class="input-group-append">
                         <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i></button>
                         {% if user_q %}
@@ -804,9 +1097,11 @@
                 <thead style="background: rgba(0, 0, 0, 0.2); color: #94a3b8; font-size: 0.8rem; text-transform: uppercase;">
                     <tr>
                         <th>Username</th>
+                        <th>Unique ID</th>
                         <th>Email</th>
                         <th>Date Joined</th>
                         <th>Role / Status</th>
+                        <th>Zero-Cost Recovery & Security</th>
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
@@ -814,9 +1109,15 @@
                     {% for u in users_page_obj %}
                     <tr style="border-bottom: 1px solid #334155;">
                         <td class="font-weight-bold">
-                            <a href="{% url 'admin:auth_user_change' u.id %}" class="text-white">
-                                <i class="fas fa-user-circle mr-1 text-white-50"></i> {{ u.username }}
+                            <a href="{% url 'admin:auth_user_change' u.id %}" class="text-white d-flex align-items-center">
+                                <img src="{{ u.profile.get_avatar_url }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; margin-right: 8px;" onerror="this.src='/static/img/default_avatar.svg'">
+                                <span>{{ u.username }}</span>
                             </a>
+                        </td>
+                        <td>
+                            <span class="badge badge-primary font-monospace" style="font-size: 0.82rem; letter-spacing: 0.5px;">
+                                {{ u.profile.unique_id|default:"None" }}
+                            </span>
                         </td>
                         <td class="text-muted font-size-xs">{{ u.email|default:"None" }}</td>
                         <td class="text-muted font-size-xs">{{ u.date_joined|date:"M d, Y" }}</td>
@@ -831,12 +1132,42 @@
                             <span class="badge badge-success">Active</span>
                             {% endif %}
                         </td>
+                        <td>
+                            <div class="d-flex align-items-center flex-wrap" style="gap: 5px;">
+                                {% if u.profile.emergency_pin %}
+                                <span class="badge badge-warning text-dark font-weight-bold font-monospace" title="Expires: {{ u.profile.emergency_pin_expires_at|date:'H:i' }}">
+                                    <i class="fas fa-key mr-1"></i> PIN: {{ u.profile.emergency_pin }}
+                                </span>
+                                {% endif %}
+                                <!-- Issue PIN Form -->
+                                <form method="post" class="d-inline m-0">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action_type" value="issue_emergency_pin">
+                                    <input type="hidden" name="user_id" value="{{ u.id }}">
+                                    <input type="hidden" name="redirect_tab" value="users">
+                                    <button type="submit" class="btn btn-outline-warning btn-xs" title="Generate zero-cost 6-digit emergency PIN for account recovery" onclick="return confirm('Generate emergency recovery PIN for @{{ u.username }} (UID: {{ u.profile.unique_id }})?')">
+                                        <i class="fas fa-key mr-1"></i> Issue PIN
+                                    </button>
+                                </form>
+                                <!-- Purge Sessions Form -->
+                                <form method="post" class="d-inline m-0">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action_type" value="force_terminate_sessions">
+                                    <input type="hidden" name="user_id" value="{{ u.id }}">
+                                    <input type="hidden" name="redirect_tab" value="users">
+                                    <button type="submit" class="btn btn-outline-danger btn-xs" title="Immediately logout user from all active devices" onclick="return confirm('Immediately terminate ALL sessions across all devices for @{{ u.username }}?')">
+                                        <i class="fas fa-power-off mr-1"></i> Purge Sessions
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
                         <td class="text-right">
                             <div class="d-flex justify-content-end" style="gap: 6px;">
                                 {% if not u.is_superuser %}
                                 <form method="post" class="d-inline m-0">
                                     {% csrf_token %}
                                     <input type="hidden" name="user_id" value="{{ u.id }}">
+                                    <input type="hidden" name="redirect_tab" value="users">
                                     {% if u.is_active %}
                                     <input type="hidden" name="action_type" value="ban_user">
                                     <button type="submit" class="btn btn-danger btn-xs" title="Suspend user" onclick="return confirm('Ban user {{ u.username }}?')">Ban</button>
@@ -846,14 +1177,14 @@
                                     {% endif %}
                                 </form>
                                 {% endif %}
-                                <a href="{% url 'admin:auth_user_change' u.id %}" class="btn btn-secondary btn-xs" title="Edit user details">
+                                <a href="{% url 'admin:auth_user_change' u.id %}" class="btn btn-secondary btn-xs" title="Edit user details in Django admin">
                                     <i class="fas fa-edit"></i>
                                 </a>
                             </div>
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="5" class="text-center text-muted py-4">No users match your query.</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-4">No users match your query.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>

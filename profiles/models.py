@@ -22,9 +22,37 @@ class Profile(models.Model):
     dm_setting = models.CharField(max_length=20, choices=DM_CHOICES, default='everyone')
     status_setting = models.CharField(max_length=20, choices=STATUS_CHOICES, default='online')
     manual_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='online')
+    unique_id = models.CharField(max_length=24, unique=True, null=True, blank=True, db_index=True)
+    recovery_key = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    emergency_pin = models.CharField(max_length=12, blank=True, default="")
+    emergency_pin_expires_at = models.DateTimeField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        import secrets
+        import string
+
+        if not self.unique_id:
+            for _ in range(10):
+                num = secrets.randbelow(900000) + 100000
+                cand = f"CZ-{num}"
+                if not Profile.objects.filter(unique_id=cand).exists():
+                    self.unique_id = cand
+                    break
+            if not self.unique_id:
+                user_id_val = self.user_id or 1
+                self.unique_id = f"CZ-{user_id_val:06d}"
+
+        if not self.recovery_key:
+            chars = string.ascii_uppercase + string.digits
+            c1 = ''.join(secrets.choice(chars) for _ in range(4))
+            c2 = ''.join(secrets.choice(chars) for _ in range(4))
+            c3 = ''.join(secrets.choice(chars) for _ in range(4))
+            self.recovery_key = f"CZ-REC-{c1}-{c2}-{c3}"
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.user.username}'s Profile"
+        return f"{self.user.username}'s Profile ({self.unique_id or 'No UID'})"
 
     def get_avatar_url(self):
         try:

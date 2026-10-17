@@ -32,7 +32,13 @@
 
             {% for field in form %}
             <div class="form-group">
-                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                <label for="{{ field.id_for_label }}">
+                    {% if field.name == 'username' %}
+                        Username, Email, or Unique ID
+                    {% else %}
+                        {{ field.label }}
+                    {% endif %}
+                </label>
                 {{ field }}
                 {% if field.help_text %}
                 <span class="helptext">{{ field.help_text }}</span>
@@ -43,6 +49,12 @@
             </div>
             {% endfor %}
             
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 16px; margin-top: -6px;">
+                <a href="{% url 'recover_account' %}" style="font-size: 0.82rem; color: #f59e0b; text-decoration: none; font-weight: 600;">
+                    Forgot password or hacked?
+                </a>
+            </div>
+
             <button type="submit" class="auth-btn">Sign In</button>
         </form>
         
@@ -59,5 +71,9 @@
             input.classList.add('form-control');
         }
     });
+    const userInput = document.getElementById('id_username');
+    if (userInput) {
+        userInput.placeholder = 'Username, email, or CZ-XXXXX';
+    }
 </script>
 {% endblock %}

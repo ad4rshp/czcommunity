@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/auth.css' %}">
+<style>
+    .recovery-banner {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+        color: #fca5a5;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+    .recovery-success-box {
+        background: rgba(16, 185, 129, 0.12);
+        border: 1px solid rgba(16, 185, 129, 0.35);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 24px;
+        text-align: left;
+    }
+    .recovery-key-display {
+        font-family: monospace;
+        font-size: 1.1rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #34d399;
+        background: rgba(0, 0, 0, 0.35);
+        padding: 10px 14px;
+        border-radius: 6px;
+        border: 1px dashed rgba(52, 211, 153, 0.4);
+        margin: 10px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        word-break: break-all;
+    }
+    .recovery-badge {
+        display: inline-block;
+        background: rgba(59, 130, 246, 0.2);
+        color: #60a5fa;
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-family: monospace;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="auth-page">
+    <div class="back-nav">
+        <a href="{% url 'login' %}">
+            <span>←</span> Back to Sign In
+        </a>
+    </div>
+
+    <div class="auth-bg-glow"></div>
+    
+    <div class="auth-card" style="max-width: 480px;">
+        {% if success_data %}
+        <div class="auth-header">
+            <div style="font-size: 2.8rem; margin-bottom: 8px;">🛡️</div>
+            <h2 style="color: #34d399;">Account Secured!</h2>
+            <p>Your password has been reset and all devices have been logged out.</p>
+        </div>
+
+        <div class="recovery-success-box">
+            <div style="font-size: 0.88rem; color: #e2e8f0; margin-bottom: 10px;">
+                <strong>Account:</strong> {{ success_data.username }} 
+                <span class="recovery-badge ml-2">{{ success_data.unique_id }}</span>
+            </div>
+            <div style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 12px;">
+                ✓ <strong>{{ success_data.purged_count|default:"All" }} active sessions</strong> across every browser and device were permanently terminated. Any unauthorized user has been booted out.
+            </div>
+
+            <div style="font-size: 0.82rem; color: #f59e0b; font-weight: 600; margin-top: 14px;">
+                ⚠️ YOUR NEW RECOVERY KEY (Save this now):
+            </div>
+            <div class="recovery-key-display">
+                <span id="newKeyText">{{ success_data.new_recovery_key }}</span>
+                <button type="button" class="btn btn-sm btn-outline-success" onclick="copyNewRecoveryKey()" style="padding: 3px 8px; font-size: 0.75rem; border-radius: 4px; cursor: pointer; background: rgba(52,211,153,0.15); border: 1px solid #34d399; color: #34d399;">
+                    Copy Key
+                </button>
+            </div>
+            <div style="font-size: 0.76rem; color: #94a3b8; margin-top: 6px;">
+                Your old recovery key is now void. Save this new key in a secure place for zero-cost emergency recovery.
+            </div>
+        </div>
+
+        <a href="{% url 'login' %}" class="auth-btn" style="text-align: center; text-decoration: none; display: block; line-height: 44px;">
+            Sign In with New Password
+        </a>
+
+        {% else %}
+
+        <div class="auth-header">
+            <h2>Account Recovery</h2>
+            <p>Zero-cost verification & anti-hack global device logout.</p>
+        </div>
+
+        <div class="recovery-banner">
+            <strong>🛡️ Instant Protection:</strong> Resetting your password will immediately terminate all active sessions across every device, kicking out any intruder.
+        </div>
+
+        {% if error_msg %}
+        <div class="errorlist" style="margin-bottom: 15px; text-align: center; background: rgba(220,38,38,0.15); border: 1px solid #dc2626; padding: 10px 14px; border-radius: 6px; color: #fca5a5; font-size: 0.85rem;">
+            {{ error_msg }}
+        </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="identifier">Username, Email, or Unique ID</label>
+                <input type="text" name="identifier" id="identifier" class="form-control" required placeholder="e.g. adarsh, user@example.com, or CZ-514642" value="{{ request.POST.identifier|default:'' }}">
+                <span class="helptext">You can enter your username, email, or unique ID badge.</span>
+            </div>
+
+            <div class="form-group">
+                <label for="recovery_secret">Personal Recovery Key or Admin PIN</label>
+                <input type="text" name="recovery_secret" id="recovery_secret" class="form-control" required placeholder="e.g. CZ-REC-XXXX-XXXX-XXXX or 6-digit PIN" style="font-family: monospace; letter-spacing: 0.5px;">
+                <span class="helptext">Found in your Account Settings, or provided by an Admin for emergencies.</span>
+            </div>
+
+            <div class="form-group">
+                <label for="new_password">New Password</label>
+                <input type="password" name="new_password" id="new_password" class="form-control" required placeholder="At least 8 characters">
+            </div>
+
+            <div class="form-group">
+                <label for="confirm_password">Confirm New Password</label>
+                <input type="password" name="confirm_password" id="confirm_password" class="form-control" required placeholder="Re-enter your new password">
+            </div>
+
+            <button type="submit" class="auth-btn" style="margin-top: 10px;">
+                Secure Account & Terminate All Sessions
+            </button>
+        </form>
+
+        <div class="auth-footer" style="margin-top: 20px;">
+            <p>Remember your password? <a href="{% url 'login' %}">Sign in</a></p>
+            <p style="font-size: 0.8rem; margin-top: 6px; color: #64748b;">
+                Lost your key? Contact your community administrator with your Unique ID for zero-cost emergency verification.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function copyNewRecoveryKey() {
+        const text = document.getElementById('newKeyText').innerText.trim();
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Recovery Key copied to clipboard! Keep it safe.');
+        });
+    }
+</script>
+{% endblock %}

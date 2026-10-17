@@ -233,6 +233,18 @@ def profile_edit(request):
             messages.success(request, 'Account email updated successfully!')
             return redirect(f"{reverse('profile_edit')}?tab=account")
 
+        # Rotate Personal Security Recovery Key
+        if request.POST.get('rotate_recovery_key') == '1':
+            import secrets, string
+            chars = string.ascii_uppercase + string.digits
+            c1 = ''.join(secrets.choice(chars) for _ in range(4))
+            c2 = ''.join(secrets.choice(chars) for _ in range(4))
+            c3 = ''.join(secrets.choice(chars) for _ in range(4))
+            profile.recovery_key = f"CZ-REC-{c1}-{c2}-{c3}"
+            profile.save()
+            messages.success(request, 'Your Security Recovery Key has been regenerated! Save your new key securely.')
+            return redirect(f"{reverse('profile_edit')}?tab=account")
+
         # Profile Update (Display Name, Bio, Favorite Game, Status, DM Setting)
         display_name = request.POST.get('display_name', None)
         if display_name is not None:
