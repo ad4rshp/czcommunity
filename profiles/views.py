@@ -1,5 +1,6 @@
 import secrets
 import string
+import re
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -8,6 +9,41 @@ from django.urls import reverse
 from django.contrib.auth.models import User
 from django.contrib import messages
 from .models import Profile
+
+RESERVED_USERNAMES = {
+    'admin', 'administrator', 'system', 'everyone', 'here',
+    'chillzone', 'mod', 'moderator', 'support', 'null',
+    'undefined', 'anonymous', 'root', 'bot', 'api', 'help',
+}
+
+def validate_username_candidate(new_username, current_user=None):
+    """
+    Validates if a username candidate is format-valid and available.
+    Returns (is_valid: bool, error_message: str | None).
+    """
+    if not new_username:
+        return False, "Username cannot be blank."
+    if len(new_username) < 3 or len(new_username) > 30:
+        return False, "Username must be between 3 and 30 characters."
+    if not re.match(r'^[a-zA-Z0-9_.-]+$', new_username):
+        return False, "Username can only contain letters, numbers, underscores (_), hyphens (-), and dots (.)."
+    if new_username.startswith('.') or new_username.endswith('.'):
+        return False, "Username cannot start or end with a dot."
+    if '..' in new_username:
+        return False, "Username cannot contain consecutive dots."
+    if new_username.lower() in RESERVED_USERNAMES:
+        return False, f"Username '{new_username}' is a reserved system name."
+    
+    qs = User.objects.filter(username__iexact=new_username)
+    if current_user and current_user.is_authenticated:
+        qs = qs.exclude(id=current_user.id)
+    if qs.exists():
+        return False, f"Username '@{new_username}' is already taken."
+        
+    if Profile.objects.filter(unique_id__iexact=new_username).exists():
+        return False, f"Username '@{new_username}' conflicts with an existing Unique ID."
+
+    return True, None
 
 @login_required
 def member_directory(request):
@@ -83,6 +119,9 @@ def profile_detail(request, username):
             member_role_ids = set(membership.roles.values_list('id', flat=True))
             available_roles = [r for r in all_roles if r.id not in member_role_ids]
 
+        can_change_nickname = (request.user == community.owner) or (request_member and (request_member.has_permission('ADMINISTRATOR') or request_member.has_permission('CHANGE_NICKNAME')))
+        can_manage_nicknames = (request.user == community.owner) or (request_member and (request_member.has_permission('ADMINISTRATOR') or request_member.has_permission('MANAGE_NICKNAMES')))
+
     if not request.headers.get('HX-Request') and not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         # Direct URL access: redirect to SPA with query param
         c_param = f"&c={community.slug}" if community else ""
@@ -97,6 +136,8 @@ def profile_detail(request, username):
         'all_roles': all_roles,
         'available_roles': available_roles,
         'community': community,
+        'can_change_nickname': can_change_nickname if community else False,
+        'can_manage_nicknames': can_manage_nicknames if community else False,
         'base_template': base_template
     })
 
@@ -171,12 +212,17 @@ def profile_card_fragment(request, username):
             member_role_ids = set(membership.roles.values_list('id', flat=True))
             available_roles = [r for r in all_roles if r.id not in member_role_ids]
             
+        can_change_nickname = (request.user == community.owner) or (request_member and (request_member.has_permission('ADMINISTRATOR') or request_member.has_permission('CHANGE_NICKNAME')))
+        can_manage_nicknames = (request.user == community.owner) or (request_member and (request_member.has_permission('ADMINISTRATOR') or request_member.has_permission('MANAGE_NICKNAMES')))
+            
     return render(request, 'profiles/_card.html', {
         'profile_user': user_obj,
         'membership': membership,
         'community': community,
         'all_roles': all_roles,
         'available_roles': available_roles,
+        'can_change_nickname': can_change_nickname if community else False,
+        'can_manage_nicknames': can_manage_nicknames if community else False,
         'friendship': friendship,
         'friend_request': friend_request
     })
@@ -218,9 +264,12 @@ def profile_edit(request):
         is_ajax = request.headers.get('Accept') == 'application/json' or request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.POST.get('ajax') == '1'
         tab = request.POST.get('current_tab', 'profile')
         
-        # Account Update (Email / Account Details)
+        # Account Update (Email / Account Details / Display Name / Username)
         if request.POST.get('account_update') == '1':
             email = request.POST.get('email', '').strip()
+            account_display_name = request.POST.get('display_name', '').strip()
+            new_username = request.POST.get('username', '').strip()
+
             if not email or '@' not in email or '.' not in email:
                 error_msg = 'Please enter a valid email address.'
                 if is_ajax:
@@ -230,9 +279,32 @@ def profile_edit(request):
                     'error': error_msg,
                     'base_template': 'base_empty.html' if (request.headers.get('HX-Request') or request.headers.get('X-Requested-With') == 'XMLHttpRequest') else 'authenticated_base.html'
                 })
+
+            username_changed = False
+            if new_username and new_username.lower() != request.user.username.lower():
+                is_valid, err = validate_username_candidate(new_username, current_user=request.user)
+                if not is_valid:
+                    if is_ajax:
+                        return JsonResponse({'status': 'error', 'message': err}, status=400)
+                    return render(request, 'profiles/edit.html', {
+                        'profile': profile,
+                        'error': err,
+                        'base_template': 'base_empty.html' if (request.headers.get('HX-Request') or request.headers.get('X-Requested-With') == 'XMLHttpRequest') else 'authenticated_base.html'
+                    })
+                request.user.username = new_username
+                username_changed = True
+
             request.user.email = email
+            if account_display_name:
+                request.user.first_name = account_display_name
+                profile.display_name = account_display_name
+                profile.save(update_fields=['display_name'])
             request.user.save()
-            messages.success(request, 'Account email updated successfully!')
+
+            success_msg = f"Account updated! Your handle is now @{request.user.username}." if username_changed else "Account details updated successfully!"
+            if is_ajax:
+                return JsonResponse({'status': 'success', 'message': success_msg, 'username': request.user.username})
+            messages.success(request, success_msg)
             return redirect(f"{reverse('profile_edit')}?tab=account")
 
         # Rotate Personal Security Recovery Key
@@ -260,6 +332,7 @@ def profile_edit(request):
                     'base_template': 'base_empty.html' if (request.headers.get('HX-Request') or request.headers.get('X-Requested-With') == 'XMLHttpRequest') else 'authenticated_base.html'
                 })
             request.user.first_name = display_name
+            profile.display_name = display_name
             request.user.save()
 
         profile.bio = request.POST.get('bio', '')
@@ -388,29 +461,104 @@ def clear_social_ping(request):
 @login_required
 def send_friend_request_by_username(request):
     if request.method == 'POST':
-        username = request.POST.get('username')
-        if username:
-            target_user = User.objects.filter(username=username).first()
-            if target_user and target_user != request.user:
-                from .models import Friendship, FriendRequest
-                # Check if they are already friends
-                is_friend = Friendship.objects.filter(user1=request.user, user2=target_user).exists() or Friendship.objects.filter(user1=target_user, user2=request.user).exists()
-                if not is_friend:
-                    obj, created = FriendRequest.objects.get_or_create(sender=request.user, receiver=target_user)
-                    if created:
-                        from channels.layers import get_channel_layer
-                        from asgiref.sync import async_to_sync
-                        channel_layer = get_channel_layer()
-                        async_to_sync(channel_layer.group_send)(
-                            f"user_notifications_{target_user.id}",
-                            {
-                                "type": "send_notification",
-                                "payload": {
-                                    "type": "friend_request",
-                                    "title": f"New Friend Request",
-                                    "message": f"{request.user.username} sent you a friend request.",
-                                    "url": "/friends/"
-                                }
-                            }
-                        )
+        identifier = (request.POST.get('username') or request.POST.get('identifier') or '').strip()
+        if not identifier:
+            messages.error(request, "Please enter a username or Unique ID.")
+            return redirect('friends')
+
+        # 1. Check by profile unique_id (CZ-XXXXXX)
+        target_user = User.objects.filter(profile__unique_id__iexact=identifier).first()
+        # 2. Check by username
+        if not target_user:
+            target_user = User.objects.filter(username__iexact=identifier).first()
+        # 3. Numeric ID if applicable
+        if not target_user and identifier.isdigit():
+            target_user = User.objects.filter(id=int(identifier)).first()
+
+        if not target_user:
+            messages.error(request, f"No user found matching '{identifier}'. Please check the username or Unique ID.")
+            return redirect('friends')
+
+        if target_user == request.user:
+            messages.error(request, "You cannot send a friend request to yourself.")
+            return redirect('friends')
+
+        from .models import Friendship, FriendRequest
+        # Check if already friends
+        if Friendship.objects.filter(user1=request.user, user2=target_user).exists() or Friendship.objects.filter(user1=target_user, user2=request.user).exists():
+            messages.warning(request, f"You are already friends with @{target_user.username}.")
+            return redirect('friends')
+
+        # Check if incoming request already exists from target -> auto-accept
+        incoming = FriendRequest.objects.filter(sender=target_user, receiver=request.user).first()
+        if incoming:
+            incoming.delete()
+            Friendship.objects.get_or_create(user1=target_user, user2=request.user)
+            messages.success(request, f"You and @{target_user.username} are now friends!")
+            return redirect('friends')
+
+        # Check if already sent
+        already_sent = FriendRequest.objects.filter(sender=request.user, receiver=target_user).exists()
+        if already_sent:
+            messages.info(request, f"Friend request to @{target_user.username} is already pending.")
+            return redirect('friends')
+
+        FriendRequest.objects.create(sender=request.user, receiver=target_user)
+        target_uid = getattr(target_user.profile, 'unique_id', target_user.id)
+        messages.success(request, f"Friend request sent to @{target_user.username} ({target_uid})!")
+
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            async_to_sync(channel_layer.group_send)(
+                f"user_notifications_{target_user.id}",
+                {
+                    "type": "send_notification",
+                    "payload": {
+                        "type": "friend_request",
+                        "title": "New Friend Request",
+                        "message": f"{request.user.username} sent you a friend request.",
+                        "url": "/friends/"
+                    }
+                }
+            )
     return redirect('friends')
+
+
+@login_required
+def get_user_id_api(request):
+    username = request.GET.get('username', '').strip()
+    if not username:
+        return JsonResponse({'status': 'error', 'message': 'Username is required'}, status=400)
+    target = User.objects.filter(username__iexact=username).first()
+    if not target:
+        return JsonResponse({'status': 'error', 'message': 'User not found'}, status=404)
+    uid = getattr(target.profile, 'unique_id', None) or str(target.id)
+    return JsonResponse({'status': 'ok', 'username': target.username, 'unique_id': uid})
+
+@login_required
+def check_username_api(request):
+    raw_username = request.GET.get('username', '').strip()
+    if not raw_username:
+        return JsonResponse({'available': False, 'message': 'Username cannot be blank.'}, status=400)
+    
+    if raw_username.lower() == request.user.username.lower():
+        return JsonResponse({
+            'available': True,
+            'is_current': True,
+            'message': 'This is your current username.'
+        })
+        
+    is_valid, err = validate_username_candidate(raw_username, current_user=request.user)
+    if not is_valid:
+        return JsonResponse({
+            'available': False,
+            'message': err
+        })
+        
+    return JsonResponse({
+        'available': True,
+        'message': f"Username '@{raw_username}' is available!"
+    })
+

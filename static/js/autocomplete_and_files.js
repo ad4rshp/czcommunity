@@ -32,10 +32,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     msgInput.value = '';
                 } else {
                     const data = await response.json();
-                    alert(data.error || "Upload failed");
+                    if (window.showCzToast) {
+                        showCzToast(data.error || "Upload failed", "error");
+                    } else {
+                        console.error(data.error || "Upload failed");
+                    }
                 }
             } catch (err) {
-                alert("Upload error");
+                if (window.showCzToast) {
+                    showCzToast("Upload error", "error");
+                } else {
+                    console.error("Upload error", err);
+                }
             } finally {
                 msgInput.disabled = false;
                 msgInput.placeholder = `Message #${currentChannelSlug}`;

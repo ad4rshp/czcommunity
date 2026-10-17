@@ -1,6 +1,13 @@
 
 from django.contrib import admin
-from .models import Community, ChannelCategory, Channel, Message, Reaction, Role, CommunityMember, DirectMessageSession, DirectMessage, AuditLog
+from .models import Community, ChannelCategory, Channel, Message, Reaction, Role, CommunityMember, DirectMessageSession, DirectMessage, AuditLog, CommunityBan
+
+@admin.register(CommunityBan)
+class CommunityBanAdmin(admin.ModelAdmin):
+    list_display = ('user', 'community', 'banned_by', 'reason', 'created_at')
+    list_filter = ('community', 'created_at')
+    search_fields = ('user__username', 'community__name', 'reason')
+    readonly_fields = ('created_at',)
 
 @admin.register(Community)
 class CommunityAdmin(admin.ModelAdmin):

@@ -42,7 +42,7 @@ from django.http import HttpResponseForbidden
 
 @login_required
 def community_settings(request):
-    from chat.models import Community, ChannelCategory, Role, AuditLog, CommunityMember
+    from chat.models import Community, ChannelCategory, Role, AuditLog, CommunityMember, CommunityBan
     
     slug = request.GET.get('c')
     if slug:
@@ -55,7 +55,7 @@ def community_settings(request):
         
     membership = CommunityMember.objects.filter(community=community, user=request.user).first()
     is_owner = (request.user == community.owner)
-    has_access = is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('MANAGE_ROLES') or membership.has_permission('MANAGE_CHANNELS')))
+    has_access = is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('MANAGE_ROLES') or membership.has_permission('MANAGE_CHANNELS') or membership.has_permission('BAN_MEMBERS')))
     
     if not has_access:
         return render(request, 'core/community_settings.html', {
@@ -236,6 +236,73 @@ def community_settings(request):
                 messages.success(request, f"Revoked invite code: {code}")
             return redirect(f'/community/settings/?c={community.slug}&tab=invites')
 
+        elif action == 'ban_member':
+            if not (is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('BAN_MEMBERS')))):
+                messages.error(request, "You lack permission to ban members.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=bans')
+
+            identifier = (request.POST.get('identifier') or request.POST.get('username') or '').strip()
+            reason = (request.POST.get('reason') or '').strip()
+            if not identifier:
+                messages.error(request, "Please enter a User ID or username to ban.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=bans')
+
+            from chat.views import resolve_user_by_identifier
+            target = resolve_user_by_identifier(identifier)
+            if not target:
+                messages.error(request, f"No user found matching '{identifier}'.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=bans')
+
+            if target == request.user:
+                messages.error(request, "You cannot ban yourself.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=bans')
+            if target == community.owner:
+                messages.error(request, "Cannot ban the server owner.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=bans')
+            if target.is_superuser and not request.user.is_superuser:
+                messages.error(request, "Cannot ban a superuser account.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=bans')
+
+            # Delete membership if in server (works even if user already left server)
+            CommunityMember.objects.filter(community=community, user=target).delete()
+
+            CommunityBan.objects.update_or_create(
+                community=community,
+                user=target,
+                defaults={'banned_by': request.user, 'reason': reason}
+            )
+
+            uid = getattr(target.profile, 'unique_id', target.id)
+            AuditLog.objects.create(
+                community=community,
+                user=request.user,
+                action=f"Banned user '{target.username}' (UID: {uid})",
+                details=f"Reason: {reason or 'No reason provided'}"
+            )
+            messages.success(request, f"User '{target.username}' ({uid}) has been banned from {community.name}.")
+            return redirect(f'/community/settings/?c={community.slug}&tab=bans')
+
+        elif action == 'unban_member':
+            if not (is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('BAN_MEMBERS')))):
+                messages.error(request, "You lack permission to unban members.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=bans')
+
+            identifier = (request.POST.get('identifier') or request.POST.get('user_id') or request.POST.get('username') or '').strip()
+            from chat.views import resolve_user_by_identifier
+            target = resolve_user_by_identifier(identifier)
+            if not target:
+                messages.error(request, f"No user found matching '{identifier}'.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=bans')
+
+            deleted_count, _ = CommunityBan.objects.filter(community=community, user=target).delete()
+            uid = getattr(target.profile, 'unique_id', target.id)
+            if deleted_count > 0:
+                AuditLog.objects.create(community=community, user=request.user, action=f"Unbanned user '{target.username}' (UID: {uid})")
+                messages.success(request, f"User '{target.username}' ({uid}) has been unbanned from {community.name}.")
+            else:
+                messages.info(request, f"User '{target.username}' was not banned.")
+            return redirect(f'/community/settings/?c={community.slug}&tab=bans')
+
     else:
         form = DashboardConfigForm(instance=config)
         
@@ -252,6 +319,8 @@ def community_settings(request):
         if inv.max_uses > 0 and inv.uses >= inv.max_uses:
             inv.is_expired = True
         
+    bans = CommunityBan.objects.filter(community=community).select_related('user', 'user__profile', 'banned_by').order_by('-created_at')
+
     return render(request, 'core/community_settings.html', {
         'form': form,
         'community': community,
@@ -259,6 +328,7 @@ def community_settings(request):
         'roles': roles,
         'audit_logs': audit_logs,
         'invites': invites,
+        'bans': bans,
         'current_tab': current_tab,
     })
 
@@ -331,6 +401,14 @@ def create_community(request):
                         })
                         
                     community = invite.community
+                    from chat.models import CommunityBan
+                    if CommunityBan.objects.filter(community=community, user=request.user).exists():
+                        return render(request, 'core/create_community.html', {
+                            'error': f'You are banned from "{community.name}" and cannot rejoin.',
+                            'official_community': official,
+                            'is_official_member': is_official_member
+                        })
+
                     member, created = CommunityMember.objects.get_or_create(community=community, user=request.user)
                     if created:
                         everyone_role = Role.objects.filter(community=community, name="@everyone").first()
@@ -351,6 +429,11 @@ def create_community(request):
         elif action == 'join_official':
             official_comm = config.official_community or Community.objects.filter(is_verified=True).first()
             if official_comm:
+                from chat.models import CommunityBan
+                if CommunityBan.objects.filter(community=official_comm, user=request.user).exists():
+                    messages.error(request, f"You are banned from {official_comm.name}.")
+                    return redirect('home')
+
                 member, created = CommunityMember.objects.get_or_create(community=official_comm, user=request.user)
                 everyone_role = Role.objects.filter(community=official_comm, name="@everyone").first()
                 if everyone_role:

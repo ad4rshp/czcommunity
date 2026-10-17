@@ -4,102 +4,231 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/auth.css' %}">
 <style>
-    .auth-container {
+    .add-server-wrapper {
         display: flex;
         justify-content: center;
         align-items: center;
+        min-height: calc(100vh - 80px);
         width: 100%;
-        height: 100%;
-        padding: 20px;
-        background: radial-gradient(circle at center, rgba(229,106,43,0.05) 0%, transparent 60%);
+        padding: 20px 16px;
+        box-sizing: border-box;
     }
-    .options-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 20px;
-        margin-top: 20px;
-    }
-    .option-card {
+    .add-server-card {
         background: var(--bg-surface);
         border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
-        padding: 20px;
-        text-align: center;
+        border-radius: 16px;
+        width: 100%;
+        max-width: 440px;
+        padding: 24px 22px;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+        box-sizing: border-box;
+        animation: czFadeIn 0.2s ease-out;
     }
-    .option-card h3 {
-        margin-top: 0;
+    .add-server-tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 4px;
+        gap: 4px;
+        margin-bottom: 20px;
+    }
+    .add-server-tab-btn {
+        padding: 8px 12px;
+        border: none;
+        border-radius: 7px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        background: transparent;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.15s ease;
+    }
+    .add-server-tab-btn.active {
+        background: var(--bg-surface);
         color: var(--text-primary);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+    .add-server-tab-btn:hover:not(.active) {
+        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.04);
+    }
+    .add-server-input-group {
+        text-align: left;
+        margin-bottom: 16px;
+    }
+    .add-server-input-group label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+    }
+    .add-server-input-group input {
+        width: 100%;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg-elevated);
+        color: var(--text-primary);
+        font-size: 0.92rem;
+        outline: none;
+        box-sizing: border-box;
+        transition: border-color 0.18s ease;
+    }
+    .add-server-input-group input:focus {
+        border-color: var(--accent);
+    }
+    .official-server-strip {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 18px;
+        padding: 12px 14px;
+        background: rgba(34, 197, 94, 0.08);
+        border: 1px solid rgba(34, 197, 94, 0.25);
+        border-radius: 12px;
+        text-align: left;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="auth-container">
-    <div style="max-width: 800px; width: 100%;">
-        <h2 style="text-align: center; font-size: 2rem; color: var(--text-primary);">Add a Server</h2>
-        <p style="text-align: center; color: var(--text-secondary); margin-bottom: 30px;">Your place to hang out. Create a new server or join an existing one.</p>
-        
+<div class="add-server-wrapper">
+    <div class="add-server-card" id="addServerCard">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 18px;">
+            <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(255,107,43,0.12); color: var(--accent); display: flex; align-items: center; justify-content: center; margin: 0 auto 10px auto; font-size: 1.35rem;">
+                <i class="ph-bold ph-plus-circle"></i>
+            </div>
+            <h2 style="margin: 0 0 4px 0; font-size: 1.35rem; color: var(--text-primary); font-weight: 700;">Add a Server</h2>
+            <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);">Create your own hangout space or join an existing server.</p>
+        </div>
+
         {% if error %}
-        <div style="background: rgba(244, 67, 54, 0.1); border: 1px solid #F44336; color: #F44336; padding: 10px; border-radius: var(--radius-sm); text-align: center; margin-bottom: 20px;">
-            {{ error }}
+        <div style="background: rgba(244, 67, 54, 0.12); border: 1px solid rgba(244, 67, 54, 0.35); color: #f87171; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; text-align: center; margin-bottom: 16px;">
+            <i class="ph-bold ph-warning-circle" style="vertical-align: -1px; margin-right: 4px;"></i> {{ error }}
         </div>
         {% endif %}
-        
-        <div class="options-grid">
-            <!-- Create Option -->
-            <div class="option-card">
-                <h3>Create Your Own</h3>
-                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px;">Set up a new space for you and your friends.</p>
-                
-                <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="create">
-                    
-                    <div class="form-group" style="text-align: left;">
-                        <label for="name" style="color: var(--text-muted); font-size: 0.8rem; font-weight: bold; text-transform: uppercase;">Server Name</label>
-                        <input type="text" id="name" name="name" class="form-control" placeholder="e.g. My Cool Server" required autofocus>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Create Server</button>
-                </form>
-            </div>
-            
-            <!-- Join Option -->
-            <div class="option-card">
-                <h3>Have an invite?</h3>
-                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px;">Join an existing server with an invite code.</p>
-                
-                <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="join">
-                    
-                    <div class="form-group" style="text-align: left;">
-                        <label for="invite_code" style="color: var(--text-muted); font-size: 0.8rem; font-weight: bold; text-transform: uppercase;">Invite Code</label>
-                        <input type="text" id="invite_code" name="invite_code" class="form-control" placeholder="e.g. chillzone-a1b2c3d4" required>
-                    </div>
-                    
-                    <button type="submit" class="btn" style="background: var(--bg-elevated); color: var(--text-primary); width: 100%; margin-top: 10px; border: 1px solid var(--border);">Join Server</button>
-                </form>
-            </div>
 
-            {% if not is_official_member %}
-            <!-- Official Community Option -->
-            <div class="option-card" style="border-color: rgba(76, 175, 80, 0.4); background: linear-gradient(180deg, rgba(76, 175, 80, 0.05), var(--bg-surface));">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
-                    <img src="/static/img/chillzone_logo.svg" alt="Official" style="width: 28px; height: 28px;">
-                    <h3 style="margin: 0;">Chillzone Official</h3>
-                    <span style="font-size: 0.75rem; background: rgba(76, 175, 80, 0.2); color: #4CAF50; padding: 2px 6px; border-radius: 10px; font-weight: 600;">✓ Verified</span>
+        <!-- Segmented Tabs -->
+        <div class="add-server-tabs" role="tablist">
+            <button type="button" class="add-server-tab-btn active" id="tabBtnCreate" onclick="switchAddServerTab('create')">
+                <i class="ph-bold ph-sparkle"></i> Create Server
+            </button>
+            <button type="button" class="add-server-tab-btn" id="tabBtnJoin" onclick="switchAddServerTab('join')">
+                <i class="ph-bold ph-link"></i> Join with Invite
+            </button>
+        </div>
+
+        <!-- Tab 1: Create Server Form -->
+        <div id="tabPanelCreate" style="display: block;">
+            <form method="post" style="margin: 0;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="create">
+
+                <div class="add-server-input-group">
+                    <label for="serverNameInput">Server Name</label>
+                    <input type="text" id="serverNameInput" name="name" placeholder="e.g. Chill Lounge, Dev Hub" required autofocus maxlength="100">
+                    <span style="display: block; font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; line-height: 1.4;">
+                        You will be the server owner with full control over channels, roles, and moderation.
+                    </span>
                 </div>
-                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px;">The main server for announcements, voice chats, and community events.</p>
-                
-                <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="join_official">
-                    <button type="submit" class="btn btn-primary" style="background: #4CAF50; border-color: #4CAF50; width: 100%; margin-top: 38px;">Join Official Server</button>
-                </form>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 11px; font-size: 0.92rem; font-weight: 600; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 14px;">
+                    <i class="ph-bold ph-check"></i> Create Server
+                </button>
+            </form>
+        </div>
+
+        <!-- Tab 2: Join with Invite Form -->
+        <div id="tabPanelJoin" style="display: none;">
+            <form method="post" style="margin: 0;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="join">
+
+                <div class="add-server-input-group">
+                    <label for="inviteCodeInput">Invite Code</label>
+                    <input type="text" id="inviteCodeInput" name="invite_code" placeholder="e.g. chillzone-a1b2c3d4" required>
+                    <span style="display: block; font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; line-height: 1.4;">
+                        Enter an invite code provided by a server admin or member.
+                    </span>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 11px; font-size: 0.92rem; font-weight: 600; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 14px;">
+                    <i class="ph-bold ph-arrow-right"></i> Join Server
+                </button>
+            </form>
+        </div>
+
+        {% if not is_official_member and official_community %}
+        <!-- Official Community Strip -->
+        <div class="official-server-strip">
+            <div style="display: flex; align-items: center; gap: 10px; min-width: 0;">
+                <img src="/static/img/chillzone_logo.svg" alt="Official" style="width: 26px; height: 26px; flex-shrink: 0;">
+                <div style="min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <strong style="color: var(--text-primary); font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ official_community.name }}</strong>
+                        <span style="font-size: 0.7rem; background: rgba(34, 197, 94, 0.2); color: #22c55e; padding: 1px 6px; border-radius: 10px; font-weight: 600; flex-shrink: 0;">Verified</span>
+                    </div>
+                    <div style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px;">Main hub for news, voice & community events</div>
+                </div>
             </div>
-            {% endif %}
+            <form method="post" style="margin: 0; flex-shrink: 0;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="join_official">
+                <button type="submit" class="btn btn-sm" style="background: #22c55e; border-color: #22c55e; color: #ffffff; padding: 6px 14px; font-size: 0.82rem; font-weight: 600; border-radius: 6px; white-space: nowrap;">
+                    Join
+                </button>
+            </form>
+        </div>
+        {% endif %}
+
+        <div style="margin-top: 18px; text-align: center;">
+            <a href="{% url 'chat' %}" style="color: var(--text-muted); font-size: 0.84rem; text-decoration: none; transition: color 0.15s ease;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'">
+                Cancel and return to chat
+            </a>
         </div>
     </div>
 </div>
+
+<script>
+    function switchAddServerTab(tab) {
+        const createBtn = document.getElementById('tabBtnCreate');
+        const joinBtn = document.getElementById('tabBtnJoin');
+        const createPanel = document.getElementById('tabPanelCreate');
+        const joinPanel = document.getElementById('tabPanelJoin');
+
+        if (tab === 'join') {
+            createBtn.classList.remove('active');
+            joinBtn.classList.add('active');
+            createPanel.style.display = 'none';
+            joinPanel.style.display = 'block';
+            const invInput = document.getElementById('inviteCodeInput');
+            if (invInput) invInput.focus();
+        } else {
+            joinBtn.classList.remove('active');
+            createBtn.classList.add('active');
+            joinPanel.style.display = 'none';
+            createPanel.style.display = 'block';
+            const nameInput = document.getElementById('serverNameInput');
+            if (nameInput) nameInput.focus();
+        }
+    }
+
+    // Auto-switch to join tab if an invite error was returned
+    {% if error and 'invite' in error|lower %}
+    document.addEventListener('DOMContentLoaded', function() {
+        switchAddServerTab('join');
+    });
+    {% endif %}
+</script>
 {% endblock %}

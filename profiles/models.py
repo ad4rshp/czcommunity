@@ -21,6 +21,7 @@ class Profile(models.Model):
         ('dnd', 'Do Not Disturb'),
         ('offline', 'Invisible'),
     ]
+    display_name = models.CharField(max_length=50, blank=True, default="")
     dm_setting = models.CharField(max_length=20, choices=DM_CHOICES, default='everyone')
     status_setting = models.CharField(max_length=20, choices=STATUS_CHOICES, default='online')
     manual_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='online')
@@ -28,6 +29,13 @@ class Profile(models.Model):
     recovery_key = models.CharField(max_length=64, blank=True, default="", db_index=True)
     emergency_pin = models.CharField(max_length=12, blank=True, default="")
     emergency_pin_expires_at = models.DateTimeField(null=True, blank=True)
+
+    def get_display_name(self):
+        if self.display_name and self.display_name.strip():
+            return self.display_name.strip()
+        if self.user and self.user.first_name and self.user.first_name.strip():
+            return self.user.first_name.strip()
+        return self.user.username if self.user else "User"
 
     def save(self, *args, **kwargs):
         if not self.unique_id:
@@ -85,3 +93,17 @@ class Friendship(models.Model):
 
     def __str__(self):
         return f"{self.user1.username} & {self.user2.username}"
+
+def user_get_display_name(self):
+    try:
+        if hasattr(self, 'profile') and self.profile.display_name and self.profile.display_name.strip():
+            return self.profile.display_name.strip()
+    except Exception:
+        pass
+    if self.first_name and self.first_name.strip():
+        return self.first_name.strip()
+    return self.username
+
+if not hasattr(User, 'display_name'):
+    User.add_to_class('get_display_name', user_get_display_name)
+    User.add_to_class('display_name', property(user_get_display_name))

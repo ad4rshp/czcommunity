@@ -90,7 +90,7 @@
                     {% endif %}
 
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 18px; border-top: 1px solid var(--border);">
-                        <button type="button" class="btn btn-secondary" style="color: #F44336; border-color: rgba(244,67,54,0.3);" onclick="if(confirm('Are you sure you want to delete this channel? All messages will be permanently lost.')) { document.getElementById('directDeleteForm').submit(); }">
+                        <button type="button" class="btn btn-secondary" style="color: #F44336; border-color: rgba(244,67,54,0.3);" onclick="showCzConfirm({ title: 'Delete Channel', message: 'Are you sure you want to delete this channel? All messages will be permanently lost.', confirmText: 'Delete Channel', isDanger: true, onConfirm: () => document.getElementById('directDeleteForm').submit() });">
                             <i class="ph ph-trash"></i> Delete Channel
                         </button>
 

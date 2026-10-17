@@ -2,8 +2,131 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/profiles.css' %}">
-<link rel="stylesheet" href="{% static 'css/auth.css' %}">
+<link rel="stylesheet" href="{% static 'css/profiles.css' %}?v=2.2">
+<link rel="stylesheet" href="{% static 'css/auth.css' %}?v=2.2">
+<style>
+    /* ========================================================
+       PERMANENT MOBILE FIX: Zero Floating Buttons & Crisp Switches
+       ======================================================== */
+    .settings-actions {
+        position: static !important;
+        bottom: auto !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        transform: none !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        box-shadow: none !important;
+        padding: 20px 0 10px 0 !important;
+        margin: 25px 0 15px 0 !important;
+        border-top: 1px solid var(--border) !important;
+        z-index: 1 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 12px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .settings-actions .btn {
+        flex: 1 1 auto;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 10px 20px !important;
+        font-weight: 600 !important;
+        box-sizing: border-box;
+    }
+
+    @media (max-width: 768px) {
+        .settings-actions {
+            position: static !important;
+            bottom: auto !important;
+            transform: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            padding: 18px 0 24px 0 !important;
+            margin: 20px 0 0 0 !important;
+            border-top: 1px solid var(--border) !important;
+            width: 100% !important;
+            display: flex !important;
+            flex-direction: row !important;
+            gap: 10px !important;
+        }
+
+        .settings-actions .btn {
+            flex: 1 !important;
+            padding: 12px 14px !important;
+            font-size: 0.92rem !important;
+        }
+    }
+
+    /* Rock-solid Toggle Switches: Never shrink, perfect thumb alignment */
+    .switch {
+        position: relative !important;
+        display: inline-block !important;
+        width: 48px !important;
+        min-width: 48px !important;
+        max-width: 48px !important;
+        height: 26px !important;
+        min-height: 26px !important;
+        flex-shrink: 0 !important;
+        margin: 0 0 0 12px !important;
+        cursor: pointer !important;
+        vertical-align: middle !important;
+    }
+
+    .switch input {
+        opacity: 0 !important;
+        width: 0 !important;
+        height: 0 !important;
+        position: absolute !important;
+        pointer-events: none !important;
+    }
+
+    .slider {
+        position: absolute !important;
+        cursor: pointer !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        background-color: rgba(255, 255, 255, 0.16) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        transition: background-color 0.22s ease, border-color 0.22s ease !important;
+        box-sizing: border-box !important;
+        border-radius: 26px !important;
+    }
+
+    .slider:before {
+        position: absolute !important;
+        content: '' !important;
+        height: 18px !important;
+        width: 18px !important;
+        left: 3px !important;
+        top: 3px !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35) !important;
+        transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-sizing: border-box !important;
+        border-radius: 50% !important;
+    }
+
+    input:checked + .slider {
+        background-color: var(--accent, #ff6b2b) !important;
+        border-color: var(--accent, #ff6b2b) !important;
+    }
+
+    input:checked + .slider:before {
+        transform: translateX(22px) !important;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -164,7 +287,8 @@
                     <label for="display_name" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">
                         Display Name <span style="color: #F44336;">*</span>
                     </label>
-                    <input type="text" id="display_name" name="display_name" class="form-control" value="{{ request.user.first_name|default:request.user.username }}" required maxlength="50" placeholder="Your display name" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 15px;">
+                    <input type="text" id="display_name" name="display_name" class="form-control" value="{{ profile.get_display_name }}" required maxlength="50" placeholder="Your display name" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 15px;">
+                    <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 4px; display: block;">This is how your name will appear to others in chat, DMs, and friend lists.</small>
                     <div id="displayNameError" style="color: #F44336; font-size: 0.82rem; margin-top: 6px; display: none;">
                         <i class="ph-bold ph-warning-circle"></i> Display name cannot be blank.
                     </div>
@@ -189,9 +313,9 @@
                     </select>
                 </div>
 
-                <div class="settings-actions">
-                    <button type="submit" id="saveChangesBtn" class="btn btn-primary" style="padding: 12px 30px; font-weight: bold;"><i class="ph ph-check"></i> Save Changes</button>
-                    <a href="{% url 'profile' request.user.username %}" class="btn btn-secondary" style="padding: 12px 30px;">Cancel</a>
+                <div class="settings-actions" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <button type="submit" id="saveChangesBtn" class="btn btn-primary" style="padding: 10px 18px; font-weight: bold; white-space: nowrap; font-size: 0.9rem; display: inline-flex; align-items: center; justify-content: center; gap: 6px;"><i class="ph ph-check"></i> Save Changes</button>
+                    <a href="{% url 'profile' request.user.username %}" class="btn btn-secondary" style="padding: 10px 18px; font-size: 0.9rem; white-space: nowrap;">Cancel</a>
                 </div>
             </form>
         </div>
@@ -208,16 +332,31 @@
                     <h3 style="margin-top: 0; margin-bottom: 20px;">Account Information</h3>
                     
                     <div class="form-group" style="margin-bottom: 20px;">
-                        <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Username</label>
-                        <input type="text" class="form-control" value="{{ request.user.username }}" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-muted); width: 100%; padding: 12px; cursor: not-allowed;" readonly>
-                        <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 4px; display: block;">Username is unique across ChillZone and cannot be changed.</small>
+                        <label for="account_username" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                            <span>Username (@handle) <span style="color: #F44336;">*</span></span>
+                            <span id="usernameCheckStatus" style="font-size: 0.78rem; display: none;"></span>
+                        </label>
+                        <div style="position: relative;">
+                            <input type="text" id="account_username" name="username" class="form-control" value="{{ request.user.username }}" required minlength="3" maxlength="30" placeholder="Your unique username" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px; padding-right: 40px;" oninput="checkUsernameAvailability(this.value)">
+                            <div id="usernameStatusIcon" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 1.1rem; pointer-events: none; display: none;"></div>
+                        </div>
+                        <div id="accountUsernameError" style="color: #F44336; font-size: 0.82rem; margin-top: 6px; display: none;">
+                            <i class="ph-bold ph-warning-circle"></i> <span id="accountUsernameErrorText">Username is invalid.</span>
+                        </div>
+                        <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 4px; display: block;">Your unique @handle used for mentions, profile URLs, and signing in. You can change your username anytime if the new handle is available.</small>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label for="account_display_name" style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">Display Name</label>
+                        <input type="text" id="account_display_name" name="display_name" class="form-control" value="{{ profile.get_display_name }}" maxlength="50" placeholder="Enter your display name" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-md); color: var(--text-primary); width: 100%; padding: 12px;">
+                        <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 4px; display: block;">Your public display name shown in chat, DMs, and member lists.</small>
                     </div>
 
                     <div class="form-group" style="margin-bottom: 20px;">
                         <label style="color: var(--text-secondary); font-weight: 500; margin-bottom: 10px; display: block;">ChillZone Unique ID</label>
                         <div style="display: flex; gap: 10px;">
                             <input type="text" id="userUniqueIdInput" class="form-control" value="{{ profile.unique_id }}" style="background: rgba(0,0,0,0.25); border: 1px solid rgba(59,130,246,0.3); border-radius: var(--radius-md); color: #60a5fa; font-family: monospace; font-size: 1rem; font-weight: 700; width: 100%; padding: 12px; cursor: default;" readonly>
-                            <button type="button" class="btn btn-secondary" onclick="navigator.clipboard.writeText('{{ profile.unique_id }}'); alert('Unique ID copied: {{ profile.unique_id }}');" style="white-space: nowrap; padding: 0 18px; display: inline-flex; align-items: center; gap: 6px;">
+                            <button type="button" class="btn btn-secondary" onclick="navigator.clipboard.writeText('{{ profile.unique_id }}'); showCzToast('Unique ID copied: {{ profile.unique_id }}', 'success');" style="white-space: nowrap; padding: 0 18px; display: inline-flex; align-items: center; gap: 6px;">
                                 <i class="ph-bold ph-copy"></i> Copy ID
                             </button>
                         </div>
@@ -232,9 +371,9 @@
                         </div>
                     </div>
 
-                    <div class="settings-actions" style="display: flex; gap: 12px; align-items: center;">
-                        <button type="submit" class="btn btn-primary" style="padding: 10px 24px; font-weight: 600;"><i class="ph ph-check"></i> Save Account Details</button>
-                        <button type="reset" class="btn btn-secondary" style="padding: 10px 24px;">Cancel</button>
+                    <div class="settings-actions" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <button type="submit" class="btn btn-primary" style="padding: 10px 18px; font-weight: 600; white-space: nowrap; font-size: 0.9rem; display: inline-flex; align-items: center; justify-content: center; gap: 6px;"><i class="ph ph-check"></i> Save Details</button>
+                        <button type="reset" class="btn btn-secondary" style="padding: 10px 18px; font-size: 0.9rem; white-space: nowrap;">Cancel</button>
                     </div>
                 </div>
             </form>
@@ -261,10 +400,10 @@
                         </button>
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('{{ profile.recovery_key }}'); alert('Recovery key copied to clipboard! Keep it safe.');" style="padding: 6px 14px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('{{ profile.recovery_key }}'); showCzToast('Recovery key copied to clipboard! Keep it safe.', 'success');" style="padding: 6px 14px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;">
                             <i class="ph-bold ph-copy"></i> Copy Key
                         </button>
-                        <form method="post" action="{% url 'profile_edit' %}" style="margin: 0;" onsubmit="return confirm('Regenerate your Security Recovery Key? Your previous key will immediately stop working.');">
+                        <form method="post" action="{% url 'profile_edit' %}" style="margin: 0;" onsubmit="return czConfirmSubmit(this, 'Regenerate your Security Recovery Key? Your previous key will immediately stop working.', 'Regenerate Recovery Key', true);">
                             {% csrf_token %}
                             <input type="hidden" name="current_tab" value="account">
                             <input type="hidden" name="rotate_recovery_key" value="1">
@@ -291,13 +430,13 @@
                         </p>
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                        <form method="post" action="{% url 'logout_all_devices' %}" style="margin: 0;" onsubmit="return confirm('Log out of ALL other devices? Any other open sessions on phones, tablets, or other PCs will be instantly terminated.');">
+                        <form method="post" action="{% url 'logout_all_devices' %}" style="margin: 0;" onsubmit="return czConfirmSubmit(this, 'Log out of ALL other devices? Any other open sessions on phones, tablets, or other PCs will be instantly terminated.', 'Terminate Other Sessions', true);">
                             {% csrf_token %}
                             <button type="submit" class="btn" style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.35); padding: 10px 18px; font-weight: 600; border-radius: var(--radius-sm); cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
                                 <i class="ph-bold ph-shield-slash"></i> Terminate Other Sessions
                             </button>
                         </form>
-                        <a href="{% url 'logout' %}" class="btn" style="background: rgba(255,255,255,0.06); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.15); padding: 10px 20px; font-weight: 600; text-decoration: none; border-radius: var(--radius-sm); display: inline-flex; align-items: center; gap: 8px;" onclick="return confirm('Log out of your account on this device?');">
+                        <a href="{% url 'logout' %}" class="btn" style="background: rgba(255,255,255,0.06); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.15); padding: 10px 20px; font-weight: 600; text-decoration: none; border-radius: var(--radius-sm); display: inline-flex; align-items: center; gap: 8px;" onclick="return czConfirmLink(this, 'Log out of your account on this device?', 'Log Out', false);">
                             <i class="ph-bold ph-sign-out"></i> Log Out
                         </a>
                     </div>
@@ -309,7 +448,7 @@
                     <i class="ph-bold ph-warning-octagon"></i> Danger Zone
                 </h3>
                 <p style="color: var(--text-muted); margin-bottom: 15px; font-size: 0.88rem;">Permanently delete your account, personal data, and direct message history. This action cannot be reversed.</p>
-                <button type="button" class="btn" style="color: #F44336; border: 1px solid rgba(244,67,54,0.35); background: rgba(244,67,54,0.08); padding: 8px 18px; font-size: 0.85rem;" onclick="alert('To request permanent account deletion and complete data erasure, please contact admin support or email support@czcommunity.com.');">
+                <button type="button" class="btn" style="color: #F44336; border: 1px solid rgba(244,67,54,0.35); background: rgba(244,67,54,0.08); padding: 8px 18px; font-size: 0.85rem;" onclick="showCzConfirm({title: 'Account Deletion Request', message: 'To request permanent account deletion and complete data erasure, please contact admin support or email support@czcommunity.com.', confirmText: 'Email Support', cancelText: 'Close', isDanger: true, onConfirm: () => { window.location.href = 'mailto:support@czcommunity.com?subject=Account%20Deletion%20Request%20-%20{{ profile.unique_id }}'; }});">
                     <i class="ph ph-trash"></i> Request Account Deletion
                 </button>
             </div>
@@ -319,9 +458,9 @@
             <h2 class="settings-page-title">Notification Preferences</h2>
             
             <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                <div>
+                <div style="flex: 1; min-width: 0; padding-right: 14px;">
                     <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Floating In-App Banners</div>
-                    <div style="font-size: 0.85rem; color: var(--text-muted);">Show floating popup alerts when receiving @mentions and direct messages.</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">Show floating popup alerts when receiving @mentions and direct messages.</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="pref_floating_notifications" checked onchange="saveUserPref('floating_notifications', this.checked)">
@@ -330,9 +469,9 @@
             </div>
 
             <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                <div>
+                <div style="flex: 1; min-width: 0; padding-right: 14px;">
                     <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Audio Ping Sound</div>
-                    <div style="font-size: 0.85rem; color: var(--text-muted);">Play an audible sound chime when a notification arrives.</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">Play an audible sound chime when a notification arrives.</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="pref_sound_alerts" checked onchange="saveUserPref('sound_alerts', this.checked)">
@@ -341,9 +480,9 @@
             </div>
 
             <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                <div>
+                <div style="flex: 1; min-width: 0; padding-right: 14px;">
                     <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Unread Message Ping Badge</div>
-                    <div style="font-size: 0.85rem; color: var(--text-muted);">Display pulsing ping badge on Social and Channels with unread activity.</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">Display pulsing ping badge on Social and Channels with unread activity.</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="pref_unread_badge" checked onchange="saveUserPref('unread_badge', this.checked)">
@@ -351,8 +490,8 @@
                 </label>
             </div>
             
-            <div class="settings-actions" style="margin-top: 30px; display: flex; align-items: center; justify-content: space-between;">
-                <button type="button" class="btn btn-primary" onclick="saveAllNotificationPrefs()"><i class="ph ph-check"></i> Save Preferences</button>
+            <div class="settings-actions" style="margin-top: 30px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <button type="button" class="btn btn-primary" style="padding: 10px 18px; font-size: 0.9rem; white-space: nowrap;" onclick="saveAllNotificationPrefs()"><i class="ph ph-check"></i> Save Preferences</button>
                 <span id="notifSaveMsg" style="font-size: 0.85rem; color: #4CAF50; display: none;"><i class="ph ph-check-circle"></i> Saved automatically!</span>
             </div>
         </div>
@@ -361,9 +500,9 @@
             <h2 class="settings-page-title">Chat & Display Preferences</h2>
             
             <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                <div>
+                <div style="flex: 1; min-width: 0; padding-right: 14px;">
                     <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Typing Indicator</div>
-                    <div style="font-size: 0.85rem; color: var(--text-muted);">See real-time typing indicators when other members are drafting messages.</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">See real-time typing indicators when other members are drafting messages.</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="pref_show_typing" checked onchange="saveUserPref('show_typing', this.checked)">
@@ -372,9 +511,9 @@
             </div>
 
             <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                <div>
+                <div style="flex: 1; min-width: 0; padding-right: 14px;">
                     <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Compact Message Spacing</div>
-                    <div style="font-size: 0.85rem; color: var(--text-muted);">Tighter spacing between messages for high-density chat experience.</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">Tighter spacing between messages for high-density chat experience.</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="pref_compact_chat" onchange="saveUserPref('compact_chat', this.checked); applyCompactChat(this.checked)">
@@ -383,9 +522,9 @@
             </div>
 
             <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                <div>
+                <div style="flex: 1; min-width: 0; padding-right: 14px;">
                     <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Embed Media & GIFs</div>
-                    <div style="font-size: 0.85rem; color: var(--text-muted);">Automatically render inline image previews, GIF stickers, and media embeds.</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">Automatically render inline image previews, GIF stickers, and media embeds.</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="pref_auto_embeds" checked onchange="saveUserPref('auto_embeds', this.checked)">
@@ -394,9 +533,9 @@
             </div>
 
             <div class="form-group" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 18px 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                <div>
+                <div style="flex: 1; min-width: 0; padding-right: 14px;">
                     <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 4px; color: var(--text-primary);">Smooth Auto-Scroll</div>
-                    <div style="font-size: 0.85rem; color: var(--text-muted);">Smoothly animate the scroll down when new messages arrive.</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">Smoothly animate the scroll down when new messages arrive.</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="pref_smooth_scroll" checked onchange="saveUserPref('smooth_scroll', this.checked)">
@@ -404,8 +543,8 @@
                 </label>
             </div>
 
-            <div class="settings-actions" style="margin-top: 30px; display: flex; align-items: center; justify-content: space-between;">
-                <button type="button" class="btn btn-primary" onclick="showSettingsToast('Chat & display preferences saved!', 'success')"><i class="ph ph-check"></i> Save Preferences</button>
+            <div class="settings-actions" style="margin-top: 30px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <button type="button" class="btn btn-primary" style="padding: 10px 18px; font-size: 0.9rem; white-space: nowrap;" onclick="showSettingsToast('Chat & display preferences saved!', 'success')"><i class="ph ph-check"></i> Save Preferences</button>
             </div>
         </div>
 
@@ -457,8 +596,8 @@
                 </div>
             </div>
             
-            <div class="settings-actions" style="display: flex; align-items: center; justify-content: space-between;">
-                <button type="button" class="btn btn-primary" onclick="saveVoiceSettingsExplicit()"><i class="ph ph-check"></i> Save Voice Settings</button>
+            <div class="settings-actions" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                <button type="button" class="btn btn-primary" style="padding: 10px 18px; font-size: 0.9rem; white-space: nowrap;" onclick="saveVoiceSettingsExplicit()"><i class="ph ph-check"></i> Save Voice Settings</button>
                 <span id="voiceSaveMsg" style="font-size: 0.85rem; color: #4CAF50; display: none;"><i class="ph ph-check-circle"></i> Voice preferences saved!</span>
             </div>
         </div>
@@ -467,9 +606,9 @@
             <h2 class="settings-page-title">Accessibility & Themes</h2>
             
             <div class="form-group" style="margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 20px; border-radius: 12px;">
-                <div>
+                <div style="flex: 1; min-width: 0; padding-right: 14px;">
                     <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 5px;">Reduce Motion</div>
-                    <div style="font-size: 0.85rem; color: var(--text-muted);">Disable UI animations for a simpler visual experience.</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4;">Disable UI animations for a simpler visual experience.</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="pref_reduce_motion" onchange="saveUserPref('reduce_motion', this.checked); applyReduceMotion(this.checked)">
@@ -487,7 +626,7 @@
             </div>
 
             <div class="settings-actions" style="margin-top: 25px; margin-bottom: 25px;">
-                <button type="button" class="btn btn-primary" onclick="showSettingsToast('Accessibility & theme settings saved!', 'success')"><i class="ph ph-check"></i> Save Theme Settings</button>
+                <button type="button" class="btn btn-primary" style="padding: 10px 18px; font-size: 0.9rem; white-space: nowrap;" onclick="showSettingsToast('Accessibility & theme settings saved!', 'success')"><i class="ph ph-check"></i> Save Theme Settings</button>
             </div>
 
             <!-- Reset All Interface Preferences -->
@@ -511,7 +650,7 @@
         const icon = document.getElementById('settingsToastIcon');
         const text = document.getElementById('settingsToastText');
         if (!toast || !text) {
-            alert(message);
+            if (window.showCzToast) showCzToast(message, type);
             return;
         }
         text.textContent = message;
@@ -538,7 +677,9 @@
             const file = input.files[0];
             const maxBytes = 1 * 1024 * 1024; // 1MB
             if (file.size > maxBytes) {
-                alert(`Selected image (${(file.size / 1024 / 1024).toFixed(2)} MB) exceeds the 1 MB limit! Please choose a smaller image.`);
+                if (window.showCzToast) {
+                    showCzToast(`Selected image (${(file.size / 1024 / 1024).toFixed(2)} MB) exceeds the 1 MB limit! Please choose a smaller image.`, 'warning');
+                }
                 input.value = '';
                 return;
             }
@@ -598,23 +739,30 @@
     }
 
     function resetInterfacePreferences() {
-        if (!confirm('Reset all interface preferences (compact mode, themes, animations, sidebar) to default settings?')) return;
-        const keysToRemove = [
-            'chillzone_theme',
-            'cz_sidebar_collapsed',
-            'cz_pref_compact_chat',
-            'cz_pref_reduce_motion',
-            'cz_pref_floating_notifications',
-            'cz_pref_sound_alerts',
-            'cz_pref_unread_badge',
-            'cz_pref_show_typing',
-            'cz_pref_auto_embeds',
-            'cz_pref_smooth_scroll'
-        ];
-        keysToRemove.forEach(k => localStorage.removeItem(k));
-        if (typeof applyTheme === 'function') applyTheme('standard');
-        document.documentElement.classList.remove('compact-chat', 'reduce-motion', 'cz-sidebar-collapsed');
-        window.location.reload();
+        window.showCzConfirm({
+            title: 'Reset Interface Preferences',
+            message: 'Reset all interface preferences (compact mode, themes, animations, sidebar) to default settings?',
+            confirmText: 'Reset Defaults',
+            isDanger: true,
+            onConfirm: function() {
+                const keysToRemove = [
+                    'chillzone_theme',
+                    'cz_sidebar_collapsed',
+                    'cz_pref_compact_chat',
+                    'cz_pref_reduce_motion',
+                    'cz_pref_floating_notifications',
+                    'cz_pref_sound_alerts',
+                    'cz_pref_unread_badge',
+                    'cz_pref_show_typing',
+                    'cz_pref_auto_embeds',
+                    'cz_pref_smooth_scroll'
+                ];
+                keysToRemove.forEach(k => localStorage.removeItem(k));
+                if (typeof applyTheme === 'function') applyTheme('standard');
+                document.documentElement.classList.remove('compact-chat', 'reduce-motion', 'cz-sidebar-collapsed');
+                window.location.reload();
+            }
+        });
     }
 
     function updateGlobalStatusIndicators(status) {
@@ -888,9 +1036,144 @@
             });
         }
 
+        let isUsernameValid = true;
+        let isCheckingUsername = false;
+        let usernameCheckTimeout = null;
+        const originalUsername = '{{ request.user.username|escapejs }}';
+
+        window.checkUsernameAvailability = function(rawVal) {
+            clearTimeout(usernameCheckTimeout);
+            const val = (rawVal || '').trim();
+
+            const icon = document.getElementById('usernameStatusIcon');
+            const badge = document.getElementById('usernameCheckStatus');
+            const errBox = document.getElementById('accountUsernameError');
+            const errText = document.getElementById('accountUsernameErrorText');
+            const input = document.getElementById('account_username');
+
+            function setState(state, message) {
+                if (!icon || !badge || !errBox || !errText || !input) return;
+                if (state === 'idle') {
+                    icon.style.display = 'none';
+                    badge.style.display = 'none';
+                    errBox.style.display = 'none';
+                    input.style.borderColor = 'rgba(255,255,255,0.1)';
+                    isUsernameValid = true;
+                } else if (state === 'checking') {
+                    icon.style.display = 'block';
+                    icon.innerHTML = '<i class="ph-bold ph-spinner" style="color: #60a5fa; animation: spin 0.8s linear infinite; display: inline-block;"></i>';
+                    badge.style.display = 'inline-block';
+                    badge.style.color = '#60a5fa';
+                    badge.textContent = 'Checking availability...';
+                    errBox.style.display = 'none';
+                    input.style.borderColor = 'rgba(96,165,250,0.5)';
+                } else if (state === 'available') {
+                    icon.style.display = 'block';
+                    icon.innerHTML = '<i class="ph-bold ph-check-circle" style="color: #22c55e;"></i>';
+                    badge.style.display = 'inline-block';
+                    badge.style.color = '#22c55e';
+                    badge.textContent = message || 'Available';
+                    errBox.style.display = 'none';
+                    input.style.borderColor = '#22c55e';
+                    isUsernameValid = true;
+                } else if (state === 'same') {
+                    icon.style.display = 'block';
+                    icon.innerHTML = '<i class="ph-bold ph-user-check" style="color: #94a3b8;"></i>';
+                    badge.style.display = 'inline-block';
+                    badge.style.color = '#94a3b8';
+                    badge.textContent = 'Current username';
+                    errBox.style.display = 'none';
+                    input.style.borderColor = 'rgba(255,255,255,0.1)';
+                    isUsernameValid = true;
+                } else if (state === 'error') {
+                    icon.style.display = 'block';
+                    icon.innerHTML = '<i class="ph-bold ph-x-circle" style="color: #ef4444;"></i>';
+                    badge.style.display = 'inline-block';
+                    badge.style.color = '#ef4444';
+                    badge.textContent = 'Unavailable';
+                    errBox.style.display = 'flex';
+                    errBox.style.alignItems = 'center';
+                    errBox.style.gap = '6px';
+                    errText.textContent = message || 'Username is invalid.';
+                    input.style.borderColor = '#ef4444';
+                    isUsernameValid = false;
+                }
+            }
+
+            if (!val) {
+                setState('error', 'Username cannot be blank.');
+                return;
+            }
+
+            if (val.toLowerCase() === originalUsername.toLowerCase()) {
+                setState('same');
+                return;
+            }
+
+            if (val.length < 3) {
+                setState('error', 'Username must be at least 3 characters.');
+                return;
+            }
+            if (val.length > 30) {
+                setState('error', 'Username must be 30 characters or fewer.');
+                return;
+            }
+            if (!/^[a-zA-Z0-9_.-]+$/.test(val)) {
+                setState('error', 'Only letters, numbers, underscores (_), hyphens (-), and dots (.) allowed.');
+                return;
+            }
+            if (val.startsWith('.') || val.endsWith('.')) {
+                setState('error', 'Username cannot start or end with a dot.');
+                return;
+            }
+            if (val.includes('..')) {
+                setState('error', 'Username cannot contain consecutive dots.');
+                return;
+            }
+
+            setState('checking');
+            isCheckingUsername = true;
+
+            usernameCheckTimeout = setTimeout(() => {
+                fetch(`{% url 'check_username_api' %}?username=${encodeURIComponent(val)}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    isCheckingUsername = false;
+                    if (data.available) {
+                        setState('available', data.message || 'Username is available!');
+                    } else {
+                        setState('error', data.message || 'Username is not available.');
+                    }
+                })
+                .catch(() => {
+                    isCheckingUsername = false;
+                    setState('idle');
+                });
+            }, 300);
+        };
+
         const accForm = document.getElementById('accountSettingsForm');
         if (accForm) {
             accForm.addEventListener('submit', function(e) {
+                const usernameInput = document.getElementById('account_username');
+                const usernameVal = usernameInput ? usernameInput.value.trim() : '';
+
+                if (!usernameVal) {
+                    e.preventDefault();
+                    usernameInput.focus();
+                    showSettingsToast('Please enter a username.', 'error');
+                    return false;
+                }
+
+                if (!isUsernameValid) {
+                    e.preventDefault();
+                    usernameInput.focus();
+                    showSettingsToast('Please choose a valid and available username before saving.', 'error');
+                    return false;
+                }
+
                 const emailInput = document.getElementById('account_email');
                 const emailErr = document.getElementById('accountEmailError');
                 const emailVal = emailInput ? emailInput.value.trim() : '';

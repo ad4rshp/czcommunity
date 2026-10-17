@@ -38,6 +38,7 @@ def upload_attachment(request, channel_slug):
     )
     
     # Broadcast to channel
+    author_display = membership.get_display_name() if membership else (message.author.display_name if hasattr(message.author, 'display_name') else message.author.username)
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
         f"chat_{channel.slug}",
@@ -47,6 +48,7 @@ def upload_attachment(request, channel_slug):
             "message_id": message.id,
             "content": message.content,
             "author": message.author.username,
+            "author_display_name": author_display,
             "created_at": message.created_at.strftime('%I:%M %p'),
             "avatar_url": message.author.profile.get_avatar_url() if hasattr(message.author, 'profile') else "/static/img/default_avatar.svg",
             "is_bot": message.author.profile.is_bot if hasattr(message.author, 'profile') else False,

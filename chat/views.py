@@ -1,11 +1,12 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.db.models import Q
 import re
-from .models import Community, Channel, ChannelCategory, Message, CommunityMember, ChannelReadState
+from .models import Community, Channel, ChannelCategory, Message, CommunityMember, ChannelReadState, CommunityBan, AuditLog
 
 @login_required
 def chat_view(request, channel_slug=None):
@@ -32,8 +33,14 @@ def chat_view(request, channel_slug=None):
 
     categories = ChannelCategory.objects.filter(community=community).prefetch_related('channels')
     
-    # Lazy member creation
+    # Lazy member creation (unless banned)
     if request.user.is_authenticated:
+        if CommunityBan.objects.filter(community=community, user=request.user).exists():
+            messages.error(request, f"You are banned from {community.name}.")
+            other_membership = CommunityMember.objects.filter(user=request.user).exclude(community=community).first()
+            if other_membership:
+                return redirect(f"/community/chat/?c={other_membership.community.slug}")
+            return redirect('home')
         membership, _ = CommunityMember.objects.get_or_create(community=community, user=request.user)
     else:
         membership = None
@@ -55,37 +62,45 @@ def chat_view(request, channel_slug=None):
     
     if active_channel and can_view_channel:
         if can_read_history:
-            messages = active_channel.messages.select_related('author').order_by('-created_at')[:50]
-            messages = list(reversed(list(messages)))
+            chat_messages = active_channel.messages.select_related('author').order_by('-created_at')[:50]
+            chat_messages = list(reversed(list(chat_messages)))
         else:
-            messages = []
+            chat_messages = []
             
         # Prefetch memberships to get role colors efficiently
         memberships_dict = {
             m.user_id: m for m in CommunityMember.objects.filter(
                 community=community, 
-                user_id__in=[msg.author_id for msg in messages] if can_read_history else []
+                user_id__in=[msg.author_id for msg in chat_messages] if can_read_history else []
             ).prefetch_related('roles')
         }
-        for msg in messages:
+        for msg in chat_messages:
             m = memberships_dict.get(msg.author_id)
             if m:
                 highest_role = m.highest_role
                 msg.author_color = highest_role.color if highest_role else None
+                msg.author_display_name = m.get_display_name()
             else:
                 msg.author_color = None
+                msg.author_display_name = msg.author.display_name if hasattr(msg.author, 'display_name') else msg.author.username
+            if msg.reply_to_id:
+                rep_m = memberships_dict.get(msg.reply_to.author_id)
+                if rep_m:
+                    msg.reply_to.author_display_name = rep_m.get_display_name()
+                else:
+                    msg.reply_to.author_display_name = msg.reply_to.author.display_name if hasattr(msg.reply_to.author, 'display_name') else msg.reply_to.author.username
 
-        if messages and request.user.is_authenticated:
+        if chat_messages and request.user.is_authenticated:
             try:
                 ChannelReadState.objects.update_or_create(
                     user=request.user,
                     channel=active_channel,
-                    defaults={'last_read_message_id': messages[-1].id}
+                    defaults={'last_read_message_id': chat_messages[-1].id}
                 )
             except Exception:
                 pass
     else:
-        messages = []
+        chat_messages = []
 
 
 
@@ -145,7 +160,7 @@ def chat_view(request, channel_slug=None):
         highest_role = m.highest_role
         color = highest_role.color if highest_role else '#F5F5F5'
         avatar = m.user.profile.get_avatar_url() if hasattr(m.user, 'profile') else '/static/img/default_avatar.svg'
-        user_data.append({'username': m.user.username, 'color': color, 'avatar': avatar})
+        user_data.append({'username': m.user.username, 'display_name': m.get_display_name(), 'color': color, 'avatar': avatar})
         
     channel_data = []
     for cat in categories:
@@ -159,7 +174,7 @@ def chat_view(request, channel_slug=None):
         'community': community,
         'categories': categories,
         'active_channel': active_channel,
-        'chat_messages': messages,
+        'chat_messages': chat_messages,
         'community_memberships': memberships,
         'role_member_groups': role_member_groups,
         'community_data': community_data,
@@ -172,6 +187,8 @@ def chat_view(request, channel_slug=None):
         'can_kick_members': can_kick_members,
         'can_ban_members': can_ban_members,
         'can_manage_roles': can_manage_roles,
+        'can_change_nickname': is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('CHANGE_NICKNAME'))),
+        'can_manage_nicknames': is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('MANAGE_NICKNAMES'))),
         'can_connect_voice': can_connect_voice,
         'can_speak_voice': can_speak_voice,
     }
@@ -959,3 +976,197 @@ def mark_notifications_read(request):
                     )
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=400)
+
+
+def resolve_user_by_identifier(identifier):
+    """Resolves a User by Unique ID (CZ-XXXXXX), username, or numeric pk."""
+    if not identifier:
+        return None
+    raw = str(identifier).strip()
+    # 1. Profile unique_id (case-insensitive)
+    u = User.objects.filter(profile__unique_id__iexact=raw).first()
+    if u:
+        return u
+    # 2. Username (case-insensitive)
+    u = User.objects.filter(username__iexact=raw).first()
+    if u:
+        return u
+    # 3. Numeric ID
+    if raw.isdigit():
+        u = User.objects.filter(id=int(raw)).first()
+        if u:
+            return u
+    return None
+
+
+@login_required
+def api_ban_member(request, slug):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
+    community = get_object_or_404(Community, slug=slug)
+    membership = CommunityMember.objects.filter(community=community, user=request.user).first()
+    is_owner = (request.user == community.owner)
+    can_ban = is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('BAN_MEMBERS')))
+    if not can_ban:
+        return JsonResponse({'status': 'error', 'message': 'You do not have permission to ban members.'}, status=403)
+
+    identifier = (request.POST.get('identifier') or request.POST.get('username') or '').strip()
+    reason = (request.POST.get('reason') or '').strip()
+
+    target = resolve_user_by_identifier(identifier)
+    if not target:
+        return JsonResponse({'status': 'error', 'message': f"No user found matching '{identifier}'."}, status=404)
+
+    if target == request.user:
+        return JsonResponse({'status': 'error', 'message': "You cannot ban yourself."}, status=400)
+    if target == community.owner:
+        return JsonResponse({'status': 'error', 'message': "Cannot ban the server owner."}, status=400)
+    if target.is_superuser and not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': "Cannot ban a superuser."}, status=403)
+
+    # Delete membership if in server (even if user already left, ban will be registered)
+    CommunityMember.objects.filter(community=community, user=target).delete()
+
+    CommunityBan.objects.update_or_create(
+        community=community,
+        user=target,
+        defaults={'banned_by': request.user, 'reason': reason}
+    )
+
+    uid = getattr(target.profile, 'unique_id', target.id)
+    AuditLog.objects.create(
+        community=community,
+        user=request.user,
+        action=f"Banned user '{target.username}' (UID: {uid})",
+        details=f"Reason: {reason or 'No reason provided'}"
+    )
+
+    return JsonResponse({
+        'status': 'ok',
+        'message': f"User '{target.username}' ({uid}) has been banned from {community.name}.",
+        'username': target.username,
+        'unique_id': uid
+    })
+
+
+@login_required
+def api_unban_member(request, slug):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
+    community = get_object_or_404(Community, slug=slug)
+    membership = CommunityMember.objects.filter(community=community, user=request.user).first()
+    is_owner = (request.user == community.owner)
+    can_ban = is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('BAN_MEMBERS')))
+    if not can_ban:
+        return JsonResponse({'status': 'error', 'message': 'You do not have permission to unban members.'}, status=403)
+
+    identifier = (request.POST.get('identifier') or request.POST.get('user_id') or request.POST.get('username') or '').strip()
+    target = resolve_user_by_identifier(identifier)
+    if not target:
+        return JsonResponse({'status': 'error', 'message': f"No user found matching '{identifier}'."}, status=404)
+
+    deleted_count, _ = CommunityBan.objects.filter(community=community, user=target).delete()
+    uid = getattr(target.profile, 'unique_id', target.id)
+    if deleted_count > 0:
+        AuditLog.objects.create(community=community, user=request.user, action=f"Unbanned user '{target.username}' (UID: {uid})")
+        return JsonResponse({
+            'status': 'ok',
+            'message': f"User '{target.username}' ({uid}) has been unbanned from {community.name}.",
+            'username': target.username,
+            'unique_id': uid
+        })
+    else:
+        return JsonResponse({'status': 'info', 'message': f"User '{target.username}' was not banned."})
+
+
+@login_required
+def api_kick_member(request, slug):
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Invalid method'}, status=405)
+    community = get_object_or_404(Community, slug=slug)
+    membership = CommunityMember.objects.filter(community=community, user=request.user).first()
+    is_owner = (request.user == community.owner)
+    can_kick = is_owner or (membership and (membership.has_permission('ADMINISTRATOR') or membership.has_permission('KICK_MEMBERS')))
+    if not can_kick:
+        return JsonResponse({'status': 'error', 'message': 'You do not have permission to kick members.'}, status=403)
+
+    identifier = (request.POST.get('identifier') or request.POST.get('username') or '').strip()
+    reason = (request.POST.get('reason') or '').strip()
+
+    target = resolve_user_by_identifier(identifier)
+    if not target:
+        return JsonResponse({'status': 'error', 'message': f"No user found matching '{identifier}'."}, status=404)
+
+    if target == request.user:
+        return JsonResponse({'status': 'error', 'message': "You cannot kick yourself."}, status=400)
+    if target == community.owner:
+        return JsonResponse({'status': 'error', 'message': "Cannot kick the server owner."}, status=400)
+    if target.is_superuser and not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': "Cannot kick a superuser."}, status=403)
+
+    deleted_count, _ = CommunityMember.objects.filter(community=community, user=target).delete()
+    if deleted_count == 0:
+        return JsonResponse({'status': 'error', 'message': f"User '{target.username}' is not a member of this server."}, status=400)
+
+    uid = getattr(target.profile, 'unique_id', target.id)
+    AuditLog.objects.create(
+        community=community,
+        user=request.user,
+        action=f"Kicked user '{target.username}' (UID: {uid})",
+        details=f"Reason: {reason or 'No reason provided'}"
+    )
+
+    return JsonResponse({
+        'status': 'ok',
+        'message': f"User '{target.username}' has been kicked from {community.name}.",
+        'username': target.username
+    })
+
+@login_required
+@require_POST
+def change_nickname(request, slug):
+    community = get_object_or_404(Community, slug=slug)
+    requester_member = CommunityMember.objects.filter(community=community, user=request.user).first()
+    is_owner = (request.user == community.owner)
+    
+    target_username = (request.POST.get('target_username') or request.POST.get('username') or '').strip()
+    target_user = request.user
+    if target_username and target_username != request.user.username:
+        target_user = resolve_user_by_identifier(target_username) or get_object_or_404(User, username=target_username)
+        
+    target_member = CommunityMember.objects.filter(community=community, user=target_user).first()
+    if not target_member:
+        return JsonResponse({'status': 'error', 'message': f"User '{target_user.username}' is not a member of this server."}, status=404)
+        
+    if target_user == request.user:
+        if not (is_owner or (requester_member and (requester_member.has_permission('ADMINISTRATOR') or requester_member.has_permission('CHANGE_NICKNAME')))):
+            return JsonResponse({'status': 'error', 'message': 'You do not have permission to change your nickname in this server.'}, status=403)
+    else:
+        if not (is_owner or (requester_member and (requester_member.has_permission('ADMINISTRATOR') or requester_member.has_permission('MANAGE_NICKNAMES')))):
+            return JsonResponse({'status': 'error', 'message': 'You do not have permission to manage nicknames in this server.'}, status=403)
+            
+    raw_nickname = request.POST.get('nickname', '').strip()
+    if raw_nickname.lower() in ('reset', 'none') or not raw_nickname:
+        target_member.nickname = ""
+    else:
+        target_member.nickname = raw_nickname[:50]
+        
+    target_member.save(update_fields=['nickname'])
+    
+    try:
+        AuditLog.objects.create(
+            community=community,
+            user=request.user,
+            action=f"Changed nickname of {target_user.username} to '{target_member.nickname or '(reset)'}'"
+        )
+    except Exception:
+        pass
+        
+    return JsonResponse({
+        'status': 'success',
+        'message': f"Nickname for {target_user.username} set to '{target_member.nickname or target_user.display_name}'",
+        'nickname': target_member.nickname,
+        'display_name': target_member.get_display_name(),
+        'username': target_user.username
+    })
+

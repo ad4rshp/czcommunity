@@ -5,147 +5,690 @@
 <link rel="stylesheet" href="{% static 'css/chat.css' %}">
 <link rel="stylesheet" href="{% static 'css/community.css' %}">
 <style>
+    :root {
+        --settings-sidebar-w: 260px;
+        --settings-max-w: 880px;
+    }
+
     .settings-layout {
         display: flex;
-        height: 100%;
-        background: var(--bg-primary);
+        min-height: calc(100vh - 56px);
+        background: #111216;
+        color: var(--text-primary, #e2e8f0);
+        position: relative;
     }
+
+    /* Modern Glassmorphic Sidebar */
     .settings-sidebar {
-        width: 280px;
-        background: var(--bg-surface);
-        border-right: 1px solid var(--border);
+        width: var(--settings-sidebar-w);
+        background: rgba(18, 20, 26, 0.95);
+        border-right: 1px solid rgba(255, 255, 255, 0.07);
         display: flex;
         flex-direction: column;
+        flex-shrink: 0;
+        z-index: 10;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
     }
+
     .settings-header {
-        padding: 20px;
-        border-bottom: 1px solid var(--border);
+        padding: 24px 20px 18px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        display: flex;
+        align-items: center;
+        gap: 12px;
     }
+
+    .server-brand-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, rgba(255,107,43,0.2) 0%, rgba(255,107,43,0.05) 100%);
+        border: 1px solid rgba(255,107,43,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .server-brand-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .server-brand-icon span {
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: var(--accent, #ff6b2b);
+    }
+
+    .server-meta-info {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .server-meta-info h2 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #f8fafc;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .server-meta-info .subtitle {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        margin-top: 2px;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+
     .settings-nav {
-        padding: 15px 10px;
+        padding: 16px 12px;
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 4px;
+        flex: 1;
+        overflow-y: auto;
     }
+
+    .nav-category-header {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: #64748b;
+        padding: 14px 12px 6px 12px;
+        user-select: none;
+    }
+
     .settings-nav-item {
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 10px 15px;
-        border-radius: var(--radius-sm);
-        color: var(--text-secondary);
+        gap: 12px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        color: #94a3b8;
         text-decoration: none;
         font-weight: 500;
-        transition: all 0.15s ease;
+        font-size: 0.92rem;
+        transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
     }
+
+    .settings-nav-item i {
+        font-size: 1.15rem;
+        transition: transform 0.18s ease;
+    }
+
     .settings-nav-item:hover {
-        background: rgba(255,255,255,0.05);
-        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.06);
+        color: #f1f5f9;
+        transform: translateX(2px);
     }
+
+    .settings-nav-item:hover i {
+        transform: scale(1.1);
+        color: var(--accent, #ff6b2b);
+    }
+
     .settings-nav-item.active {
-        background: rgba(255,255,255,0.1);
-        color: var(--text-primary);
+        background: linear-gradient(90deg, rgba(255,107,43,0.18) 0%, rgba(255,107,43,0.06) 100%);
+        color: #ff8c4a;
+        font-weight: 600;
+        border-left: 3px solid var(--accent, #ff6b2b);
+        border-radius: 4px 8px 8px 4px;
     }
+
+    .settings-nav-item.active i {
+        color: var(--accent, #ff6b2b);
+    }
+
+    /* Content Area & Floating Discord ESC Button */
     .settings-content-area {
         flex: 1;
         min-width: 0;
-        padding: 40px;
+        padding: 40px 48px;
         overflow-y: auto;
+        position: relative;
+        background: radial-gradient(circle at 85% 10%, rgba(255,107,43,0.03) 0%, transparent 60%);
     }
-    .settings-section {
-        background: var(--bg-surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
-        padding: 25px;
-        margin-bottom: 20px;
-        max-width: 800px;
+
+    .settings-content-wrapper {
+        max-width: var(--settings-max-w);
+        margin: 0;
     }
-    .settings-section h4 {
-        margin: 0 0 20px 0;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        color: var(--text-muted);
+
+    /* Iconic Discord Floating ESC Button */
+    .discord-esc-container {
+        position: fixed;
+        top: 32px;
+        right: 48px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        z-index: 100;
+        cursor: pointer;
+        text-decoration: none;
+        user-select: none;
+    }
+
+    .discord-esc-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        border: 2px solid #64748b;
+        background: rgba(30, 32, 40, 0.85);
+        color: #cbd5e1;
         display: flex;
         align-items: center;
-        gap: 8px;
+        justify-content: center;
+        font-size: 1.1rem;
+        transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        backdrop-filter: blur(8px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
-    .settings-field {
-        margin-bottom: 18px;
+
+    .discord-esc-badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: #94a3b8;
+        letter-spacing: 0.5px;
+        font-family: ui-monospace, monospace;
+        transition: color 0.15s ease;
     }
-    .settings-field:last-child {
+
+    .discord-esc-container:hover .discord-esc-btn {
+        border-color: #f87171;
+        color: #fff;
+        background: #dc2626;
+        transform: rotate(90deg) scale(1.08);
+        box-shadow: 0 6px 18px rgba(220, 38, 38, 0.35);
+    }
+
+    .discord-esc-container:hover .discord-esc-badge {
+        color: #f87171;
+    }
+
+    /* Page Header */
+    .settings-page-header {
+        margin-bottom: 28px;
+    }
+
+    .settings-page-header h1 {
+        margin: 0 0 6px 0;
+        font-size: 1.65rem;
+        font-weight: 700;
+        color: #f8fafc;
+        letter-spacing: -0.3px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .settings-page-header p {
+        margin: 0;
+        font-size: 0.92rem;
+        color: #94a3b8;
+        line-height: 1.5;
+    }
+
+    /* Glassmorphism Settings Cards */
+    .settings-card {
+        background: rgba(24, 26, 33, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 24px 28px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .settings-card:hover {
+        border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .settings-card-title {
+        margin: 0 0 18px 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .settings-card-title i {
+        font-size: 1.15rem;
+        color: var(--accent, #ff6b2b);
+    }
+
+    /* Form Fields */
+    .field-group {
+        margin-bottom: 20px;
+    }
+
+    .field-group:last-child {
         margin-bottom: 0;
     }
-    .settings-field label {
+
+    .field-label {
         display: block;
         margin-bottom: 8px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: var(--text-secondary);
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: #94a3b8;
     }
-    .settings-field input[type="text"],
-    .settings-field input[type="file"],
-    .settings-field textarea {
+
+    .field-input,
+    .field-select,
+    .field-textarea {
         width: 100%;
-        padding: 12px;
-        border-radius: var(--radius-sm);
-        border: 1px solid var(--border);
-        background: var(--bg-elevated);
-        color: var(--text-primary);
+        padding: 12px 14px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(12, 14, 18, 0.85);
+        color: #f8fafc;
         font-family: inherit;
         font-size: 0.95rem;
         box-sizing: border-box;
-        transition: border-color 0.15s;
+        transition: all 0.2s ease;
     }
-    .settings-field input[type="text"]:focus,
-    .settings-field textarea:focus {
+
+    .field-input:focus,
+    .field-select:focus,
+    .field-textarea:focus {
         outline: none;
-        border-color: var(--accent);
+        border-color: var(--accent, #ff6b2b);
+        box-shadow: 0 0 0 3px rgba(255, 107, 43, 0.2);
+        background: rgba(16, 18, 24, 0.95);
     }
-    .danger-zone {
-        border-color: rgba(244, 67, 54, 0.3);
+
+    /* Server Icon Upload Component */
+    .icon-uploader-box {
+        display: flex;
+        gap: 24px;
+        align-items: center;
     }
-    .danger-zone h4 {
-        color: #F44336;
+
+    .icon-preview-wrap {
+        position: relative;
+        width: 104px;
+        height: 104px;
+        border-radius: 50%;
+        background: #1e2029;
+        border: 2px dashed rgba(255, 255, 255, 0.18);
+        overflow: hidden;
+        flex-shrink: 0;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        cursor: pointer;
+        transition: border-color 0.2s ease;
     }
-    
-    .role-card {
-        background: var(--bg-elevated);
-        padding: 15px;
-        border-radius: var(--radius-md);
-        margin-bottom: 10px;
+
+    .icon-preview-wrap:hover {
+        border-color: var(--accent, #ff6b2b);
+    }
+
+    .icon-preview-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .icon-hover-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        gap: 4px;
+    }
+
+    .icon-preview-wrap:hover .icon-hover-overlay {
+        opacity: 1;
+    }
+
+    .icon-hover-overlay i {
+        font-size: 1.4rem;
+    }
+
+    /* Danger Zone */
+    .danger-zone-card {
+        border-color: rgba(239, 68, 68, 0.3);
+        background: rgba(239, 68, 68, 0.04);
+    }
+
+    .danger-zone-card:hover {
+        border-color: rgba(239, 68, 68, 0.45);
+    }
+
+    .danger-zone-card .settings-card-title {
+        color: #ef4444;
+    }
+
+    .danger-zone-card .settings-card-title i {
+        color: #ef4444;
+    }
+
+    /* Modern Discord-Style Toggle Switch */
+    .cz-switch {
+        position: relative !important;
+        display: inline-block !important;
+        width: 48px !important;
+        min-width: 48px !important;
+        max-width: 48px !important;
+        height: 26px !important;
+        min-height: 26px !important;
+        flex-shrink: 0 !important;
+        margin: 0 !important;
+        cursor: pointer !important;
+        vertical-align: middle !important;
+    }
+
+    .cz-switch input {
+        opacity: 0 !important;
+        width: 0 !important;
+        height: 0 !important;
+        position: absolute !important;
+        pointer-events: none !important;
+    }
+
+    .cz-slider {
+        position: absolute !important;
+        cursor: pointer !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        background-color: rgba(255, 255, 255, 0.16) !important;
+        border: 1px solid rgba(255, 255, 255, 0.12) !important;
+        transition: background-color 0.22s ease, border-color 0.22s ease !important;
+        box-sizing: border-box !important;
+        border-radius: 26px !important;
+    }
+
+    .cz-slider:before {
+        position: absolute !important;
+        content: '' !important;
+        height: 18px !important;
+        width: 18px !important;
+        left: 3px !important;
+        top: 3px !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35) !important;
+        transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        box-sizing: border-box !important;
+        border-radius: 50% !important;
+    }
+
+    .cz-switch input:checked + .cz-slider {
+        background-color: var(--accent, #ff6b2b) !important;
+        border-color: var(--accent, #ff6b2b) !important;
+    }
+
+    .cz-switch input:checked + .cz-slider:before {
+        transform: translateX(22px) !important;
+    }
+
+    /* Role Accordion Cards */
+    .role-accordion {
+        background: rgba(14, 16, 21, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        margin-bottom: 12px;
+        overflow: hidden;
+        transition: all 0.2s ease;
+    }
+
+    .role-accordion:hover {
+        border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    .role-summary {
+        padding: 16px 20px;
+        cursor: pointer;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border: 1px solid rgba(255,255,255,0.05);
+        user-select: none;
+        list-style: none;
+        background: rgba(255, 255, 255, 0.01);
+        transition: background 0.15s ease;
     }
-    .role-badge {
-        padding: 5px 10px;
-        border-radius: 12px;
+
+    .role-summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .role-summary:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .role-badge-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        border-radius: 20px;
         font-weight: 600;
         font-size: 0.9rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: transform 0.15s ease;
     }
-    .audit-log-item {
-        padding: 15px 0;
-        border-bottom: 1px solid var(--border);
+
+    .role-color-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        box-shadow: 0 0 8px currentColor;
+    }
+
+    .permission-toggle-item {
         display: flex;
-        gap: 15px;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 14px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        margin-bottom: 8px;
+        transition: background 0.15s ease;
     }
-    .audit-log-item:last-child {
+
+    .permission-toggle-item:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .permission-info {
+        flex: 1;
+        min-width: 0;
+        padding-right: 16px;
+    }
+
+    .permission-title {
+        font-weight: 600;
+        font-size: 0.92rem;
+        color: #f1f5f9;
+        margin-bottom: 2px;
+    }
+
+    .permission-desc {
+        font-size: 0.78rem;
+        color: #94a3b8;
+        line-height: 1.35;
+    }
+
+    /* Color Palette Swatches */
+    .color-swatch-list {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 6px;
+    }
+
+    .color-swatch-btn {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        cursor: pointer;
+        transition: transform 0.15s ease, border-color 0.15s ease;
+        padding: 0;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .color-swatch-btn:hover {
+        transform: scale(1.2);
+    }
+
+    .color-swatch-btn.active {
+        border-color: #ffffff;
+        transform: scale(1.15);
+    }
+
+    /* Table Styles */
+    .table-container {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        overflow: hidden;
+        background: rgba(14, 16, 21, 0.6);
+    }
+
+    .table-header {
+        display: flex;
+        align-items: center;
+        padding: 14px 20px;
+        background: rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: #94a3b8;
+    }
+
+    .table-row {
+        display: flex;
+        align-items: center;
+        padding: 14px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        transition: background 0.15s ease;
+    }
+
+    .table-row:last-child {
         border-bottom: none;
     }
-    
-    @media (max-width: 768px) {
+
+    .table-row:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 860px) {
         .settings-layout {
             flex-direction: column;
+            min-height: calc(100vh - 56px);
         }
+
         .settings-sidebar {
             width: 100%;
             border-right: none;
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            position: sticky;
+            top: 0;
+            z-index: 50;
         }
+
+        .settings-header {
+            padding: 12px 16px;
+        }
+
+        .settings-nav {
+            flex-direction: row;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 8px 12px 10px 12px;
+            gap: 8px;
+            white-space: nowrap;
+            scrollbar-width: none;
+        }
+
+        .settings-nav::-webkit-scrollbar {
+            display: none;
+        }
+
+        .nav-category-header {
+            display: none;
+        }
+
+        .settings-nav-item {
+            padding: 7px 14px;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .settings-nav-item.active {
+            background: var(--accent, #ff6b2b);
+            color: #fff;
+            border-left: 1px solid var(--accent, #ff6b2b);
+            border-radius: 20px;
+        }
+
+        .settings-nav-item.active i {
+            color: #fff;
+        }
+
         .settings-content-area {
-            padding: 20px;
+            padding: 20px 16px 60px 16px;
+        }
+
+        .discord-esc-container {
+            display: none;
+        }
+
+        .icon-uploader-box {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .table-header {
+            display: none;
+        }
+
+        .table-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+            padding: 16px;
         }
     }
 </style>
@@ -153,411 +696,783 @@
 
 {% block content %}
 <div class="settings-layout">
-    <div class="settings-sidebar">
-        <div class="settings-header">
-            <h2 style="margin: 0; font-size: 1.2rem;">{{ community.name }}</h2>
-            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 5px;">Server Settings</div>
+    <!-- Floating Discord ESC Exit Button (Desktop) -->
+    <a href="{% url 'chat' %}?c={{ community.slug }}" class="discord-esc-container" title="Exit Server Settings (Press ESC)" id="discordEscBtn">
+        <div class="discord-esc-btn">
+            <i class="ph-bold ph-x"></i>
         </div>
-        <div class="settings-nav">
+        <span class="discord-esc-badge">ESC</span>
+    </a>
+
+    <!-- Sidebar Navigation -->
+    <aside class="settings-sidebar">
+        <div class="settings-header">
+            <div class="server-brand-icon">
+                {% if community.icon %}
+                <img src="{{ community.get_icon_url }}" alt="{{ community.name }}">
+                {% else %}
+                <span>{{ community.name|make_list|first|upper }}</span>
+                {% endif %}
+            </div>
+            <div class="server-meta-info">
+                <h2>{{ community.name }}</h2>
+                <div class="subtitle">Server Settings</div>
+            </div>
+            <a href="{% url 'chat' %}?c={{ community.slug }}" class="btn btn-secondary btn-sm mobile-only" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="ph ph-arrow-left"></i> Exit
+            </a>
+        </div>
+
+        <nav class="settings-nav">
             {% if access_denied %}
-            <a href="{% url 'chat' %}?c={{ community.slug }}" class="settings-nav-item active" style="color: var(--accent);">
+            <a href="{% url 'chat' %}?c={{ community.slug }}" class="settings-nav-item active">
                 <i class="ph ph-arrow-left"></i> Return to Server
             </a>
             {% else %}
+            
+            <div class="nav-category-header">Server Settings</div>
             <a href="?tab=overview&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'overview' %}active{% endif %}">
-                <i class="ph ph-info"></i> Overview
+                <i class="ph ph-sliders-horizontal"></i> Overview
             </a>
             <a href="?tab=roles&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'roles' %}active{% endif %}">
                 <i class="ph ph-shield-star"></i> Roles
             </a>
+
+            <div class="nav-category-header">User Management</div>
             <a href="?tab=invites&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'invites' %}active{% endif %}">
-                <i class="ph ph-user-plus"></i> Invites
+                <i class="ph ph-envelope-simple-open"></i> Invites
+            </a>
+            <a href="?tab=bans&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'bans' %}active{% endif %}">
+                <i class="ph ph-prohibit"></i> Bans
             </a>
             <a href="?tab=audit_log&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'audit_log' %}active{% endif %}">
                 <i class="ph ph-scroll"></i> Audit Log
             </a>
-            <hr style="border: none; border-top: 1px solid var(--border); margin: 10px 0;">
-            <a href="{% url 'chat' %}?c={{ community.slug }}" class="settings-nav-item" style="color: var(--accent);">
-                <i class="ph ph-arrow-left"></i> Back to Server
-            </a>
+
+            <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06);" class="desktop-only">
+                <a href="{% url 'chat' %}?c={{ community.slug }}" class="settings-nav-item" style="color: #f87171;">
+                    <i class="ph ph-arrow-left"></i> Back to Server
+                </a>
+            </div>
             {% endif %}
-        </div>
-    </div>
-    
-    <div class="settings-content-area">
-        {% if access_denied %}
-        <div style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 40px; text-align: center; max-width: 600px; margin: 40px auto;">
-            <div style="font-size: 3rem; color: #F44336; margin-bottom: 15px;"><i class="ph ph-shield-warning"></i></div>
-            <h2 style="margin: 0 0 10px 0; color: var(--text-primary);">Permission Required</h2>
-            <p style="color: var(--text-secondary); margin-bottom: 25px;">You do not have permission to manage this server. Only server owners and managers can access server settings.</p>
-            <a href="{% url 'chat' %}?c={{ community.slug }}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
-                <i class="ph ph-arrow-left"></i> Return to Server
-            </a>
-        </div>
-        {% elif current_tab == 'overview' %}
-        <div>
-            <h1 style="margin-top: 0; margin-bottom: 20px;">Server Overview</h1>
-            
-            <form method="post" enctype="multipart/form-data">
+        </nav>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="settings-content-area">
+        <div class="settings-content-wrapper">
+
+            {% if access_denied %}
+            <!-- Permission Required -->
+            <div class="settings-card" style="text-align: center; max-width: 580px; margin: 40px auto; padding: 48px 32px;">
+                <div style="font-size: 3.5rem; color: #ef4444; margin-bottom: 16px;">
+                    <i class="ph ph-shield-warning"></i>
+                </div>
+                <h2 style="margin: 0 0 10px 0; color: #f8fafc; font-size: 1.4rem;">Permission Required</h2>
+                <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 24px; line-height: 1.5;">
+                    You do not have administrative privileges to manage this server. Only server owners, administrators, and designated moderators can access server settings.
+                </p>
+                <a href="{% url 'chat' %}?c={{ community.slug }}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px;">
+                    <i class="ph ph-arrow-left"></i> Return to Server
+                </a>
+            </div>
+
+            {% elif current_tab == 'overview' %}
+            <!-- TAB: OVERVIEW -->
+            <div class="settings-page-header">
+                <h1><i class="ph-bold ph-sliders-horizontal" style="color: var(--accent, #ff6b2b);"></i> Server Overview</h1>
+                <p>Customize your community's identity, avatar icon, and public description.</p>
+            </div>
+
+            <form method="post" enctype="multipart/form-data" id="serverOverviewForm">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="update_community">
-                
-                <div class="settings-section" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 25px;">
-                    <h4 style="margin-top: 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;"><i class="ph ph-image" style="color: var(--accent);"></i> Server Icon</h4>
-                    <div style="display: flex; gap: 30px; align-items: center;">
-                        <div style="width: 120px; height: 120px; border-radius: 50%; background: var(--bg-primary); display: flex; align-items: center; justify-content: center; overflow: hidden; border: 2px dashed var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
-                            <img id="serverIconPreview" src="{{ community.get_icon_url }}" alt="Icon" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='/static/img/default_server.svg'">
-                        </div>
-                        <div class="settings-field" style="flex: 1; margin: 0;">
-                            <label style="display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; letter-spacing: 0.5px;">UPLOAD NEW ICON (MAX 1 MB)</label>
-                            <div style="position: relative; overflow: hidden; display: inline-block;">
-                                <button type="button" class="btn" style="background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); pointer-events: none;"><i class="ph ph-upload-simple"></i> Choose File...</button>
-                                <input type="file" name="icon" accept="image/*" style="font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer;" onchange="validateServerIconSize(this)">
+
+                <!-- Server Icon Card -->
+                <div class="settings-card">
+                    <h3 class="settings-card-title"><i class="ph ph-image"></i> Server Icon</h3>
+                    <div class="icon-uploader-box">
+                        <label for="serverIconInput" class="icon-preview-wrap" title="Click to choose a new server icon">
+                            <img id="serverIconPreview" class="icon-preview-img" src="{{ community.get_icon_url }}" alt="{{ community.name }}" onerror="this.src='/static/img/default_server.svg'">
+                            <div class="icon-hover-overlay">
+                                <i class="ph-bold ph-camera"></i>
+                                <span>Change</span>
                             </div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 10px;">Recommended size: 512x512. JPG, PNG, or GIF. Maximum file size: <strong>1 MB</strong>.</div>
+                        </label>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                                <label for="serverIconInput" class="btn btn-secondary" style="cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; padding: 10px 18px;">
+                                    <i class="ph ph-upload-simple"></i> Choose Image...
+                                </label>
+                                <input type="file" id="serverIconInput" name="icon" accept="image/*" style="display: none;" onchange="validateServerIconSize(this)">
+                                <span id="iconFileName" style="font-size: 0.82rem; color: #94a3b8;">No file chosen</span>
+                            </div>
+                            <small style="color: #64748b; font-size: 0.8rem; margin-top: 10px; display: block; line-height: 1.45;">
+                                Recommended dimensions: <strong>512x512 PNG, JPG, or GIF</strong>. Maximum file size: <strong>1 MB</strong>.
+                            </small>
                         </div>
                     </div>
                 </div>
-                
-                <div class="settings-section" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 25px; margin-top: 25px;">
-                    <h4 style="margin-top: 0; color: var(--text-primary); display: flex; align-items: center; gap: 8px;"><i class="ph ph-text-aa" style="color: var(--accent);"></i> Server Details</h4>
-                    <div class="settings-field">
-                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">SERVER NAME</label>
-                        <input type="text" name="name" value="{{ community.name }}" required style="width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); font-family: inherit;">
+
+                <!-- Server Details Card -->
+                <div class="settings-card">
+                    <h3 class="settings-card-title"><i class="ph ph-text-aa"></i> Server Details</h3>
+                    <div class="field-group">
+                        <label class="field-label" for="community_name">SERVER NAME <span style="color: #ef4444;">*</span></label>
+                        <input type="text" id="community_name" name="name" class="field-input" value="{{ community.name }}" required maxlength="100" placeholder="e.g. The Chill Hangout">
                     </div>
-                    <div class="settings-field" style="margin-top: 15px;">
-                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px;">DESCRIPTION</label>
-                        <textarea name="description" rows="3" style="width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); font-family: inherit; resize: vertical;">{{ community.description }}</textarea>
+                    <div class="field-group">
+                        <label class="field-label" for="community_desc">SERVER DESCRIPTION</label>
+                        <textarea id="community_desc" name="description" class="field-textarea" rows="4" maxlength="500" placeholder="What is this community all about? Tell prospective members what makes this place special.">{{ community.description }}</textarea>
                     </div>
                 </div>
-                
-                <div style="margin-bottom: 40px;">
-                    <button type="submit" class="btn btn-primary"><i class="ph ph-check"></i> Save Changes</button>
+
+                <div style="margin-bottom: 36px; display: flex; align-items: center; gap: 14px;">
+                    <button type="submit" class="btn btn-primary" style="padding: 12px 28px; font-weight: 600; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 8px;">
+                        <i class="ph ph-check"></i> Save Changes
+                    </button>
                 </div>
             </form>
-            
-            <div class="settings-section danger-zone">
-                <h4><i class="ph ph-warning"></i> Danger Zone</h4>
-                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 15px;">
-                    Deleting the server will permanently remove all channels, messages, and roles. This action cannot be undone.
-                </p>
-                <a href="{% url 'delete_community' %}?c={{ community.slug }}" class="btn" style="background: rgba(244, 67, 54, 0.1); color: #F44336; border: 1px solid #F44336; text-decoration: none; display: inline-block; text-align: center;">Delete Server</a>
-            </div>
-        </div>
-        {% endif %}
 
-        
-        {% if current_tab == 'roles' %}
-        <div>
-            <h1 style="margin-top: 0; margin-bottom: 20px;">Roles</h1>
-            
-            <div class="settings-section">
-                <h4><i class="ph ph-plus"></i> Create Role</h4>
-                <form method="post" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+            <!-- Danger Zone -->
+            <div class="settings-card danger-zone-card">
+                <h3 class="settings-card-title"><i class="ph-bold ph-warning-octagon"></i> Danger Zone</h3>
+                <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 0; margin-bottom: 18px; line-height: 1.5;">
+                    Deleting this server is irreversible. All channels, messages, invites, custom roles, and media attachments will be permanently purged immediately.
+                </p>
+                <a href="{% url 'delete_community' %}?c={{ community.slug }}" class="btn" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; padding: 10px 20px;">
+                    <i class="ph ph-trash"></i> Delete Server
+                </a>
+            </div>
+
+            {% elif current_tab == 'roles' %}
+            <!-- TAB: ROLES -->
+            <div class="settings-page-header">
+                <h1><i class="ph-bold ph-shield-star" style="color: var(--accent, #ff6b2b);"></i> Server Roles</h1>
+                <p>Use roles to group server members and assign specific permissions.</p>
+            </div>
+
+            <!-- Create Role Card -->
+            <div class="settings-card">
+                <h3 class="settings-card-title"><i class="ph ph-plus-circle"></i> Create New Role</h3>
+                <form method="post" style="display: flex; flex-direction: column; gap: 16px;">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="create_role">
-                    <div class="settings-field" style="flex: 2; margin-bottom: 0;">
-                        <label>Role Name</label>
-                        <input type="text" name="name" required>
+
+                    <div style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+                        <div style="flex: 2; min-width: 220px;">
+                            <label class="field-label" for="new_role_name">ROLE NAME <span style="color: #ef4444;">*</span></label>
+                            <input type="text" id="new_role_name" name="name" class="field-input" placeholder="e.g. VIP, Moderator, Gamer" required oninput="updateNewRolePreview(this.value)">
+                        </div>
+                        <div style="min-width: 130px;">
+                            <label class="field-label">COLOR</label>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="color" id="new_role_color" name="color" value="#FF6B2B" style="width: 44px; height: 44px; border-radius: 8px; background: rgba(12, 14, 18, 0.85); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; padding: 4px;" onchange="updateNewRoleColor(this.value)">
+                                <span id="new_role_hex" style="font-family: monospace; font-size: 0.85rem; color: #94a3b8;">#FF6B2B</span>
+                            </div>
+                        </div>
+                        <div>
+                            <button type="submit" class="btn btn-primary" style="height: 44px; padding: 0 24px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                                <i class="ph ph-plus"></i> Create Role
+                            </button>
+                        </div>
                     </div>
-                    <div class="settings-field" style="flex: 1; margin-bottom: 0;">
-                        <label>Color</label>
-                        <input type="color" name="color" value="#E56A2B" style="width: 100%; height: 44px; border-radius: var(--radius-sm); background: var(--bg-elevated); border: 1px solid var(--border); cursor: pointer; padding: 5px;">
+
+                    <!-- Preset Palette & Preview -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06);">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Presets:</span>
+                            <div class="color-swatch-list">
+                                <button type="button" class="color-swatch-btn active" style="background: #FF6B2B;" onclick="pickSwatch('#FF6B2B')" title="Coral"></button>
+                                <button type="button" class="color-swatch-btn" style="background: #22C55E;" onclick="pickSwatch('#22C55E')" title="Emerald"></button>
+                                <button type="button" class="color-swatch-btn" style="background: #3B82F6;" onclick="pickSwatch('#3B82F6')" title="Sky"></button>
+                                <button type="button" class="color-swatch-btn" style="background: #A855F7;" onclick="pickSwatch('#A855F7')" title="Purple"></button>
+                                <button type="button" class="color-swatch-btn" style="background: #EC4899;" onclick="pickSwatch('#EC4899')" title="Pink"></button>
+                                <button type="button" class="color-swatch-btn" style="background: #EAB308;" onclick="pickSwatch('#EAB308')" title="Amber"></button>
+                                <button type="button" class="color-swatch-btn" style="background: #06B6D4;" onclick="pickSwatch('#06B6D4')" title="Cyan"></button>
+                                <button type="button" class="color-swatch-btn" style="background: #94A3B8;" onclick="pickSwatch('#94A3B8')" title="Slate"></button>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Preview:</span>
+                            <div id="newRolePreviewBadge" class="role-badge-pill" style="color: #FF6B2B; border-color: #FF6B2B;">
+                                <span class="role-color-dot" style="background: #FF6B2B; color: #FF6B2B;"></span>
+                                <span id="newRolePreviewName">New Role</span>
+                            </div>
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary" style="height: 44px;">Create</button>
                 </form>
             </div>
-            
-            <div class="settings-section">
-                <h4><i class="ph ph-shield-check"></i> Existing Roles</h4>
+
+            <!-- Existing Roles List -->
+            <div class="settings-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+                    <h3 class="settings-card-title" style="margin-bottom: 0;"><i class="ph ph-shield-check"></i> Server Roles ({{ roles|length }})</h3>
+                    <span style="font-size: 0.78rem; color: #94a3b8;">Click a role to configure permissions</span>
+                </div>
+
                 {% if roles %}
                     {% for role in roles %}
-                    <details class="role-details" style="background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 10px; overflow: hidden;">
-                        <summary style="padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;">
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <div class="role-badge" style="color: {{ role.color }}; border: 1px solid {{ role.color }}; background: rgba(255,255,255,0.05); margin: 0;">
-                                    {{ role.name }}
+                    <details class="role-accordion">
+                        <summary class="role-summary">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div class="role-badge-pill" style="color: {{ role.color }}; border-color: {{ role.color }};">
+                                    <span class="role-color-dot" style="background: {{ role.color }}; color: {{ role.color }};"></span>
+                                    <span>{{ role.name }}</span>
                                 </div>
-                                <span style="color: var(--text-muted); font-size: 0.85rem;"><i class="ph ph-caret-down"></i> Edit Permissions</span>
+                                {% if role.name == '@everyone' %}
+                                <span style="font-size: 0.75rem; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.06); color: #94a3b8;">Default Role</span>
+                                {% endif %}
                             </div>
-                            
-                            {% if role.name != '@everyone' %}
-                            <form method="post" style="margin: 0;" onsubmit="return confirm('Delete this role?');">
-                                {% csrf_token %}
-                                <input type="hidden" name="action" value="delete_role">
-                                <input type="hidden" name="role_id" value="{{ role.id }}">
-                                <button type="submit" class="icon-btn" style="color: #F44336; background: transparent; border: none; cursor: pointer; padding: 5px;"><i class="ph ph-trash" style="font-size: 1.2rem;"></i></button>
-                            </form>
-                            {% endif %}
+
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="font-size: 0.8rem; color: #64748b; display: inline-flex; align-items: center; gap: 4px;">
+                                    <i class="ph ph-caret-down"></i> Edit
+                                </span>
+                                {% if role.name != '@everyone' %}
+                                <form method="post" style="margin: 0;" onsubmit="return czConfirmSubmit(this, 'Are you sure you want to delete role {{ role.name|escapejs }}?', 'Delete Role', true);">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete_role">
+                                    <input type="hidden" name="role_id" value="{{ role.id }}">
+                                    <button type="submit" class="icon-btn" style="color: #ef4444; background: transparent; border: none; cursor: pointer; padding: 4px; font-size: 1.15rem;" title="Delete Role">
+                                        <i class="ph ph-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
                         </summary>
-                        
-                        <div style="padding: 15px; border-top: 1px solid var(--border); background: var(--bg-surface);">
+
+                        <div style="padding: 20px 22px; border-top: 1px solid rgba(255,255,255,0.06); background: rgba(10, 12, 16, 0.7);">
                             <form method="post">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="update_role">
                                 <input type="hidden" name="role_id" value="{{ role.id }}">
-                                
-                                <div style="display: flex; gap: 15px; margin-bottom: 18px; flex-wrap: wrap;">
+
+                                <div style="display: flex; gap: 16px; margin-bottom: 22px; flex-wrap: wrap;">
                                     {% if role.name != '@everyone' %}
-                                    <div style="flex: 1; min-width: 180px;">
-                                        <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">Role Name</label>
-                                        <input type="text" name="name" value="{{ role.name }}" style="width: 100%; padding: 8px 12px; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem;">
+                                    <div style="flex: 2; min-width: 180px;">
+                                        <label class="field-label">ROLE NAME</label>
+                                        <input type="text" name="name" value="{{ role.name }}" class="field-input">
                                     </div>
                                     {% endif %}
                                     <div style="min-width: 140px;">
-                                        <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase;">Role Color</label>
-                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                            <input type="color" name="color" value="{{ role.color }}" style="width: 40px; height: 38px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
-                                            <span style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">{{ role.color }}</span>
+                                        <label class="field-label">ROLE COLOR</label>
+                                        <div style="display: flex; align-items: center; gap: 10px;">
+                                            <input type="color" name="color" value="{{ role.color }}" style="width: 44px; height: 44px; border-radius: 8px; background: rgba(12, 14, 18, 0.85); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; padding: 4px;">
+                                            <span style="font-family: monospace; font-size: 0.88rem; color: #94a3b8;">{{ role.color }}</span>
                                         </div>
                                     </div>
                                 </div>
+
+                                <!-- Membership Display Toggles -->
+                                <div style="margin-bottom: 20px;">
+                                    <div class="permission-toggle-item">
+                                        <div class="permission-info">
+                                            <div class="permission-title">Display role members separately from online members</div>
+                                            <div class="permission-desc">Members with this role will appear under a dedicated category in the sidebar member list.</div>
+                                        </div>
+                                        <label class="cz-switch">
+                                            <input type="checkbox" name="display_separately" {% if role.display_separately %}checked{% endif %}>
+                                            <span class="cz-slider"></span>
+                                        </label>
+                                    </div>
+
+                                    <div class="permission-toggle-item">
+                                        <div class="permission-info">
+                                            <div class="permission-title">Allow anyone to @mention this role</div>
+                                            <div class="permission-desc">Allows members to ping all users in this role by typing @{{ role.name }}.</div>
+                                        </div>
+                                        <label class="cz-switch">
+                                            <input type="checkbox" name="allow_mention" {% if role.allow_mention %}checked{% endif %}>
+                                            <span class="cz-slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Text Permissions Group -->
+                                <h4 style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #64748b; margin: 18px 0 10px 0;">Text Channel Permissions</h4>
                                 
-                                <div style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 20px;">
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="display_separately" {% if role.display_separately %}checked{% endif %}> Display role members separately from online members</div>
-                                    </label>
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer; margin-bottom: 10px;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="allow_mention" {% if role.allow_mention %}checked{% endif %}> Allow anyone to @mention this role</div>
-                                    </label>
-                                    
-                                    <hr style="border-color: var(--border); margin: 15px 0;">
-                                    
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="VIEW_CHANNEL" {% if role.VIEW_CHANNEL %}checked{% endif %}> View Channels</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to view channels by default.</div>
-                                    </label>
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="SEND_MESSAGES" {% if role.SEND_MESSAGES %}checked{% endif %}> Send Messages</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to send messages in text channels.</div>
-                                    </label>
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="READ_MESSAGE_HISTORY" {% if role.READ_MESSAGE_HISTORY %}checked{% endif %}> Read History</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to read previous messages sent in channels.</div>
-                                    </label>
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="ATTACH_FILES" {% if role.ATTACH_FILES %}checked{% endif %}> Attach Files</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to upload files and media.</div>
-                                    </label>
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="EMBED_LINKS" {% if role.EMBED_LINKS %}checked{% endif %}> Embed Links</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows links sent by this member to embed media/previews.</div>
-                                    </label>
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="CHANGE_NICKNAME" {% if role.CHANGE_NICKNAME %}checked{% endif %}> Change Nickname</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to change their own nickname.</div>
-                                    </label>
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="MANAGE_MESSAGES" {% if role.MANAGE_MESSAGES %}checked{% endif %}> Manage Messages</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to delete messages sent by others.</div>
-                                    </label>
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="MANAGE_NICKNAMES" {% if role.MANAGE_NICKNAMES %}checked{% endif %}> Manage Nicknames</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to change the nicknames of others.</div>
-                                    </label>
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="MODERATE_MEMBERS" {% if role.MODERATE_MEMBERS %}checked{% endif %}> Moderate Members</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to timeout or manage other users.</div>
-                                    </label>
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="KICK_MEMBERS" {% if role.KICK_MEMBERS %}checked{% endif %}> Kick Members</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to remove users from the server.</div>
-                                    </label>
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="BAN_MEMBERS" {% if role.BAN_MEMBERS %}checked{% endif %}> Ban Members</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to permanently ban users from the server.</div>
-                                    </label>
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="MANAGE_CHANNELS" {% if role.MANAGE_CHANNELS %}checked{% endif %}> Manage Channels</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to create, edit, or delete channels.</div>
-                                    </label>
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" name="MANAGE_ROLES" {% if role.MANAGE_ROLES %}checked{% endif %}> Manage Roles</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Allows members to create, edit, or delete roles.</div>
-                                    </label>
-                                    
-                                    <hr style="border-color: rgba(244, 67, 54, 0.3); margin: 15px 0;">
-                                    <h5 style="color: #F44336; margin: 0 0 10px 0; font-size: 0.8rem;">DANGER ZONE</h5>
-                                    
-                                    <label style="display: flex; flex-direction: column; gap: 2px; color: var(--text-primary); cursor: pointer;">
-                                        <div style="display: flex; align-items: center; gap: 8px; color: #F44336;"><input type="checkbox" name="ADMINISTRATOR" {% if role.ADMINISTRATOR %}checked{% endif %}> Administrator</div>
-                                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-left: 21px;">Grants all permissions and bypasses channel restrictions.</div>
+                                <div class="permission-toggle-item">
+                                    <div class="permission-info">
+                                        <div class="permission-title">View Channels</div>
+                                        <div class="permission-desc">Allows members to view channels by default (excluding private channels).</div>
+                                    </div>
+                                    <label class="cz-switch">
+                                        <input type="checkbox" name="VIEW_CHANNEL" {% if role.VIEW_CHANNEL %}checked{% endif %}>
+                                        <span class="cz-slider"></span>
                                     </label>
                                 </div>
-                                <button type="submit" class="btn btn-primary btn-sm">Save Permissions</button>
+
+                                <div class="permission-toggle-item">
+                                    <div class="permission-info">
+                                        <div class="permission-title">Send Messages</div>
+                                        <div class="permission-desc">Allows members to send messages in chat channels and threads.</div>
+                                    </div>
+                                    <label class="cz-switch">
+                                        <input type="checkbox" name="SEND_MESSAGES" {% if role.SEND_MESSAGES %}checked{% endif %}>
+                                        <span class="cz-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="permission-toggle-item">
+                                    <div class="permission-info">
+                                        <div class="permission-title">Read Message History</div>
+                                        <div class="permission-desc">Allows members to read previous messages sent before they joined or opened the channel.</div>
+                                    </div>
+                                    <label class="cz-switch">
+                                        <input type="checkbox" name="READ_MESSAGE_HISTORY" {% if role.READ_MESSAGE_HISTORY %}checked{% endif %}>
+                                        <span class="cz-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="permission-toggle-item">
+                                    <div class="permission-info">
+                                        <div class="permission-title">Attach Files & Media</div>
+                                        <div class="permission-desc">Allows members to upload images, videos, audio, and documents.</div>
+                                    </div>
+                                    <label class="cz-switch">
+                                        <input type="checkbox" name="ATTACH_FILES" {% if role.ATTACH_FILES %}checked{% endif %}>
+                                        <span class="cz-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="permission-toggle-item">
+                                    <div class="permission-info">
+                                        <div class="permission-title">Embed Links</div>
+                                        <div class="permission-desc">Allows links sent by members to display rich media and website previews.</div>
+                                    </div>
+                                    <label class="cz-switch">
+                                        <input type="checkbox" name="EMBED_LINKS" {% if role.EMBED_LINKS %}checked{% endif %}>
+                                        <span class="cz-slider"></span>
+                                    </label>
+                                </div>
+
+                                <!-- Moderation Permissions Group -->
+                                <h4 style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #64748b; margin: 24px 0 10px 0;">Membership & Moderation</h4>
+
+                                <div class="permission-toggle-item">
+                                    <div class="permission-info">
+                                        <div class="permission-title">Change Nickname</div>
+                                        <div class="permission-desc">Allows members to change their own nickname in this server.</div>
+                                    </div>
+                                    <label class="cz-switch">
+                                        <input type="checkbox" name="CHANGE_NICKNAME" {% if role.CHANGE_NICKNAME %}checked{% endif %}>
+                                        <span class="cz-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="permission-toggle-item">
+                                    <div class="permission-info">
+                                        <div class="permission-title">Manage Nicknames</div>
+                                        <div class="permission-desc">Allows members to change nicknames of other members.</div>
+                                    </div>
+                                    <label class="cz-switch">
+                                        <input type="checkbox" name="MANAGE_NICKNAMES" {% if role.MANAGE_NICKNAMES %}checked{% endif %}>
+                                        <span class="cz-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="permission-toggle-item">
+                                    <div class="permission-info">
+                                        <div class="permission-title">Manage Messages</div>
+                                        <div class="permission-desc">Allows members to delete and moderate messages sent by other users.</div>
+                                    </div>
+                                    <label class="cz-switch">
+                                        <input type="checkbox" name="MANAGE_MESSAGES" {% if role.MANAGE_MESSAGES %}checked{% endif %}>
+                                        <span class="cz-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="permission-toggle-item">
+                                    <div class="permission-info">
+                                        <div class="permission-title">Moderate Members</div>
+                                        <div class="permission-desc">Allows members to timeout or temporarily restrict rule-breakers.</div>
+                                    </div>
+                                    <label class="cz-switch">
+                                        <input type="checkbox" name="MODERATE_MEMBERS" {% if role.MODERATE_MEMBERS %}checked{% endif %}>
+                                        <span class="cz-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="permission-toggle-item">
+                                    <div class="permission-info">
+                                        <div class="permission-title">Kick Members</div>
+                                        <div class="permission-desc">Allows members to remove users from the server (they can rejoin with an invite).</div>
+                                    </div>
+                                    <label class="cz-switch">
+                                        <input type="checkbox" name="KICK_MEMBERS" {% if role.KICK_MEMBERS %}checked{% endif %}>
+                                        <span class="cz-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="permission-toggle-item">
+                                    <div class="permission-info">
+                                        <div class="permission-title">Ban Members</div>
+                                        <div class="permission-desc">Allows members to permanently ban users from the server.</div>
+                                    </div>
+                                    <label class="cz-switch">
+                                        <input type="checkbox" name="BAN_MEMBERS" {% if role.BAN_MEMBERS %}checked{% endif %}>
+                                        <span class="cz-slider"></span>
+                                    </label>
+                                </div>
+
+                                <!-- Server Management Group -->
+                                <h4 style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #64748b; margin: 24px 0 10px 0;">Advanced Administration</h4>
+
+                                <div class="permission-toggle-item">
+                                    <div class="permission-info">
+                                        <div class="permission-title">Manage Channels</div>
+                                        <div class="permission-desc">Allows members to create, edit, reorder, or delete channels and categories.</div>
+                                    </div>
+                                    <label class="cz-switch">
+                                        <input type="checkbox" name="MANAGE_CHANNELS" {% if role.MANAGE_CHANNELS %}checked{% endif %}>
+                                        <span class="cz-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="permission-toggle-item">
+                                    <div class="permission-info">
+                                        <div class="permission-title">Manage Roles</div>
+                                        <div class="permission-desc">Allows members to create new roles and edit roles lower than their own.</div>
+                                    </div>
+                                    <label class="cz-switch">
+                                        <input type="checkbox" name="MANAGE_ROLES" {% if role.MANAGE_ROLES %}checked{% endif %}>
+                                        <span class="cz-slider"></span>
+                                    </label>
+                                </div>
+
+                                <!-- Administrator Danger Section -->
+                                <div style="margin-top: 18px; padding: 14px 16px; border-radius: 10px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25);">
+                                    <div class="permission-toggle-item" style="background: transparent; border: none; padding: 0; margin: 0;">
+                                        <div class="permission-info">
+                                            <div class="permission-title" style="color: #f87171; display: flex; align-items: center; gap: 8px;">
+                                                <i class="ph-bold ph-shield-warning"></i> Administrator
+                                            </div>
+                                            <div class="permission-desc" style="color: #fca5a5;">
+                                                Members with this permission have every single permission and bypass all channel-specific restrictions. Use with extreme caution.
+                                            </div>
+                                        </div>
+                                        <label class="cz-switch">
+                                            <input type="checkbox" name="ADMINISTRATOR" {% if role.ADMINISTRATOR %}checked{% endif %}>
+                                            <span class="cz-slider" style="background-color: rgba(239, 68, 68, 0.2) !important;"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+                                    <button type="submit" class="btn btn-primary" style="padding: 10px 22px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                                        <i class="ph ph-check"></i> Save Permissions
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     </details>
                     {% endfor %}
                 {% else %}
-                    <p style="color: var(--text-muted);">No roles created yet.</p>
+                    <div style="padding: 30px; text-align: center; color: #94a3b8;">
+                        No custom roles created yet. Use the card above to create one.
+                    </div>
                 {% endif %}
             </div>
-            
-            <p style="color: var(--text-muted); font-size: 0.9rem;">
-                <i class="ph ph-info"></i> Note: You can assign roles to members by visiting their profile from the members list.
-            </p>
-        </div>
-        {% endif %}
-        
-        {% if current_tab == 'invites' %}
-        <div>
-            <h1 style="margin-top: 0; margin-bottom: 20px;">Server Invites</h1>
-            <div class="settings-section">
-                <h4 style="margin-top: 0; color: var(--text-primary);">Create New Invite</h4>
-                <form method="post" id="inviteCreateForm" style="display: flex; gap: 15px; align-items: flex-end;" onsubmit="return validateInviteForm()">
+
+            {% elif current_tab == 'invites' %}
+            <!-- TAB: INVITES -->
+            <div class="settings-page-header">
+                <h1><i class="ph-bold ph-envelope-simple-open" style="color: var(--accent, #ff6b2b);"></i> Server Invites</h1>
+                <p>Generate and manage unique invitation codes for prospective community members.</p>
+            </div>
+
+            <!-- Create Invite Card -->
+            <div class="settings-card">
+                <h3 class="settings-card-title"><i class="ph ph-plus-circle"></i> Create New Invite</h3>
+                <form method="post" id="inviteCreateForm" class="mobile-stack-form" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;" onsubmit="return validateInviteForm()">
                     {% csrf_token %}
                     <input type="hidden" name="action" value="create_invite">
-                    <div class="settings-field" style="margin: 0; flex: 1;">
-                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">MAX USES (0 for unlimited)</label>
-                        <input type="number" name="max_uses" id="invite_max_uses" value="0" min="0" max="10000" style="width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary);">
-                        <small id="invite_max_uses_error" style="color: #F44336; display: none; margin-top: 4px; font-size: 0.8rem;"></small>
+
+                    <div style="flex: 1; min-width: 180px;">
+                        <label class="field-label" for="invite_max_uses">MAX USES (0 FOR UNLIMITED)</label>
+                        <input type="number" id="invite_max_uses" name="max_uses" value="0" min="0" max="10000" class="field-input">
+                        <small id="invite_max_uses_error" style="color: #ef4444; display: none; margin-top: 4px; font-size: 0.8rem;"></small>
                     </div>
-                    <div class="settings-field" style="margin: 0; flex: 1;">
-                        <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted);">EXPIRATION</label>
-                        <select name="expires_in" style="width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary);">
+
+                    <div style="flex: 1; min-width: 180px;">
+                        <label class="field-label" for="invite_expires_in">EXPIRATION</label>
+                        <select id="invite_expires_in" name="expires_in" class="field-select">
                             <option value="0">Never expires</option>
                             <option value="1">1 Day</option>
                             <option value="7">7 Days</option>
                             <option value="30">30 Days</option>
                         </select>
                     </div>
-                    <button type="submit" class="btn btn-primary" style="height: 44px; padding: 0 20px;">Generate Code</button>
+
+                    <div>
+                        <button type="submit" class="btn btn-primary" style="height: 44px; padding: 0 24px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                            <i class="ph ph-link-simple"></i> Generate Code
+                        </button>
+                    </div>
                 </form>
-                <script>
-                function validateInviteForm() {
-                    const input = document.getElementById('invite_max_uses');
-                    const errEl = document.getElementById('invite_max_uses_error');
-                    const val = parseInt(input.value, 10);
-                    if (isNaN(val) || val < 0) {
-                        errEl.textContent = 'Max uses cannot be negative.';
-                        errEl.style.display = 'block';
-                        input.style.borderColor = '#F44336';
-                        input.focus();
-                        return false;
-                    }
-                    if (val > 10000) {
-                        errEl.textContent = 'Max uses cannot exceed 10,000.';
-                        errEl.style.display = 'block';
-                        input.style.borderColor = '#F44336';
-                        input.focus();
-                        return false;
-                    }
-                    errEl.style.display = 'none';
-                    input.style.borderColor = '';
-                    return true;
-                }
-                </script>
             </div>
-            
-            <div class="settings-section" style="padding: 0;">
-                <div style="padding: 15px 20px; border-bottom: 1px solid var(--border); font-weight: bold; color: var(--text-muted); display: flex;">
+
+            <!-- Active Invites Table -->
+            <div class="settings-card" style="padding: 0; overflow: hidden;">
+                <div class="table-header">
                     <div style="flex: 2;">Invite Code</div>
-                    <div style="flex: 1;">Creator</div>
-                    <div style="flex: 1;">Uses</div>
-                    <div style="flex: 1;">Expires</div>
-                    <div style="width: 40px;"></div>
+                    <div style="flex: 1.5;">Creator</div>
+                    <div style="flex: 1.2;">Uses</div>
+                    <div style="flex: 1.5;">Expires</div>
+                    <div style="width: 80px; text-align: right;">Action</div>
                 </div>
+
                 {% if invites %}
                     {% for inv in invites %}
-                    <div style="padding: 15px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; {% if inv.is_expired %}opacity: 0.5;{% endif %}">
-                        <div style="flex: 2; font-family: monospace; font-size: 1.1rem; color: var(--accent);">{{ inv.code }}</div>
-                        <div style="flex: 1; color: var(--text-primary);">{{ inv.created_by.username }}</div>
-                        <div style="flex: 1; color: var(--text-secondary);">{{ inv.uses }} / {% if inv.max_uses == 0 %}∞{% else %}{{ inv.max_uses }}{% endif %}</div>
-                        <div style="flex: 1; color: var(--text-secondary); font-size: 0.85rem;">
-                            {% if inv.expires_at %}{{ inv.expires_at|date:"M d, Y" }}{% else %}Never{% endif %}
-                            {% if inv.is_expired %}<span style="color: #F44336; margin-left: 5px;">(Expired)</span>{% endif %}
+                    <div class="table-row" style="{% if inv.is_expired %}opacity: 0.55;{% endif %}">
+                        <div style="flex: 2; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-family: monospace; font-size: 1.05rem; color: var(--accent, #ff6b2b); font-weight: 700; background: rgba(255,107,43,0.1); border: 1px solid rgba(255,107,43,0.25); padding: 3px 10px; border-radius: 6px;">
+                                {{ inv.code }}
+                            </span>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="copyInviteLink('{{ inv.code }}')" style="padding: 4px 10px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;" title="Copy invite link">
+                                <i class="ph-bold ph-copy"></i> Copy
+                            </button>
                         </div>
-                        <div style="width: 40px; text-align: right;">
-                            <form method="post" style="margin: 0;">
+
+                        <div style="flex: 1.5; color: #f1f5f9; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;">
+                            <i class="ph ph-user" style="color: #94a3b8;"></i>
+                            <span>{{ inv.created_by.username }}</span>
+                        </div>
+
+                        <div style="flex: 1.2; color: #94a3b8; font-size: 0.88rem;">
+                            <span style="color: #f1f5f9; font-weight: 600;">{{ inv.uses }}</span> / {% if inv.max_uses == 0 %}∞{% else %}{{ inv.max_uses }}{% endif %}
+                        </div>
+
+                        <div style="flex: 1.5; font-size: 0.85rem;">
+                            {% if inv.is_expired %}
+                                <span style="color: #ef4444; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                                    <i class="ph-bold ph-x-circle"></i> Expired
+                                </span>
+                            {% elif inv.expires_at %}
+                                <span style="color: #94a3b8;">{{ inv.expires_at|date:"M d, Y" }}</span>
+                            {% else %}
+                                <span style="color: #22c55e; font-weight: 500;">Never</span>
+                            {% endif %}
+                        </div>
+
+                        <div style="width: 80px; text-align: right;">
+                            <form method="post" style="margin: 0;" onsubmit="return czConfirmSubmit(this, 'Revoke and delete invite code {{ inv.code }}?', 'Revoke Invite', true);">
                                 {% csrf_token %}
                                 <input type="hidden" name="action" value="delete_invite">
                                 <input type="hidden" name="invite_id" value="{{ inv.id }}">
-                                <button type="submit" style="background: none; border: none; color: #F44336; cursor: pointer; padding: 5px;" title="Revoke Invite"><i class="ph ph-trash"></i></button>
+                                <button type="submit" class="icon-btn" style="color: #ef4444; background: transparent; border: none; cursor: pointer; padding: 6px; font-size: 1.15rem;" title="Revoke Invite">
+                                    <i class="ph ph-trash"></i>
+                                </button>
                             </form>
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
-                    <div style="padding: 30px; text-align: center; color: var(--text-muted);">
-                        No active invite codes. Create one above!
+                    <div style="padding: 40px 20px; text-align: center; color: #94a3b8;">
+                        <i class="ph ph-link-break" style="font-size: 2.8rem; color: #64748b; margin-bottom: 12px; display: inline-block;"></i>
+                        <h4 style="margin: 0 0 6px 0; color: #f8fafc;">No Active Invites</h4>
+                        <p style="margin: 0; font-size: 0.88rem;">Create an invite link above to share this server with your friends or audience.</p>
                     </div>
                 {% endif %}
             </div>
-        </div>
-        {% endif %}
-        
-        {% if current_tab == 'audit_log' %}
-        <div>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-                <h1 style="margin: 0; font-size: 1.5rem; display: flex; align-items: center; gap: 10px;">
-                    <i class="ph ph-scroll" style="color: var(--accent);"></i> Audit Log
-                </h1>
-                <span style="font-size: 0.85rem; color: var(--text-muted); background: var(--bg-surface); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);">
-                    {{ audit_logs|length }} Recent Events
-                </span>
+
+            {% elif current_tab == 'bans' %}
+            <!-- TAB: BANS -->
+            <div class="settings-page-header">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h1><i class="ph-bold ph-prohibit" style="color: #ef4444;"></i> Server Bans</h1>
+                        <p>Manage blacklisted users and prevent rejoining via invite links.</p>
+                    </div>
+                    <span style="font-size: 0.82rem; font-weight: 600; color: #ef4444; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); padding: 5px 14px; border-radius: 20px;">
+                        {{ bans|length }} Banned Users
+                    </span>
+                </div>
             </div>
-            <div class="settings-section" style="padding: 0; overflow: hidden;">
+
+            <!-- Ban User Card -->
+            <div class="settings-card">
+                <h3 class="settings-card-title" style="color: #ef4444;"><i class="ph ph-user-minus"></i> Ban User by Unique ID or Username</h3>
+                <p style="font-size: 0.85rem; color: #94a3b8; margin-top: -6px; margin-bottom: 16px; line-height: 1.45;">
+                    Ban any user permanently using their <strong>ChillZone Unique ID (e.g. CZ-123456)</strong> or username handle. Even if they have left the server, banning their User ID prevents them from returning through any active invite links.
+                </p>
+
+                <form method="post" class="mobile-stack-form" style="display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="ban_member">
+
+                    <div style="flex: 2; min-width: 180px;">
+                        <label class="field-label" for="ban_identifier">USER ID OR USERNAME <span style="color: #ef4444;">*</span></label>
+                        <input type="text" id="ban_identifier" name="identifier" class="field-input" placeholder="e.g. CZ-849201 or @handle" required>
+                    </div>
+
+                    <div style="flex: 2; min-width: 180px;">
+                        <label class="field-label" for="ban_reason">REASON (OPTIONAL)</label>
+                        <input type="text" id="ban_reason" name="reason" class="field-input" placeholder="e.g. Spreading spam, violating rules">
+                    </div>
+
+                    <div>
+                        <button type="submit" class="btn" style="height: 44px; padding: 0 22px; background: #dc2626; color: white; border: none; font-weight: 600; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <i class="ph ph-prohibit"></i> Ban Member
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Banned Members List -->
+            <div class="settings-card" style="padding: 0; overflow: hidden;">
+                <div class="table-header">
+                    <div style="flex: 2;">User</div>
+                    <div style="flex: 1.5;">Unique ID</div>
+                    <div style="flex: 2;">Reason</div>
+                    <div style="flex: 1.5;">Banned By</div>
+                    <div style="width: 100px; text-align: right;">Action</div>
+                </div>
+
+                {% if bans %}
+                    {% for b in bans %}
+                    <div class="table-row">
+                        <div style="flex: 2; display: flex; align-items: center; gap: 12px; min-width: 160px;">
+                            <img src="{{ b.user.profile.get_avatar_url }}" alt="{{ b.user.username }}" style="width: 38px; height: 38px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1);" onerror="this.src='/static/img/default_avatar.svg'">
+                            <div>
+                                <strong style="color: #f8fafc; font-size: 0.95rem; display: block;">{{ b.user.username }}</strong>
+                                <span style="font-size: 0.75rem; color: #64748b;">{{ b.created_at|date:"M d, Y" }}</span>
+                            </div>
+                        </div>
+
+                        <div style="flex: 1.5;">
+                            <span style="font-family: monospace; font-size: 0.85rem; color: #60a5fa; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); padding: 3px 8px; border-radius: 6px;">
+                                {{ b.user.profile.unique_id|default:b.user.id }}
+                            </span>
+                        </div>
+
+                        <div style="flex: 2; color: #cbd5e1; font-size: 0.88rem;">
+                            {{ b.reason|default:"No reason specified" }}
+                        </div>
+
+                        <div style="flex: 1.5; color: #94a3b8; font-size: 0.85rem;">
+                            {% if b.banned_by %}@{{ b.banned_by.username }}{% else %}Server Mod{% endif %}
+                        </div>
+
+                        <div style="width: 100px; text-align: right;">
+                            <form method="post" style="margin: 0;" onsubmit="return czConfirmSubmit(this, 'Unban {{ b.user.username|escapejs }} from this server?', 'Unban Member', false);">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="unban_member">
+                                <input type="hidden" name="user_id" value="{{ b.user.id }}">
+                                <button type="submit" class="btn btn-secondary btn-sm" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px;">
+                                    <i class="ph ph-arrow-counter-clockwise"></i> Unban
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="padding: 48px 24px; text-align: center; color: #94a3b8;">
+                        <i class="ph ph-shield-check" style="font-size: 3.2rem; color: #22c55e; opacity: 0.85; margin-bottom: 12px; display: inline-block;"></i>
+                        <h4 style="margin: 0 0 6px 0; color: #f8fafc;">No Banned Members</h4>
+                        <p style="margin: 0; font-size: 0.88rem; max-width: 500px; margin-left: auto; margin-right: auto; line-height: 1.5;">This server is in good standing with zero banned users. You can use the form above to restrict any disruptive accounts.</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            {% elif current_tab == 'audit_log' %}
+            <!-- TAB: AUDIT LOG -->
+            <div class="settings-page-header">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h1><i class="ph-bold ph-scroll" style="color: var(--accent, #ff6b2b);"></i> Server Audit Log</h1>
+                        <p>Chronological record of administrative operations, role adjustments, and settings updates.</p>
+                    </div>
+                    <span style="font-size: 0.82rem; font-weight: 600; color: #94a3b8; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); padding: 5px 14px; border-radius: 20px;">
+                        {{ audit_logs|length }} Events Logged
+                    </span>
+                </div>
+            </div>
+
+            <div class="settings-card" style="padding: 0; overflow: hidden;">
                 {% if audit_logs %}
                     {% for log in audit_logs %}
-                    <div class="audit-log-item" style="padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 14px;">
-                        <div style="width: 38px; height: 38px; border-radius: 50%; background: rgba(255,107,43,0.15); border: 1px solid rgba(255,107,43,0.3); color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; font-size: 0.95rem;">
+                    <div style="padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; align-items: flex-start; gap: 16px;">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; background: rgba(255,107,43,0.15); border: 1px solid rgba(255,107,43,0.3); color: var(--accent, #ff6b2b); display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; font-size: 1rem;">
                             {% if log.user %}
                                 {{ log.user.username|make_list|first|upper }}
                             {% else %}
                                 <i class="ph ph-gear"></i>
                             {% endif %}
                         </div>
+
                         <div style="flex: 1; min-width: 0;">
-                            <div style="margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <div style="margin-bottom: 6px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                                 {% if log.user %}
-                                    <strong style="color: var(--text-primary); font-size: 0.95rem;">{{ log.user.username }}</strong>
+                                    <strong style="color: #f8fafc; font-size: 0.95rem;">{{ log.user.username }}</strong>
                                 {% else %}
-                                    <strong style="color: var(--text-muted); font-size: 0.95rem;">System</strong>
+                                    <strong style="color: #94a3b8; font-size: 0.95rem;">System</strong>
                                 {% endif %}
-                                <span style="font-size: 0.82rem; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--text-secondary); font-weight: 500;">
+                                <span style="font-size: 0.8rem; padding: 2px 10px; border-radius: 4px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: #cbd5e1; font-weight: 500;">
                                     {{ log.action }}
                                 </span>
                             </div>
+
                             {% if log.details %}
-                            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 4px; word-break: break-word;">
+                            <div style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; word-break: break-word; background: rgba(0,0,0,0.25); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.04);">
                                 {{ log.details }}
                             </div>
                             {% endif %}
-                            <div style="font-size: 0.75rem; color: var(--text-muted); opacity: 0.8;">
+
+                            <div style="font-size: 0.75rem; color: #64748b;">
                                 <i class="ph ph-clock" style="vertical-align: -1px;"></i> {{ log.created_at|date:"M d, Y • h:i A" }}
                             </div>
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
-                    <div style="padding: 50px 30px; text-align: center; color: var(--text-muted);">
-                        <i class="ph ph-scroll" style="font-size: 3.5rem; color: var(--accent); opacity: 0.75; margin-bottom: 16px; display: inline-block;"></i>
-                        <h3 style="margin: 0 0 8px 0; color: var(--text-primary);">No Audit Log Entries Yet</h3>
-                        <p style="margin: 0 auto; max-width: 480px; font-size: 0.9rem; line-height: 1.5;">The audit log automatically records administrative actions including role changes, channel creations, updates, category moves, invite generation, and server configuration edits.</p>
+                    <div style="padding: 56px 28px; text-align: center; color: #94a3b8;">
+                        <i class="ph ph-scroll" style="font-size: 3.5rem; color: var(--accent, #ff6b2b); opacity: 0.7; margin-bottom: 16px; display: inline-block;"></i>
+                        <h3 style="margin: 0 0 8px 0; color: #f8fafc;">No Audit Log Entries Yet</h3>
+                        <p style="margin: 0 auto; max-width: 480px; font-size: 0.9rem; line-height: 1.5;">Administrative updates, role assignments, invite links, and server profile revisions are permanently recorded in this log.</p>
                     </div>
                 {% endif %}
             </div>
+
+            {% endif %}
+
         </div>
-        {% endif %}
-        
-    </div>
+    </main>
 </div>
 
 <script>
-    // Style textareas for dashboard config
-    document.querySelectorAll('.settings-field textarea').forEach(el => {
-        el.style.resize = 'vertical';
-        if(!el.style.minHeight) el.style.minHeight = '100px';
+    // Listen for ESC key to exit settings (Discord-style)
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' || e.keyCode === 27) {
+            // Only trigger if not inside an active text input or textarea
+            const activeTag = (document.activeElement && document.activeElement.tagName) || '';
+            if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
+                const escBtn = document.getElementById('discordEscBtn');
+                if (escBtn) {
+                    window.location.href = escBtn.href;
+                }
+            }
+        }
     });
 
+    // Validate Server Icon File & instant preview
     function validateServerIconSize(input) {
         if (input.files && input.files[0]) {
             const file = input.files[0];
             const maxBytes = 1 * 1024 * 1024; // 1MB
+            const fileNameEl = document.getElementById('iconFileName');
+            if (fileNameEl) {
+                fileNameEl.textContent = file.name;
+            }
             if (file.size > maxBytes) {
-                alert(`Selected icon (${(file.size / 1024 / 1024).toFixed(2)} MB) exceeds the 1 MB limit! Please choose a smaller image.`);
+                if (window.showCzToast) {
+                    showCzToast(`Selected icon (${(file.size / 1024 / 1024).toFixed(2)} MB) exceeds 1 MB limit! Please choose a smaller image.`, 'error');
+                } else {
+                    alert('Selected icon exceeds the 1 MB limit.');
+                }
                 input.value = '';
+                if (fileNameEl) fileNameEl.textContent = 'No file chosen';
                 return;
             }
             const preview = document.getElementById('serverIconPreview');
@@ -566,6 +1481,91 @@
                 reader.onload = (e) => { preview.src = e.target.result; };
                 reader.readAsDataURL(file);
             }
+        }
+    }
+
+    // Role Creator helper functions
+    function updateNewRolePreview(name) {
+        const textEl = document.getElementById('newRolePreviewName');
+        if (textEl) {
+            textEl.textContent = name.trim() ? name : 'New Role';
+        }
+    }
+
+    function updateNewRoleColor(color) {
+        const badge = document.getElementById('newRolePreviewBadge');
+        const hex = document.getElementById('new_role_hex');
+        const dot = badge ? badge.querySelector('.role-color-dot') : null;
+        if (badge) {
+            badge.style.color = color;
+            badge.style.borderColor = color;
+        }
+        if (dot) {
+            dot.style.background = color;
+            dot.style.color = color;
+        }
+        if (hex) {
+            hex.textContent = color.toUpperCase();
+        }
+    }
+
+    function pickSwatch(color) {
+        const picker = document.getElementById('new_role_color');
+        if (picker) {
+            picker.value = color;
+            updateNewRoleColor(color);
+        }
+        document.querySelectorAll('.color-swatch-btn').forEach(btn => {
+            if (btn.style.backgroundColor.toLowerCase() === color.toLowerCase() ||
+                btn.getAttribute('style').includes(color)) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+
+    // Invite validation
+    function validateInviteForm() {
+        const input = document.getElementById('invite_max_uses');
+        const errEl = document.getElementById('invite_max_uses_error');
+        const val = parseInt(input.value, 10);
+        if (isNaN(val) || val < 0) {
+            if (errEl) {
+                errEl.textContent = 'Max uses cannot be negative.';
+                errEl.style.display = 'block';
+            }
+            input.style.borderColor = '#ef4444';
+            input.focus();
+            return false;
+        }
+        if (val > 10000) {
+            if (errEl) {
+                errEl.textContent = 'Max uses cannot exceed 10,000.';
+                errEl.style.display = 'block';
+            }
+            input.style.borderColor = '#ef4444';
+            input.focus();
+            return false;
+        }
+        if (errEl) errEl.style.display = 'none';
+        input.style.borderColor = '';
+        return true;
+    }
+
+    // Copy Invite Link Helper
+    function copyInviteLink(code) {
+        const fullUrl = `${window.location.origin}/invite/${code}/`;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(fullUrl).then(() => {
+                if (window.showCzToast) {
+                    showCzToast(`Invite link copied to clipboard: ${fullUrl}`, 'success');
+                } else {
+                    alert(`Invite link copied: ${fullUrl}`);
+                }
+            });
+        } else {
+            prompt('Copy invite link:', fullUrl);
         }
     }
 </script>

@@ -156,9 +156,23 @@
 <script>
     function copyNewRecoveryKey() {
         const text = document.getElementById('newKeyText').innerText.trim();
-        navigator.clipboard.writeText(text).then(() => {
-            alert('Recovery Key copied to clipboard! Keep it safe.');
-        });
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.querySelector('button[onclick="copyNewRecoveryKey()"]');
+                if (btn) {
+                    const originalHtml = btn.innerHTML;
+                    btn.innerHTML = '<i class="ph ph-check"></i> Copied!';
+                    btn.style.borderColor = '#22c55e';
+                    btn.style.color = '#22c55e';
+                    setTimeout(() => {
+                        btn.innerHTML = originalHtml;
+                        btn.style.borderColor = '';
+                        btn.style.color = '';
+                    }, 2500);
+                }
+                if (window.showCzToast) showCzToast('Recovery Key copied to clipboard! Keep it safe.', 'success');
+            });
+        }
     }
 </script>
 {% endblock %}

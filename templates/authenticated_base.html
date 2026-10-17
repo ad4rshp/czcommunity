@@ -115,7 +115,7 @@
                     <div class="status-indicator online" title="Online"></div>
                     {% endif %}
                 </div>
-                <span class="profile-name desktop-only">{{ request.user.username }}</span>
+                <span class="profile-name desktop-only">{{ request.user.display_name }}</span>
             </a>
             
             <a href="{% url 'profile_edit' %}" class="action-icon desktop-only" title="User Settings"><i class="ph ph-sliders"></i></a>
@@ -368,6 +368,28 @@
             <div class="cz-modal-footer">
                 <button type="button" class="cz-btn cz-btn-ghost" onclick="closeReportModal()">Cancel</button>
                 <button type="button" class="cz-btn cz-btn-danger" id="submitReportBtn" onclick="submitMessageReport()"><i class="ph-bold ph-flag"></i> Submit Report</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global In-App Confirm / Prompt Modal -->
+    <div id="czGlobalConfirmModal" class="cz-modal-backdrop" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 10005; align-items: center; justify-content: center; padding: 16px;">
+        <div class="cz-confirm-modal-box" style="background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px; width: 100%; max-width: 440px; padding: 22px; box-shadow: 0 20px 45px rgba(0,0,0,0.65); animation: czFadeIn 0.18s ease-out;">
+            <div style="display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px;">
+                <div id="czConfirmIconWrap" style="width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0; background: rgba(255,107,43,0.15); color: var(--accent);">
+                    <i id="czConfirmIcon" class="ph-bold ph-question"></i>
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                    <h3 id="czConfirmTitle" style="margin: 0 0 6px 0; font-size: 1.05rem; color: var(--text-primary); font-weight: 700;">Confirm Action</h3>
+                    <p id="czConfirmMessage" style="margin: 0; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.45; word-break: break-word;"></p>
+                </div>
+            </div>
+            <div id="czConfirmInputWrap" style="display: none; margin-bottom: 16px;">
+                <input type="text" id="czConfirmInput" style="width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text-primary); font-size: 0.9rem; outline: none; box-sizing: border-box;" />
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
+                <button type="button" id="czConfirmCancelBtn" class="btn btn-secondary" style="padding: 8px 18px; border-radius: 8px; font-size: 0.88rem; font-weight: 600;">Cancel</button>
+                <button type="button" id="czConfirmSubmitBtn" class="btn btn-primary" style="padding: 8px 20px; border-radius: 8px; font-size: 0.88rem; font-weight: 600;">Confirm</button>
             </div>
         </div>
     </div>
@@ -1214,6 +1236,227 @@
         }, 4000);
     };
 
+    // Modern In-App Confirm & Prompt Modal (Eliminates ugly browser alerts, confirms, and prompts)
+    let _czConfirmCallback = null;
+    let _czCancelCallback = null;
+
+    window.showCzConfirm = function(options) {
+        options = options || {};
+        const modal = document.getElementById('czGlobalConfirmModal');
+        if (!modal) {
+            if (options.onConfirm) options.onConfirm();
+            return;
+        }
+        const titleEl = document.getElementById('czConfirmTitle');
+        const msgEl = document.getElementById('czConfirmMessage');
+        const iconWrap = document.getElementById('czConfirmIconWrap');
+        const iconEl = document.getElementById('czConfirmIcon');
+        const inputWrap = document.getElementById('czConfirmInputWrap');
+        const inputEl = document.getElementById('czConfirmInput');
+        const cancelBtn = document.getElementById('czConfirmCancelBtn');
+        const submitBtn = document.getElementById('czConfirmSubmitBtn');
+
+        titleEl.textContent = options.title || 'Confirm Action';
+        msgEl.textContent = options.message || '';
+        cancelBtn.textContent = options.cancelText || 'Cancel';
+        submitBtn.textContent = options.confirmText || 'Confirm';
+
+        if (options.showCancel === false) {
+            cancelBtn.style.display = 'none';
+        } else {
+            cancelBtn.style.display = 'inline-block';
+        }
+
+        if (options.isDanger) {
+            iconWrap.style.background = 'rgba(239, 68, 68, 0.15)';
+            iconWrap.style.color = '#ef4444';
+            iconEl.className = 'ph-bold ph-warning';
+            submitBtn.className = 'btn btn-danger';
+            submitBtn.style.background = '#ef4444';
+            submitBtn.style.borderColor = '#ef4444';
+            submitBtn.style.color = '#ffffff';
+        } else {
+            iconWrap.style.background = 'rgba(255, 107, 43, 0.15)';
+            iconWrap.style.color = 'var(--accent, #ff6b2b)';
+            iconEl.className = options.icon || 'ph-bold ph-question';
+            submitBtn.className = 'btn btn-primary';
+            submitBtn.style.background = '';
+            submitBtn.style.borderColor = '';
+            submitBtn.style.color = '';
+        }
+
+        if (options.showInput) {
+            inputWrap.style.display = 'block';
+            inputEl.value = options.defaultValue || '';
+            inputEl.placeholder = options.placeholder || '';
+            setTimeout(() => inputEl.focus(), 60);
+        } else {
+            inputWrap.style.display = 'none';
+        }
+
+        _czConfirmCallback = options.onConfirm;
+        _czCancelCallback = options.onCancel;
+        modal.style.display = 'flex';
+    };
+
+    window.closeCzConfirm = function() {
+        const modal = document.getElementById('czGlobalConfirmModal');
+        if (modal) modal.style.display = 'none';
+        _czConfirmCallback = null;
+        _czCancelCallback = null;
+    };
+
+    window.showCzPrompt = function(options) {
+        options = options || {};
+        options.showInput = true;
+        window.showCzConfirm(options);
+    };
+
+    window.czConfirmSubmit = function(formEl, message, title, isDanger) {
+        if (formEl.dataset.czConfirmed === 'true') {
+            formEl.dataset.czConfirmed = 'false';
+            return true;
+        }
+        window.showCzConfirm({
+            title: title || 'Are you sure?',
+            message: message,
+            isDanger: isDanger !== false,
+            onConfirm: function() {
+                formEl.dataset.czConfirmed = 'true';
+                formEl.submit();
+            }
+        });
+        return false;
+    };
+
+    window.czConfirmLink = function(linkEl, message, title, isDanger) {
+        window.showCzConfirm({
+            title: title || 'Are you sure?',
+            message: message,
+            isDanger: isDanger !== false,
+            onConfirm: function() {
+                window.location.href = linkEl.href;
+            }
+        });
+        return false;
+    };
+
+    window.promptChangeNickname = function(targetUsername, commSlug) {
+        let cSlug = commSlug || window.activeCommunitySlug;
+        if (!cSlug) {
+            const urlParams = new URLSearchParams(window.location.search);
+            cSlug = urlParams.get('c') || '';
+        }
+        if (!cSlug) {
+            const commEl = document.querySelector('[data-community-slug]');
+            if (commEl) cSlug = commEl.dataset.communitySlug;
+        }
+        if (!cSlug) {
+            if (window.showCzToast) window.showCzToast('Nicknames can only be changed inside a server.', 'error');
+            return;
+        }
+        const currentUname = "{{ request.user.username|escapejs }}";
+        const isOwn = !targetUsername || (currentUname && targetUsername.toLowerCase() === currentUname.toLowerCase());
+        const title = isOwn ? 'Change Server Nickname' : `Change Nickname for @${targetUsername}`;
+        const msg = isOwn 
+            ? 'Enter a nickname for yourself in this server (leave blank or enter "reset" to reset):'
+            : `Enter a nickname for @${targetUsername} (leave blank or enter "reset" to reset):`;
+
+        if (window.showCzPrompt) {
+            window.showCzPrompt({
+                title: title,
+                message: msg,
+                placeholder: 'Nickname (or empty to reset)',
+                confirmText: 'Save Nickname',
+                onConfirm: function(newNick) {
+                    const formData = new FormData();
+                    formData.append('nickname', newNick || '');
+                    if (targetUsername) {
+                        formData.append('target_username', targetUsername);
+                    }
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || (document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '');
+                    fetch(`/community/api/community/${encodeURIComponent(cSlug)}/nickname/`, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': csrfToken },
+                        body: formData
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            if (window.showCzToast) window.showCzToast(data.message || 'Nickname updated!', 'success');
+                            const uname = data.username || targetUsername;
+                            const memberItem = document.querySelector(`.panel-member-item[data-member-username="${uname}"]`);
+                            if (memberItem) {
+                                const nameEl = memberItem.querySelector('.name');
+                                if (nameEl) {
+                                    const crown = nameEl.querySelector('.ph-crown');
+                                    nameEl.textContent = data.display_name + ' ';
+                                    if (crown) nameEl.appendChild(crown);
+                                }
+                            }
+                            document.querySelectorAll(`.message-group[data-author="${uname}"]`).forEach(el => {
+                                const authorSpan = el.querySelector('.message-meta .author');
+                                if (authorSpan) {
+                                    authorSpan.textContent = data.display_name;
+                                }
+                            });
+                            const modalNameEl = document.querySelector('.modal-profile-card .profile-display-name, .profile-popout .profile-display-name, .profile-display-name');
+                            if (modalNameEl) {
+                                modalNameEl.textContent = data.display_name;
+                            }
+                        } else {
+                            if (window.showCzToast) window.showCzToast(data.message || 'Failed to update nickname.', 'error');
+                        }
+                    })
+                    .catch(() => {
+                        if (window.showCzToast) window.showCzToast('Network error while updating nickname.', 'error');
+                    });
+                }
+            });
+        }
+    };
+
+    // Wire confirm modal button listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        const cancelBtn = document.getElementById('czConfirmCancelBtn');
+        const submitBtn = document.getElementById('czConfirmSubmitBtn');
+        const modal = document.getElementById('czGlobalConfirmModal');
+        const inputEl = document.getElementById('czConfirmInput');
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', function() {
+                if (_czCancelCallback) _czCancelCallback();
+                closeCzConfirm();
+            });
+        }
+        if (submitBtn) {
+            submitBtn.addEventListener('click', function() {
+                const val = inputEl ? inputEl.value.trim() : '';
+                const cb = _czConfirmCallback;
+                closeCzConfirm();
+                if (cb) cb(val);
+            });
+        }
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    if (_czCancelCallback) _czCancelCallback();
+                    closeCzConfirm();
+                }
+            });
+        }
+        if (inputEl) {
+            inputEl.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitBtn.click();
+                } else if (e.key === 'Escape') {
+                    closeCzConfirm();
+                }
+            });
+        }
+    });
+
     // Global Server Right-Click Context Menu Logic
     let activeServerCtx = null;
     const serverContextMenu = document.getElementById('serverContextMenu');
@@ -1405,20 +1648,26 @@
 
     window.leaveServer = function(communityId, communityName) {
         if (!communityId) return;
-        if (confirm(`Are you sure you want to leave ${communityName || 'this server'}? You will need an invite to rejoin.`)) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = `/community/${communityId}/leave/`;
+        window.showCzConfirm({
+            title: 'Leave Server',
+            message: `Are you sure you want to leave ${communityName || 'this server'}? You will need an invite to rejoin.`,
+            confirmText: 'Leave Server',
+            isDanger: true,
+            onConfirm: function() {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/community/${communityId}/leave/`;
 
-            const csrf = document.createElement('input');
-            csrf.type = 'hidden';
-            csrf.name = 'csrfmiddlewaretoken';
-            csrf.value = window.getCSRFToken();
-            form.appendChild(csrf);
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden';
+                csrf.name = 'csrfmiddlewaretoken';
+                csrf.value = window.getCSRFToken();
+                form.appendChild(csrf);
 
-            document.body.appendChild(form);
-            form.submit();
-        }
+                document.body.appendChild(form);
+                form.submit();
+            }
+        });
     };
 
     // Global Report Modal Logic

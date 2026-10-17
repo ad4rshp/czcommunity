@@ -37,13 +37,14 @@ function updateTypingIndicator() {
 
     // Auto purge typing entries older than 4.5 seconds
     const now = Date.now();
-    for (const [user, ts] of typingUsers.entries()) {
+    for (const [user, info] of typingUsers.entries()) {
+        const ts = typeof info === 'object' ? info.timestamp : info;
         if (now - ts > 4500) {
             typingUsers.delete(user);
         }
     }
 
-    const users = Array.from(typingUsers.keys());
+    const users = Array.from(typingUsers.entries()).map(([u, info]) => (typeof info === 'object' && info.displayName) ? info.displayName : u);
     if (users.length === 0) {
         typingIndicator.innerHTML = '';
     } else if (users.length === 1) {
@@ -156,7 +157,11 @@ function initChatSocket() {
         const data = JSON.parse(e.data);
 
         if (data.type === 'chat.error') {
-            alert(data.message);
+            if (window.showCzToast) {
+                window.showCzToast(data.message, 'error');
+            } else {
+                console.error(data.message);
+            }
             return;
         }
 
@@ -209,20 +214,22 @@ function initChatSocket() {
                 replyHtml = `
                     <div class="message-reply-preview" onclick="scrollToMessage(${data.reply_to.id})" title="Jump to message">
                         <div class="reply-spine-curve"></div>
-                        <img src="${data.reply_to.avatar_url}" class="reply-avatar" alt="${data.reply_to.author}" onerror="this.src='/static/img/default_avatar.svg'">
-                        <span class="reply-author">@${data.reply_to.author}</span>
+                        <img src="${data.reply_to.avatar_url}" class="reply-avatar" alt="${escapeHtml(data.reply_to.author)}" onerror="this.src='/static/img/default_avatar.svg'">
+                        <span class="reply-author">@${escapeHtml(data.reply_to.author_display_name || data.reply_to.author)}</span>
                         <span class="reply-snippet">${data.reply_to.content}</span>
                     </div>
                 `;
             }
 
+            const authorUid = data.author_uid || '';
+            const authorDisplayName = data.author_display_name || data.author;
             const messageHtml = `
-                <div class="message-group ${mentionClass}" id="msg-${data.message_id}" data-msg-id="${data.message_id}" data-author="${data.author}" data-raw-content="${data.content}">
-                    <div class="message-avatar" style="cursor: pointer;" onclick="openProfileModal('${data.author}', window.activeCommunitySlug)">${avatarContent}</div>
+                <div class="message-group ${mentionClass}" id="msg-${data.message_id}" data-msg-id="${data.message_id}" data-author="${data.author}" data-author-uid="${authorUid}" data-raw-content="${data.content}">
+                    <div class="message-avatar" style="cursor: pointer;" onclick="openProfileModal('${data.author}', window.activeCommunitySlug)" data-author="${data.author}" data-author-uid="${authorUid}">${avatarContent}</div>
                     <div class="message-content-wrapper">
                         ${replyHtml}
                         <div class="message-meta">
-                            <span class="author" style="cursor: pointer; ${colorStyle}" onclick="mentionUser('${data.author}')">${data.author}</span>
+                            <span class="author" style="cursor: pointer; ${colorStyle}" onclick="mentionUser('${data.author}')" data-author="${data.author}" data-author-uid="${authorUid}">${escapeHtml(authorDisplayName)}</span>
                             ${botBadge}
                             <span class="timestamp">${data.created_at}</span>
                         </div>
@@ -280,7 +287,10 @@ function initChatSocket() {
         }
         else if (data.action === 'typing.started') {
             if (data.author && data.author !== currentUsername) {
-                typingUsers.set(data.author, Date.now());
+                typingUsers.set(data.author, {
+                    displayName: data.author_display_name || data.author,
+                    timestamp: Date.now()
+                });
                 updateTypingIndicator();
             }
         }
@@ -341,16 +351,17 @@ function queuePendingMessage(content) {
 
 function renderPendingMessage(tempId, content) {
     const avatarUrl = window.currentUserAvatar || '/static/img/default_avatar.svg';
+    const currentDisplayName = window.currentUserDisplayName || currentUsername;
     const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const pendingHtml = `
         <div class="message-group pending" id="${tempId}" data-raw-content="${escapeHtml(content)}">
             <div class="message-avatar">
-                <img src="${avatarUrl}" alt="${escapeHtml(currentUsername)}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
+                <img src="${avatarUrl}" alt="${escapeHtml(currentDisplayName)}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
             </div>
             <div class="message-content-wrapper">
                 <div class="message-meta">
-                    <span class="author">${escapeHtml(currentUsername)}</span>
+                    <span class="author">${escapeHtml(currentDisplayName)}</span>
                     <span class="timestamp">${nowTime}</span>
                 </div>
                 <div class="message-text">${parseMarkdown(escapeHtml(content))}</div>
@@ -416,11 +427,41 @@ if (chatForm) {
             return;
         }
 
-        // Slash command
+        // Slash commands
         if (content === '/music') {
             if (typeof toggleRightPanel === 'function') {
                 toggleRightPanel('music');
             }
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            return;
+        }
+
+        if (content.startsWith('/ban ')) {
+            const parts = content.slice(5).trim().split(/\s+/);
+            const targetIdentifier = parts[0];
+            const reason = parts.slice(1).join(' ');
+            if (targetIdentifier) {
+                banUserDirect(targetIdentifier, reason);
+            }
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            return;
+        }
+
+        if (content.startsWith('/unban ')) {
+            const targetIdentifier = content.slice(7).trim();
+            if (targetIdentifier) {
+                unbanUserDirect(targetIdentifier);
+            }
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+            return;
+        }
+
+        if (content.startsWith('/nick ') || content === '/nick') {
+            const newNick = content === '/nick' ? '' : content.slice(6).trim();
+            changeUserNicknameDirect(newNick, currentUsername);
             messageInput.value = '';
             messageInput.style.height = 'auto';
             return;
@@ -505,7 +546,9 @@ function reportMessage(messageId) {
     if (typeof window.openReportModal === 'function') {
         window.openReportModal(messageId);
     } else {
-        alert("Report dialog unavailable");
+        if (window.showCzToast) {
+            window.showCzToast("Report dialog is currently unavailable", "info");
+        }
     }
 }
 window.reportMessage = reportMessage;
@@ -606,7 +649,8 @@ const communityData = communityDataNode ? JSON.parse(communityDataNode.textConte
 
 const defaultCommands = [
     { name: "/profile", desc: "View profile" },
-    { name: "/music", desc: "Open music player" }
+    { name: "/music", desc: "Open music player" },
+    { name: "/nick", desc: "Set or reset server nickname (/nick <name> or /nick reset)" }
 ];
 
 function renderSuggestions(type, query, cursorIndex) {
@@ -621,10 +665,12 @@ function renderSuggestions(type, query, cursorIndex) {
                      </div>`;
         });
     } else if (type === '@') {
-        matches = communityData.users.filter(u => u.username.toLowerCase().includes(query.toLowerCase()));
+        const q = query.toLowerCase();
+        matches = communityData.users.filter(u => u.username.toLowerCase().includes(q) || (u.display_name && u.display_name.toLowerCase().includes(q)));
         matches.forEach(m => {
+            const label = (m.display_name && m.display_name !== m.username) ? `${escapeHtml(m.display_name)} (@${escapeHtml(m.username)})` : `@${escapeHtml(m.username)}`;
             html += `<div class="suggestion-item" style="padding: 8px 12px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'" onclick="insertAutocomplete('@${m.username}', ${cursorIndex})">
-                        <span style="color: ${m.color}; font-weight: bold; font-size: 1rem;">@${m.username}</span>
+                        <span style="color: ${m.color}; font-weight: bold; font-size: 0.95rem;">${label}</span>
                      </div>`;
         });
     } else if (type === '#') {
@@ -917,18 +963,18 @@ function sendGif(url) {
     }
 }
 
-// --- Context Menu for Messages ---
+// --- Context Menu for Messages & Profiles/Members ---
 const msgContextMenu = document.createElement('div');
-msgContextMenu.className = 'message-context-menu';
-msgContextMenu.style.position = 'absolute';
+msgContextMenu.className = 'message-context-menu cz-context-menu';
+msgContextMenu.style.position = 'fixed';
 msgContextMenu.style.display = 'none';
-msgContextMenu.style.zIndex = '1000';
+msgContextMenu.style.zIndex = '9999';
 msgContextMenu.style.background = 'var(--bg-surface)';
 msgContextMenu.style.border = '1px solid var(--border)';
 msgContextMenu.style.borderRadius = 'var(--radius-sm)';
 msgContextMenu.style.padding = '5px 0';
-msgContextMenu.style.boxShadow = '0 8px 16px rgba(0,0,0,0.5)';
-msgContextMenu.style.minWidth = '150px';
+msgContextMenu.style.boxShadow = '0 8px 24px rgba(0,0,0,0.6)';
+msgContextMenu.style.minWidth = '175px';
 document.body.appendChild(msgContextMenu);
 
 function hideContextMenu() {
@@ -943,21 +989,30 @@ let isLongPress = false;
 
 document.addEventListener('contextmenu', function (e) {
     const msgEl = e.target.closest('.message-group');
+    const memberEl = e.target.closest('.panel-member-item');
     if (msgEl) {
         e.preventDefault();
-        showContextMenu(e.pageX, e.pageY, msgEl);
+        showContextMenu(e.clientX, e.clientY, msgEl);
+    } else if (memberEl) {
+        e.preventDefault();
+        showMemberContextMenu(e.clientX, e.clientY, memberEl);
     }
 });
 
 document.addEventListener('touchstart', function (e) {
     const msgEl = e.target.closest('.message-group');
-    if (msgEl) {
+    const memberEl = e.target.closest('.panel-member-item');
+    if (msgEl || memberEl) {
         isLongPress = false;
         longPressTimer = setTimeout(() => {
             isLongPress = true;
             const touch = e.touches[0];
-            showContextMenu(touch.pageX, touch.pageY, msgEl);
-        }, 600); // 600ms for long press
+            if (msgEl) {
+                showContextMenu(touch.clientX, touch.clientY, msgEl);
+            } else if (memberEl) {
+                showMemberContextMenu(touch.clientX, touch.clientY, memberEl);
+            }
+        }, 550); // 550ms for long press
     }
 }, { passive: true });
 
@@ -972,65 +1027,313 @@ document.addEventListener('touchmove', function (e) {
 function showContextMenu(x, y, msgEl) {
     const msgId = msgEl.getAttribute('data-msg-id');
     const author = msgEl.getAttribute('data-author');
-    if (!msgId) return;
+    const authorUid = msgEl.getAttribute('data-author-uid') || '';
+    if (!msgId && !author) return;
 
     const isOwn = !!(author && currentUsername && author.toLowerCase() === currentUsername.toLowerCase());
     const canManage = window.canManageMessages === true;
     const canKick = window.canKickMembers === true;
     const canBan = window.canBanMembers === true;
     const isTargetProtected = isOwn ||
-        (window.communityOwner && author.toLowerCase() === window.communityOwner.toLowerCase()) ||
-        author.toLowerCase() === 'admin';
+        (window.communityOwner && author && author.toLowerCase() === window.communityOwner.toLowerCase()) ||
+        (author && author.toLowerCase() === 'admin');
 
     let menuHtml = '';
 
-    menuHtml += `<div class="ctx-item" onclick="reactToMessage('${msgId}')"><i class="ph ph-heart"></i> React</div>`;
-    menuHtml += `<div class="ctx-item" onclick="replyToMessage('${msgId}', '${author}')"><i class="ph ph-arrow-u-up-left"></i> Reply</div>`;
-
-    if (isOwn) {
-        menuHtml += `<div class="ctx-item" onclick="startEdit('${msgId}')"><i class="ph ph-pencil-simple"></i> Edit</div>`;
+    if (author) {
+        menuHtml += `<div class="ctx-item" onclick="openProfileModal('${escapeHtml(author)}', window.activeCommunitySlug); hideContextMenu();"><i class="ph ph-user"></i> View Profile</div>`;
+        menuHtml += `<div class="ctx-item" onclick="copyAuthorUserId('${escapeHtml(author)}', '${escapeHtml(authorUid)}')"><i class="ph ph-copy"></i> Copy User ID</div>`;
+        menuHtml += `<div class="ctx-item" onclick="mentionUser('${escapeHtml(author)}'); hideContextMenu();"><i class="ph ph-at"></i> Mention @${escapeHtml(author)}</div>`;
+        if (window.activeCommunitySlug) {
+            if (isOwn && window.canChangeNickname) {
+                menuHtml += `<div class="ctx-item" onclick="promptChangeNickname('${escapeHtml(author)}', window.activeCommunitySlug); hideContextMenu();"><i class="ph ph-identification-card"></i> Change Nickname</div>`;
+            } else if (!isOwn && window.canManageNicknames) {
+                menuHtml += `<div class="ctx-item" onclick="promptChangeNickname('${escapeHtml(author)}', window.activeCommunitySlug); hideContextMenu();"><i class="ph ph-identification-card"></i> Change Nickname</div>`;
+            }
+        }
     }
 
-    // Only author or members with MANAGE_MESSAGES permission can delete
-    if (isOwn || canManage) {
-        menuHtml += `<div class="ctx-item text-danger" onclick="deleteMessage('${msgId}')"><i class="ph ph-trash"></i> Delete</div>`;
+    if (msgId) {
+        menuHtml += `<div class="ctx-item" onclick="reactToMessage('${msgId}'); hideContextMenu();"><i class="ph ph-heart"></i> React</div>`;
+        menuHtml += `<div class="ctx-item" onclick="replyToMessage('${msgId}', '${escapeHtml(author)}'); hideContextMenu();"><i class="ph ph-arrow-u-up-left"></i> Reply</div>`;
+    }
+
+    if (isOwn && msgId) {
+        menuHtml += `<div class="ctx-item" onclick="startEdit('${msgId}'); hideContextMenu();"><i class="ph ph-pencil-simple"></i> Edit</div>`;
+    }
+
+    if ((isOwn || canManage) && msgId) {
+        menuHtml += `<div class="ctx-item text-danger" onclick="deleteMessage('${msgId}'); hideContextMenu();"><i class="ph ph-trash"></i> Delete</div>`;
+    }
+
+    if (!isOwn && author) {
+        if (msgId) {
+            menuHtml += `<div class="ctx-item text-danger" onclick="reportMessage('${msgId}'); hideContextMenu();"><i class="ph ph-flag"></i> Report Message</div>`;
+        }
+        menuHtml += `<div class="ctx-item text-danger" onclick="toggleBlockUser('${escapeHtml(author)}'); hideContextMenu();"><i class="ph ph-prohibit"></i> Block @${escapeHtml(author)}</div>`;
+        if (canKick && !isTargetProtected) {
+            menuHtml += `<div class="ctx-item text-danger" onclick="kickUser('${escapeHtml(author)}')"><i class="ph ph-user-minus"></i> Kick Member</div>`;
+        }
+        if (canBan && !isTargetProtected) {
+            menuHtml += `<div class="ctx-item text-danger" onclick="banUser('${escapeHtml(author)}')"><i class="ph ph-prohibit"></i> Ban Member</div>`;
+        }
+    }
+
+    positionAndShowContextMenu(x, y, menuHtml);
+}
+
+function showMemberContextMenu(x, y, memberEl) {
+    const username = memberEl.getAttribute('data-member-username');
+    const memberUid = memberEl.getAttribute('data-member-uid') || '';
+    if (!username) return;
+
+    const isOwn = !!(currentUsername && username.toLowerCase() === currentUsername.toLowerCase());
+    const canKick = window.canKickMembers === true;
+    const canBan = window.canBanMembers === true;
+    const isTargetProtected = isOwn ||
+        (window.communityOwner && username.toLowerCase() === window.communityOwner.toLowerCase()) ||
+        username.toLowerCase() === 'admin';
+
+    let menuHtml = '';
+
+    menuHtml += `<div class="ctx-item" onclick="openProfileModal('${escapeHtml(username)}', window.activeCommunitySlug); hideContextMenu();"><i class="ph ph-user"></i> View Profile</div>`;
+    menuHtml += `<div class="ctx-item" onclick="copyAuthorUserId('${escapeHtml(username)}', '${escapeHtml(memberUid)}')"><i class="ph ph-copy"></i> Copy User ID</div>`;
+    menuHtml += `<div class="ctx-item" onclick="mentionUser('${escapeHtml(username)}'); hideContextMenu();"><i class="ph ph-at"></i> Mention @${escapeHtml(username)}</div>`;
+    if (window.activeCommunitySlug) {
+        if (isOwn && window.canChangeNickname) {
+            menuHtml += `<div class="ctx-item" onclick="promptChangeNickname('${escapeHtml(username)}', window.activeCommunitySlug); hideContextMenu();"><i class="ph ph-identification-card"></i> Change Nickname</div>`;
+        } else if (!isOwn && window.canManageNicknames) {
+            menuHtml += `<div class="ctx-item" onclick="promptChangeNickname('${escapeHtml(username)}', window.activeCommunitySlug); hideContextMenu();"><i class="ph ph-identification-card"></i> Change Nickname</div>`;
+        }
     }
 
     if (!isOwn) {
-        menuHtml += `<div class="ctx-item text-danger" onclick="reportMessage('${msgId}')"><i class="ph ph-flag"></i> Report Message</div>`;
-        menuHtml += `<div class="ctx-item text-danger" onclick="toggleBlockUser('${author}')"><i class="ph ph-prohibit"></i> Block @${author}</div>`;
-        // Only show Kick/Ban if user has permissions AND target is NOT an admin/owner
+        menuHtml += `<div class="ctx-item text-danger" onclick="toggleBlockUser('${escapeHtml(username)}'); hideContextMenu();"><i class="ph ph-prohibit"></i> Block @${escapeHtml(username)}</div>`;
         if (canKick && !isTargetProtected) {
-            menuHtml += `<div class="ctx-item text-danger" onclick="kickUser('${author}')"><i class="ph ph-user-minus"></i> Kick User</div>`;
+            menuHtml += `<div class="ctx-item text-danger" onclick="kickUser('${escapeHtml(username)}')"><i class="ph ph-user-minus"></i> Kick Member</div>`;
         }
         if (canBan && !isTargetProtected) {
-            menuHtml += `<div class="ctx-item text-danger" onclick="banUser('${author}')"><i class="ph ph-prohibit"></i> Ban User</div>`;
+            menuHtml += `<div class="ctx-item text-danger" onclick="banUser('${escapeHtml(username)}')"><i class="ph ph-prohibit"></i> Ban Member</div>`;
         }
     }
 
+    positionAndShowContextMenu(x, y, menuHtml);
+}
+
+function positionAndShowContextMenu(x, y, menuHtml) {
     msgContextMenu.innerHTML = menuHtml;
     msgContextMenu.style.display = 'block';
 
-    // Boundary check
     const rect = msgContextMenu.getBoundingClientRect();
-    if (x + rect.width > window.innerWidth) x -= rect.width;
-    if (y + rect.height > window.innerHeight) y -= rect.height;
+    let posX = x;
+    let posY = y;
+    if (posX + rect.width > window.innerWidth - 8) {
+        posX = window.innerWidth - rect.width - 8;
+    }
+    if (posY + rect.height > window.innerHeight - 8) {
+        posY = window.innerHeight - rect.height - 8;
+    }
 
-    msgContextMenu.style.left = x + 'px';
-    msgContextMenu.style.top = y + 'px';
+    msgContextMenu.style.left = Math.max(8, posX) + 'px';
+    msgContextMenu.style.top = Math.max(8, posY) + 'px';
 }
 
-function kickUser(username) {
-    if (confirm('Are you sure you want to kick ' + username + '?')) {
-        // Mock kick action for MVP
-        alert(username + ' was kicked from the server.');
+function copyAuthorUserId(username, uid) {
+    hideContextMenu();
+    if (uid && uid !== 'None' && uid !== 'undefined' && uid.trim() !== '') {
+        performCopy(uid.trim(), `Copied User ID: ${uid.trim()}`);
+        return;
+    }
+    // Fallback: query API by username
+    fetch(`/profiles/api/user-id/?username=${encodeURIComponent(username)}`)
+        .then(res => res.json())
+        .then(data => {
+            const resolvedUid = data.unique_id || data.user_id;
+            if (resolvedUid) {
+                performCopy(resolvedUid, `Copied User ID: ${resolvedUid}`);
+            } else {
+                if (window.showCzToast) {
+                    window.showCzToast('Could not find User ID for ' + username, 'error');
+                }
+            }
+        })
+        .catch(() => {
+            if (window.showCzToast) {
+                window.showCzToast('Failed to fetch User ID', 'error');
+            }
+        });
+}
+
+function performCopy(text, successMsg) {
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(() => {
+            if (window.showCzToast) {
+                window.showCzToast(successMsg || 'Copied to clipboard!', 'success');
+            }
+        }).catch(() => {
+            fallbackCopy(text, successMsg);
+        });
+    } else {
+        fallbackCopy(text, successMsg);
     }
 }
-function banUser(username) {
-    if (confirm('Are you sure you want to permanently ban ' + username + '?')) {
-        // Mock ban action for MVP
-        alert(username + ' was banned from the server.');
+
+function fallbackCopy(text, successMsg) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    textArea.style.top = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        if (window.showCzToast) {
+            window.showCzToast(successMsg || 'Copied to clipboard!', 'success');
+        }
+    } catch (err) {
+        if (window.showCzToast) {
+            window.showCzToast('Failed to copy to clipboard', 'error');
+        }
     }
+    textArea.remove();
+}
+
+function getCsrfTokenSafe() {
+    if (typeof getCSRFToken === 'function') return getCSRFToken();
+    const tokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (tokenInput) return tokenInput.value;
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+        const c = cookies[i].trim();
+        if (c.startsWith('csrftoken=')) return decodeURIComponent(c.substring(10));
+    }
+    return '';
+}
+
+function kickUser(usernameOrUid) {
+    hideContextMenu();
+    const commSlug = window.activeCommunitySlug;
+    if (!commSlug) {
+        if (window.showCzToast) window.showCzToast('No active server selected.', 'error');
+        return;
+    }
+    if (window.showCzPrompt) {
+        window.showCzPrompt({
+            title: `Kick ${usernameOrUid}`,
+            message: `Provide an optional reason for kicking ${usernameOrUid}:`,
+            placeholder: 'Reason (optional)',
+            confirmText: 'Kick Member',
+            isDanger: true,
+            onConfirm: (reason) => {
+                executeKick(usernameOrUid, reason || '');
+            }
+        });
+    } else {
+        executeKick(usernameOrUid, '');
+    }
+}
+
+function executeKick(usernameOrUid, reason) {
+    const commSlug = window.activeCommunitySlug;
+    const formData = new FormData();
+    formData.append('identifier', usernameOrUid);
+    formData.append('reason', reason || '');
+
+    fetch(`/community/api/community/${encodeURIComponent(commSlug)}/kick/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrfTokenSafe() },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            if (window.showCzToast) window.showCzToast(data.message || `Kicked ${usernameOrUid}`, 'success');
+            const memberItem = document.querySelector(`.panel-member-item[data-member-username="${data.username || usernameOrUid}"]`);
+            if (memberItem) memberItem.remove();
+        } else {
+            if (window.showCzToast) window.showCzToast(data.message || 'Failed to kick user.', 'error');
+        }
+    })
+    .catch(() => {
+        if (window.showCzToast) window.showCzToast('Network error while attempting to kick.', 'error');
+    });
+}
+
+function banUser(usernameOrUid) {
+    hideContextMenu();
+    if (window.showCzPrompt) {
+        window.showCzPrompt({
+            title: `Ban ${usernameOrUid}`,
+            message: `Are you sure you want to ban ${usernameOrUid}? Provide an optional reason:`,
+            placeholder: 'Reason (optional)',
+            confirmText: 'Ban Member',
+            isDanger: true,
+            onConfirm: (reason) => {
+                banUserDirect(usernameOrUid, reason || '');
+            }
+        });
+    } else {
+        banUserDirect(usernameOrUid, '');
+    }
+}
+
+function banUserDirect(targetIdentifier, reason) {
+    const commSlug = window.activeCommunitySlug;
+    if (!commSlug) {
+        if (window.showCzToast) window.showCzToast('No active server selected.', 'error');
+        return;
+    }
+    const formData = new FormData();
+    formData.append('identifier', targetIdentifier);
+    formData.append('reason', reason || '');
+
+    fetch(`/community/api/community/${encodeURIComponent(commSlug)}/ban/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrfTokenSafe() },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            if (window.showCzToast) window.showCzToast(data.message || `Banned ${targetIdentifier}`, 'success');
+            const memberItem = document.querySelector(`.panel-member-item[data-member-username="${data.username || targetIdentifier}"]`);
+            if (memberItem) memberItem.remove();
+        } else {
+            if (window.showCzToast) window.showCzToast(data.message || 'Failed to ban user.', 'error');
+        }
+    })
+    .catch(() => {
+        if (window.showCzToast) window.showCzToast('Network error while attempting to ban.', 'error');
+    });
+}
+
+function unbanUserDirect(targetIdentifier) {
+    const commSlug = window.activeCommunitySlug;
+    if (!commSlug) {
+        if (window.showCzToast) window.showCzToast('No active server selected.', 'error');
+        return;
+    }
+    const formData = new FormData();
+    formData.append('identifier', targetIdentifier);
+
+    fetch(`/community/api/community/${encodeURIComponent(commSlug)}/unban/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrfTokenSafe() },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'ok') {
+            if (window.showCzToast) window.showCzToast(data.message || `Unbanned ${targetIdentifier}`, 'success');
+        } else {
+            if (window.showCzToast) window.showCzToast(data.message || 'Failed to unban user.', 'error');
+        }
+    })
+    .catch(() => {
+        if (window.showCzToast) window.showCzToast('Network error while unbanning.', 'error');
+    });
 }
 
 // Quick Emoji Palette Handler
@@ -1069,5 +1372,93 @@ window.addEventListener('online', function () {
         initChatSocket();
     }
 });
+
+// Server Nickname Management
+function promptChangeNickname(targetUsername, commSlug) {
+    hideContextMenu();
+    const cSlug = commSlug || window.activeCommunitySlug;
+    if (!cSlug) {
+        if (window.showCzToast) window.showCzToast('Nicknames can only be changed inside a server.', 'error');
+        return;
+    }
+    const isOwn = !targetUsername || (currentUsername && targetUsername.toLowerCase() === currentUsername.toLowerCase());
+    const title = isOwn ? 'Change Server Nickname' : `Change Nickname for @${targetUsername}`;
+    const msg = isOwn 
+        ? 'Enter a nickname for yourself in this server (leave blank or enter "reset" to reset):'
+        : `Enter a nickname for @${targetUsername} (leave blank or enter "reset" to reset):`;
+
+    if (window.showCzPrompt) {
+        window.showCzPrompt({
+            title: title,
+            message: msg,
+            placeholder: 'Nickname (or empty to reset)',
+            confirmText: 'Save Nickname',
+            onConfirm: (newNick) => {
+                changeUserNicknameDirect(newNick, targetUsername, cSlug);
+            }
+        });
+    } else {
+        const inputVal = prompt(msg, '');
+        if (inputVal !== null) {
+            changeUserNicknameDirect(inputVal, targetUsername, cSlug);
+        }
+    }
+}
+
+function changeUserNicknameDirect(newNick, targetUsername, commSlug) {
+    const cSlug = commSlug || window.activeCommunitySlug;
+    if (!cSlug) {
+        if (window.showCzToast) window.showCzToast('Nicknames can only be changed inside a server.', 'error');
+        return;
+    }
+    const formData = new FormData();
+    formData.append('nickname', newNick || '');
+    if (targetUsername) {
+        formData.append('target_username', targetUsername);
+    }
+
+    fetch(`/community/api/community/${encodeURIComponent(cSlug)}/nickname/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrfTokenSafe() },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            if (window.showCzToast) window.showCzToast(data.message || 'Nickname updated!', 'success');
+            const uname = data.username || targetUsername;
+            // 1. Update member in right panel
+            const memberItem = document.querySelector(`.panel-member-item[data-member-username="${uname}"]`);
+            if (memberItem) {
+                const nameEl = memberItem.querySelector('.name');
+                if (nameEl) {
+                    const crown = nameEl.querySelector('.ph-crown');
+                    nameEl.textContent = data.display_name + ' ';
+                    if (crown) nameEl.appendChild(crown);
+                }
+            }
+            // 2. Update author name across messages by this user in active channel
+            document.querySelectorAll(`.message-group[data-author="${uname}"]`).forEach(el => {
+                const authorSpan = el.querySelector('.message-meta .author');
+                if (authorSpan) {
+                    authorSpan.textContent = data.display_name;
+                }
+            });
+            // 3. Update profile popup if open
+            const modalNameEl = document.querySelector('.modal-profile-card .profile-display-name, .profile-popout .profile-display-name, .profile-display-name');
+            if (modalNameEl) {
+                modalNameEl.textContent = data.display_name;
+            }
+        } else {
+            if (window.showCzToast) window.showCzToast(data.message || 'Failed to update nickname.', 'error');
+        }
+    })
+    .catch(() => {
+        if (window.showCzToast) window.showCzToast('Network error while updating nickname.', 'error');
+    });
+}
+
+window.promptChangeNickname = promptChangeNickname;
+window.changeUserNicknameDirect = changeUserNicknameDirect;
 
 

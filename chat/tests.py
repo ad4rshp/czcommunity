@@ -1,7 +1,7 @@
 from django.test import TestCase, Client, override_settings
 from django.contrib.auth.models import User
 from django.urls import reverse
-from chat.models import Community, ChannelCategory, Channel, CommunityMember, Role, CommunityInvite
+from chat.models import Community, ChannelCategory, Channel, CommunityMember, Role, CommunityInvite, CommunityBan
 from chat.forms import ChannelForm, CategoryForm
 
 class SecurityAndRoutingTests(TestCase):
@@ -152,3 +152,165 @@ class SecurityAndRoutingTests(TestCase):
         })
         self.owner.refresh_from_db()
         self.assertEqual(self.owner.email, 'owner@example.com')
+
+    def test_community_ban_by_user_id_and_rejoin_prevention(self):
+        """Verify mod can ban by User ID even after user leaves, and user cannot rejoin."""
+        # Member leaves server
+        CommunityMember.objects.filter(community=self.community, user=self.member).delete()
+        self.assertFalse(CommunityMember.objects.filter(community=self.community, user=self.member).exists())
+
+        # Target has unique_id
+        target_uid = self.member.profile.unique_id
+        self.assertTrue(target_uid.startswith('CZ-'))
+
+        # Owner bans member using User ID in community settings
+        url_settings = f"/community/settings/?c={self.community.slug}&tab=bans"
+        resp_ban = self.client_owner.post(url_settings, {
+            'action': 'ban_member',
+            'identifier': target_uid,
+            'reason': 'Violated guidelines and left server'
+        })
+        self.assertEqual(resp_ban.status_code, 302)
+
+        # Ban record exists
+        ban = CommunityBan.objects.filter(community=self.community, user=self.member).first()
+        self.assertIsNotNone(ban)
+        self.assertEqual(ban.banned_by, self.owner)
+        self.assertEqual(ban.reason, 'Violated guidelines and left server')
+
+        # User tries to rejoin via invite code
+        invite = CommunityInvite.objects.create(community=self.community, code='test-ban-code', max_uses=0, created_by=self.owner)
+        resp_join = self.client_member.post(reverse('create_community'), {
+            'action': 'join',
+            'invite_code': 'test-ban-code'
+        })
+        self.assertEqual(resp_join.status_code, 200)
+        self.assertIn("banned", resp_join.content.decode('utf-8').lower())
+        self.assertFalse(CommunityMember.objects.filter(community=self.community, user=self.member).exists())
+
+        # Unban user via User ID
+        resp_unban = self.client_owner.post(url_settings, {
+            'action': 'unban_member',
+            'identifier': target_uid
+        })
+        self.assertEqual(resp_unban.status_code, 302)
+        self.assertFalse(CommunityBan.objects.filter(community=self.community, user=self.member).exists())
+
+        # Now user can rejoin successfully
+        resp_join_success = self.client_member.post(reverse('create_community'), {
+            'action': 'join',
+            'invite_code': 'test-ban-code'
+        })
+        self.assertEqual(resp_join_success.status_code, 302)
+        self.assertTrue(CommunityMember.objects.filter(community=self.community, user=self.member).exists())
+
+    def test_moderation_apis_ban_unban_kick(self):
+        """Verify moderation REST endpoints /ban/, /unban/, and /kick/ using User ID."""
+        target_uid = self.member.profile.unique_id
+
+        # Ban via API
+        url_ban = f"/community/api/community/{self.community.slug}/ban/"
+        resp = self.client_owner.post(url_ban, {
+            'identifier': target_uid,
+            'reason': 'API Ban Test'
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data.get('status'), 'ok')
+        self.assertTrue(CommunityBan.objects.filter(community=self.community, user=self.member).exists())
+
+        # Unban via API
+        url_unban = f"/community/api/community/{self.community.slug}/unban/"
+        resp_unban = self.client_owner.post(url_unban, {
+            'identifier': target_uid
+        })
+        self.assertEqual(resp_unban.status_code, 200)
+        data_unban = resp_unban.json()
+        self.assertEqual(data_unban.get('status'), 'ok')
+        self.assertFalse(CommunityBan.objects.filter(community=self.community, user=self.member).exists())
+
+        # Re-add member and test kick via API
+        CommunityMember.objects.create(community=self.community, user=self.member)
+        url_kick = f"/community/api/community/{self.community.slug}/kick/"
+        resp_kick = self.client_owner.post(url_kick, {
+            'identifier': target_uid,
+            'reason': 'API Kick Test'
+        })
+        self.assertEqual(resp_kick.status_code, 200)
+        self.assertEqual(resp_kick.json().get('status'), 'ok')
+        self.assertFalse(CommunityMember.objects.filter(community=self.community, user=self.member).exists())
+
+    def test_display_name_and_nickname_hierarchy(self):
+        """Verify display name and nickname precedence: Server Nickname > Profile Display Name > Username."""
+        member_obj = CommunityMember.objects.get(community=self.community, user=self.member)
+
+        # Baseline: Username fallback
+        self.assertEqual(self.member.display_name, 'regular_member')
+        self.assertEqual(member_obj.get_display_name(), 'regular_member')
+
+        # Profile Display Name set
+        profile = self.member.profile
+        profile.display_name = 'Chill Knight'
+        profile.save()
+        self.assertEqual(self.member.display_name, 'Chill Knight')
+        member_obj = CommunityMember.objects.select_related('user', 'user__profile').get(id=member_obj.id)
+        self.assertEqual(member_obj.get_display_name(), 'Chill Knight')
+
+        # Server Nickname set
+        member_obj.nickname = 'Server Lord'
+        member_obj.save()
+        self.assertEqual(member_obj.get_display_name(), 'Server Lord')
+        # Global display name remains unaffected by server nickname
+        self.assertEqual(self.member.display_name, 'Chill Knight')
+
+        # Reset server nickname
+        member_obj.nickname = ''
+        member_obj.save()
+        self.assertEqual(member_obj.get_display_name(), 'Chill Knight')
+
+    def test_change_nickname_permissions(self):
+        """Verify CHANGE_NICKNAME and MANAGE_NICKNAMES role permissions for change_nickname API."""
+        member_obj = CommunityMember.objects.get(community=self.community, user=self.member)
+        url = f"/community/api/community/{self.community.slug}/nickname/"
+
+        # 1. Member without CHANGE_NICKNAME permission -> 403
+        resp = self.client_member.post(url, {'nickname': 'SneakyNick'})
+        self.assertEqual(resp.status_code, 403)
+
+        # 2. Grant CHANGE_NICKNAME via role
+        nick_role = Role.objects.create(
+            community=self.community,
+            name='NickChanger',
+            CHANGE_NICKNAME=True
+        )
+        member_obj.roles.add(nick_role)
+
+        resp = self.client_member.post(url, {'nickname': 'AllowedNick'})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data.get('status'), 'success')
+        self.assertEqual(data.get('nickname'), 'AllowedNick')
+        member_obj.refresh_from_db()
+        self.assertEqual(member_obj.nickname, 'AllowedNick')
+
+        # 3. Regular member cannot change owner's nickname -> 403
+        resp = self.client_member.post(url, {'nickname': 'HackedOwner', 'target_username': self.owner.username})
+        self.assertEqual(resp.status_code, 403)
+
+        # 4. Grant MANAGE_NICKNAMES via role
+        manage_role = Role.objects.create(
+            community=self.community,
+            name='NickManager',
+            MANAGE_NICKNAMES=True
+        )
+        member_obj.roles.add(manage_role)
+
+        resp = self.client_member.post(url, {'nickname': 'ModdedOwner', 'target_username': self.owner.username})
+        self.assertEqual(resp.status_code, 200)
+
+        # 5. Reset nickname via API keyword 'reset'
+        resp = self.client_member.post(url, {'nickname': 'reset'})
+        self.assertEqual(resp.status_code, 200)
+        member_obj.refresh_from_db()
+        self.assertEqual(member_obj.nickname, '')
+

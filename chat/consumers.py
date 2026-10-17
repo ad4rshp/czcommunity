@@ -198,7 +198,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                                             "type": "mention",
                                             "community_id": message.channel.community.id,
                                             "community_slug": message.channel.community.slug,
-                                            "title": f"New mention from {self.scope['user'].username}",
+                                            "title": f"New mention from {self.scope['user'].display_name}",
                                             "message": message_content[:50] + ("..." if len(message_content) > 50 else ""),
                                             "url": f"/community/chat/?c={message.channel.community.slug}&channel={message.channel.name}"
                                         }
@@ -268,6 +268,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "chat.typing",
                     "action": action,
                     "author": self.scope["user"].username,
+                    "author_display_name": self.scope["user"].display_name,
                 }
             )
 
@@ -330,7 +331,7 @@ class DirectMessageConsumer(AsyncWebsocketConsumer):
                             "type": "send_notification",
                             "payload": {
                                 "type": "dm",
-                                "title": f"New message from {self.user.username}",
+                                "title": f"New message from {self.user.display_name}",
                                 "message": content[:50] + ("..." if len(content) > 50 else ""),
                                 "url": f"/friends/dm/{self.user.username}/"
                             }
@@ -367,7 +368,8 @@ class DirectMessageConsumer(AsyncWebsocketConsumer):
                 {
                     'type': 'chat_message',
                     'action': action,
-                    'author': self.user.username
+                    'author': self.user.username,
+                    'author_display_name': self.user.display_name,
                 }
             )
 
@@ -387,6 +389,7 @@ class DirectMessageConsumer(AsyncWebsocketConsumer):
             'message_id': message.id,
             'content': message.content,
             'author': author.username,
+            'author_display_name': author.display_name,
             'avatar_url': profile.get_avatar_url() if profile else '/static/img/default_avatar.svg',
             'created_at': message.created_at.strftime('%I:%M %p')
         }

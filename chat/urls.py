@@ -18,5 +18,9 @@ urlpatterns = [
     path('api/notifications/', views.get_notifications, name='get_notifications'),
     path('api/notifications/read/', csrf_exempt(views.mark_notifications_read), name='mark_notifications_read'),
     path('api/notifications/mark-read/', csrf_exempt(views.mark_notifications_read), name='mark_notifications_read_alias'),
+    path('api/community/<slug:slug>/ban/', csrf_exempt(views.api_ban_member), name='api_ban_member'),
+    path('api/community/<slug:slug>/unban/', csrf_exempt(views.api_unban_member), name='api_unban_member'),
+    path('api/community/<slug:slug>/kick/', csrf_exempt(views.api_kick_member), name='api_kick_member'),
+    path('api/community/<slug:slug>/nickname/', views.change_nickname, name='change_nickname'),
     path('<slug:channel_slug>/', views.chat_view, name='chat_channel'),
 ]

@@ -35,14 +35,14 @@
                 {% for s in dm_sessions %}
                 <div class="channel-item-wrapper">
                     {% if s.user1 == request.user %}
-                    <a href="{% url 'dm_chat' s.user2.username %}" class="channel-link {% if s.user2 == target_user %}active{% endif %}" title="{{ s.user2.username }}" style="display: flex; align-items: center; gap: 8px;">
+                    <a href="{% url 'dm_chat' s.user2.username %}" class="channel-link {% if s.user2 == target_user %}active{% endif %}" title="{{ s.user2.display_name }} (@{{ s.user2.username }})" style="display: flex; align-items: center; gap: 8px;">
                         <img src="{{ s.user2.profile.get_avatar_url }}" alt="{{ s.user2.username }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.src='/static/img/default_avatar.svg'">
-                        <span class="channel-name-text">{{ s.user2.username }}</span>
+                        <span class="channel-name-text">{{ s.user2.display_name }}</span>
                     </a>
                     {% else %}
-                    <a href="{% url 'dm_chat' s.user1.username %}" class="channel-link {% if s.user1 == target_user %}active{% endif %}" title="{{ s.user1.username }}" style="display: flex; align-items: center; gap: 8px;">
+                    <a href="{% url 'dm_chat' s.user1.username %}" class="channel-link {% if s.user1 == target_user %}active{% endif %}" title="{{ s.user1.display_name }} (@{{ s.user1.username }})" style="display: flex; align-items: center; gap: 8px;">
                         <img src="{{ s.user1.profile.get_avatar_url }}" alt="{{ s.user1.username }}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" onerror="this.src='/static/img/default_avatar.svg'">
-                        <span class="channel-name-text">{{ s.user1.username }}</span>
+                        <span class="channel-name-text">{{ s.user1.display_name }}</span>
                     </a>
                     {% endif %}
                 </div>
@@ -57,7 +57,10 @@
             <div class="channel-info" style="display: flex; align-items: center; gap: 10px;">
                 <img src="{{ target_user.profile.get_avatar_url }}" alt="{{ target_user.username }}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">
                 <div>
-                    <strong style="font-size: 1.1rem;">@{{ target_user.username }}</strong>
+                    <strong style="font-size: 1.1rem;">{{ target_user.display_name }}</strong>
+                    {% if target_user.display_name != target_user.username %}
+                    <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;">@{{ target_user.username }}</span>
+                    {% endif %}
                     <div style="font-size: 0.8rem; color: var(--text-muted);">Direct Message</div>
                 </div>
             </div>
@@ -71,8 +74,8 @@
                 <div class="channel-start-avatar" style="margin-bottom: 12px;">
                     <img src="{{ target_user.profile.get_avatar_url }}" alt="{{ target_user.username }}" style="width: 72px; height: 72px; border-radius: 50%; object-fit: cover; box-shadow: 0 4px 16px rgba(0,0,0,0.4);" onerror="this.src='/static/img/default_avatar.svg'">
                 </div>
-                <h3>{{ target_user.username }}</h3>
-                <p>This is the beginning of your direct message history with <strong>@{{ target_user.username }}</strong>.</p>
+                <h3>{{ target_user.display_name }}</h3>
+                <p>This is the beginning of your direct message history with <strong>{{ target_user.display_name }}</strong>{% if target_user.display_name != target_user.username %} (@{{ target_user.username }}){% endif %}.</p>
             </div>
             
             {% for message in chat_messages %}
@@ -85,12 +88,12 @@
                     <div class="message-reply-preview" onclick="scrollToMessage({{ message.reply_to.id }})" title="Jump to message">
                         <div class="reply-spine-curve"></div>
                         <img src="{{ message.reply_to.author.profile.get_avatar_url }}" class="reply-avatar" alt="{{ message.reply_to.author.username }}" onerror="this.src='/static/img/default_avatar.svg'">
-                        <span class="reply-author">@{{ message.reply_to.author.username }}</span>
+                        <span class="reply-author">@{{ message.reply_to.author.display_name }}</span>
                         <span class="reply-snippet">{{ message.reply_to.content|truncatechars:65 }}</span>
                     </div>
                     {% endif %}
                     <div class="message-meta">
-                        <span class="author">{{ message.author.username }}</span>
+                        <span class="author">{{ message.author.display_name }}</span>
                         <span class="timestamp">{{ message.created_at|date:"h:i A" }}</span>
                     </div>
                     <div class="message-text markdown-content">

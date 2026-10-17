@@ -12,11 +12,21 @@
         <div class="profile-banner" style="background: linear-gradient(135deg, {% if profile_user.id|divisibleby:2 %}#c26176 0%, #a24b61{% elif profile_user.id|divisibleby:3 %}#5b7290 0%, #3b4a5d{% elif profile_user.id|divisibleby:5 %}#6d5b90 0%, #4b3b5d{% else %}#2b2d31 0%, #1e1f22{% endif %} 100%);">
             <!-- Top Right Action Buttons -->
             <div class="banner-actions">
+                {% if community and can_change_nickname and request.user == profile_user %}
+                <button type="button" class="btn-banner-icon" title="Change Server Nickname" onclick="if(typeof promptChangeNickname === 'function'){promptChangeNickname('{{ profile_user.username }}', '{{ community.slug }}');}"><i class="ph ph-identification-card"></i></button>
+                {% endif %}
                 {% if request.user == profile_user %}
                 <a href="{% url 'profile_edit' %}" class="btn-banner-icon" title="Edit Profile"><i class="ph ph-pencil-simple"></i></a>
                 {% else %}
-                <button class="btn-banner-icon" title="Server Profile"><i class="ph ph-user-circle"></i></button>
-                <button class="btn-banner-icon" title="More Options"><i class="ph ph-dots-three"></i></button>
+                <div style="position: relative; display: inline-block;">
+                    <button class="btn-banner-icon" title="More Options" onclick="const m = document.getElementById('detailMoreOptions'); if (m) m.style.display = m.style.display === 'none' ? 'block' : 'none';"><i class="ph ph-dots-three"></i></button>
+                    <div id="detailMoreOptions" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 5px; background: #111214; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 6px; z-index: 100; min-width: 170px; box-shadow: 0 8px 16px rgba(0,0,0,0.5);">
+                        {% if community and can_manage_nicknames %}
+                        <button type="button" onclick="document.getElementById('detailMoreOptions').style.display = 'none'; if(typeof promptChangeNickname === 'function'){promptChangeNickname('{{ profile_user.username }}', '{{ community.slug }}');}" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 8px; padding: 8px 10px; color: var(--text-primary); border-radius: 4px; border: none; background: none; cursor: pointer; font-size: 0.85rem;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'"><i class="ph ph-identification-card"></i> Change Nickname</button>
+                        {% endif %}
+                        <button onclick="if(navigator.clipboard)navigator.clipboard.writeText('{{ profile_user.profile.unique_id|default:profile_user.id }}'); if(window.showCzToast){showCzToast('Copied User ID: {{ profile_user.profile.unique_id|default:profile_user.id }}','success');} document.getElementById('detailMoreOptions').style.display = 'none';" style="width: 100%; text-align: left; display: flex; align-items: center; gap: 8px; padding: 8px 10px; color: var(--text-primary); border-radius: 4px; border: none; background: none; cursor: pointer; font-size: 0.85rem;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'"><i class="ph ph-copy"></i> Copy User ID</button>
+                    </div>
+                </div>
                 {% endif %}
             </div>
         </div>
@@ -40,12 +50,18 @@
             
             <div class="profile-name-section">
                 <!-- Large Display Name -->
-                <h1 class="profile-display-name">{{ profile_user.username }}</h1>
+                <h1 class="profile-display-name">{% if membership and membership.nickname %}{{ membership.nickname }}{% elif profile_user.display_name %}{{ profile_user.display_name }}{% else %}{{ profile_user.username }}{% endif %}</h1>
                 
                 <!-- Smaller Username & Status Pill -->
                 <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <div class="profile-username">
-                        @{{ profile_user.username }}
+                    <div class="profile-username" style="display: flex; align-items: center; gap: 6px;">
+                        <span>@{{ profile_user.username }}</span>
+                        {% if profile_user.profile.unique_id %}
+                        <span onclick="event.stopPropagation(); if(navigator.clipboard)navigator.clipboard.writeText('{{ profile_user.profile.unique_id }}'); if(window.showCzToast)showCzToast('Copied User ID: {{ profile_user.profile.unique_id }}','success');" style="cursor: pointer; font-family: monospace; font-size: 0.72rem; color: #60a5fa; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); padding: 1px 6px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px;" title="Click to copy User ID: {{ profile_user.profile.unique_id }}">
+                            <span>{{ profile_user.profile.unique_id }}</span>
+                            <i class="ph ph-copy" style="font-size: 0.75rem;"></i>
+                        </span>
+                        {% endif %}
                     </div>
                     {% if request.user == profile_user %}
                     <div style="position: relative; display: inline-block;">

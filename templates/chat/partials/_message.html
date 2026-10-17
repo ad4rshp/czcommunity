@@ -1,5 +1,5 @@
-<div class="message-group {% if '@'|add:request.user.username in message.content %}mentioned{% endif %}" id="msg-{{ message.id }}" data-raw-content="{{ message.content|escape }}" data-msg-id="{{ message.id }}" data-author="{{ message.author.username }}">
-    <div class="message-avatar" style="cursor: pointer;" onclick="openProfileModal('{{ message.author.username }}', '{{ community.slug }}')">
+<div class="message-group {% if '@'|add:request.user.username in message.content %}mentioned{% endif %}" id="msg-{{ message.id }}" data-raw-content="{{ message.content|escape }}" data-msg-id="{{ message.id }}" data-author="{{ message.author.username }}" data-author-uid="{{ message.author.profile.unique_id|default:message.author.id }}">
+    <div class="message-avatar" style="cursor: pointer;" onclick="openProfileModal('{{ message.author.username }}', '{{ community.slug }}')" data-author="{{ message.author.username }}" data-author-uid="{{ message.author.profile.unique_id|default:message.author.id }}">
         <img src="{{ message.author.profile.get_avatar_url }}" alt="{{ message.author.username }}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
     </div>
     <div class="message-content-wrapper">
@@ -7,12 +7,12 @@
         <div class="message-reply-preview" onclick="scrollToMessage({{ message.reply_to.id }})" title="Jump to message">
             <div class="reply-spine-curve"></div>
             <img src="{{ message.reply_to.author.profile.get_avatar_url }}" class="reply-avatar" alt="{{ message.reply_to.author.username }}" onerror="this.src='/static/img/default_avatar.svg'">
-            <span class="reply-author">@{{ message.reply_to.author.username }}</span>
+            <span class="reply-author">@{{ message.reply_to.author_display_name|default:message.reply_to.author.display_name|default:message.reply_to.author.username }}</span>
             <span class="reply-snippet">{{ message.reply_to.content|truncatechars:65 }}</span>
         </div>
         {% endif %}
         <div class="message-meta">
-            <span class="author" style="cursor: pointer; {% if message.author_color %}color: {{ message.author_color }};{% endif %}" onclick="mentionUser('{{ message.author.username }}')">{{ message.author.username }}</span>
+            <span class="author" style="cursor: pointer; {% if message.author_color %}color: {{ message.author_color }};{% endif %}" onclick="mentionUser('{{ message.author.username }}')">{{ message.author_display_name|default:message.author.display_name|default:message.author.username }}</span>
             {% if message.author.profile.is_bot %}
             <span class="bot-badge" style="background: #5865F2; color: white; font-size: 0.65rem; padding: 2px 5px; border-radius: 4px; margin-left: 5px; vertical-align: middle;">APP</span>
             {% endif %}

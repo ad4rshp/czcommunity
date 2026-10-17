@@ -774,14 +774,23 @@ option {
 .switch {
     position: relative;
     display: inline-block;
-    width: 50px;
-    height: 26px;
+    width: 48px !important;
+    min-width: 48px !important;
+    max-width: 48px !important;
+    height: 26px !important;
+    min-height: 26px !important;
+    flex-shrink: 0 !important;
+    margin: 0 0 0 12px;
+    cursor: pointer;
+    vertical-align: middle;
 }
 
 .switch input {
     opacity: 0;
     width: 0;
     height: 0;
+    position: absolute;
+    pointer-events: none;
 }
 
 .slider {
@@ -791,8 +800,10 @@ option {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(255, 255, 255, 0.1);
-    transition: .4s;
+    background-color: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: background-color 0.25s ease, border-color 0.25s ease;
+    box-sizing: border-box;
 }
 
 .slider:before {
@@ -800,22 +811,25 @@ option {
     content: '';
     height: 18px;
     width: 18px;
-    left: 4px;
-    bottom: 4px;
-    background-color: white;
-    transition: .4s;
+    left: 3px;
+    top: 3px;
+    background-color: #ffffff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-sizing: border-box;
 }
 
 input:checked+.slider {
-    background-color: var(--accent);
+    background-color: var(--accent, #ff6b2b);
+    border-color: var(--accent, #ff6b2b);
 }
 
 input:checked+.slider:before {
-    transform: translateX(24px);
+    transform: translateX(22px);
 }
 
 .slider.round {
-    border-radius: 34px;
+    border-radius: 26px;
 }
 
 .slider.round:before {

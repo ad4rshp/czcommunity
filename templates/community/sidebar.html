@@ -34,7 +34,7 @@
                 {% endif %}
                 
                 {% if request.user != community.owner %}
-                <form method="POST" action="{% url 'leave_community' community.id %}" onsubmit="return confirm('Are you sure you want to leave this server?');" style="margin:0;">
+                <form method="POST" action="{% url 'leave_community' community.id %}" onsubmit="return czConfirmSubmit(this, 'Are you sure you want to leave {{ community.name }}? You will need an invite to rejoin.', 'Leave Server', true);" style="margin:0;">
                     {% csrf_token %}
                     <button type="submit" style="background: none; border: none; color: #F44336; cursor: pointer; padding: 5px; border-radius: 4px; display: flex; align-items: center; transition: all 0.2s;" onmouseover="this.style.background='rgba(244,67,54,0.1)'" onmouseout="this.style.background='transparent'" title="Leave Server">
                         <i class="ph ph-sign-out" style="font-size: 1.15rem;"></i>
@@ -114,7 +114,7 @@
                             <i class="ph ph-copy"></i> Copy ID
                         </div>
                         {% if can_manage_channels %}
-                        <div style="padding: 8px 12px; font-size: 0.85rem; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 8px; color: #F44336;" class="menu-item menu-danger" @click="menuOpen = false; if(confirm('Delete channel?')) { document.getElementById('delete-form-{{ channel.id }}').submit(); }">
+                        <div style="padding: 8px 12px; font-size: 0.85rem; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 8px; color: #F44336;" class="menu-item menu-danger" @click="menuOpen = false; showCzConfirm({ title: 'Delete Channel', message: 'Delete channel #{{ channel.name }}? This action cannot be undone.', confirmText: 'Delete Channel', isDanger: true, onConfirm: () => document.getElementById('delete-form-{{ channel.id }}').submit() });">
                             <i class="ph ph-trash"></i> Delete Channel
                         </div>
                         <form id="delete-form-{{ channel.id }}" action="{% url 'delete_channel' channel.slug %}" method="POST" style="display: none;">
@@ -855,21 +855,27 @@
             });
         },
         deleteChannel() {
-            if (confirm('Are you sure you want to delete #' + this.editName + '? This action cannot be undone.')) {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = this.deleteUrl || ('/community/chat/channel/' + this.editSlug + '/delete/');
-                const csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
-                if (csrfEl) {
-                    const csrf = document.createElement('input');
-                    csrf.type = 'hidden';
-                    csrf.name = 'csrfmiddlewaretoken';
-                    csrf.value = csrfEl.value;
-                    form.appendChild(csrf);
+            showCzConfirm({
+                title: 'Delete Channel',
+                message: 'Are you sure you want to delete #' + this.editName + '? This action cannot be undone.',
+                confirmText: 'Delete Channel',
+                isDanger: true,
+                onConfirm: () => {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = this.deleteUrl || ('/community/chat/channel/' + this.editSlug + '/delete/');
+                    const csrfEl = document.querySelector('[name=csrfmiddlewaretoken]');
+                    if (csrfEl) {
+                        const csrf = document.createElement('input');
+                        csrf.type = 'hidden';
+                        csrf.name = 'csrfmiddlewaretoken';
+                        csrf.value = csrfEl.value;
+                        form.appendChild(csrf);
+                    }
+                    document.body.appendChild(form);
+                    form.submit();
                 }
-                document.body.appendChild(form);
-                form.submit();
-            }
+            });
         },
         clearOverrides(role) {
             if (!role || !role.perms) return;

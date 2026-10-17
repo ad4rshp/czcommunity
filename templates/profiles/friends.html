@@ -69,11 +69,18 @@
         </div>
         
         <div style="margin-bottom: 30px; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-md); background: rgba(0,0,0,0.15);">
-            <h4 style="margin-top: 0; margin-bottom: 15px;">ADD FRIEND</h4>
-            <form method="post" action="{% url 'send_friend_request_by_username' %}" style="display: flex; gap: 10px; margin: 0;">
+            <h4 style="margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="ph ph-user-plus" style="color: var(--accent);"></i> ADD FRIEND
+            </h4>
+            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -4px; margin-bottom: 15px;">
+                You can send a friend request using their <strong>Username</strong> or their permanent <strong>ChillZone Unique ID (e.g. CZ-123456)</strong>.
+            </p>
+            <form method="post" action="{% url 'send_friend_request_by_username' %}" style="display: flex; gap: 10px; margin: 0; flex-wrap: wrap;">
                 {% csrf_token %}
-                <input type="text" name="username" placeholder="You can add a friend with their username." style="flex: 1; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-primary);" required>
-                <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">Send Friend Request</button>
+                <input type="text" name="username" placeholder="Enter username or Unique ID (e.g. CZ-123456)..." style="flex: 1; min-width: 200px; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-primary);" required>
+                <button type="submit" class="btn btn-primary" style="padding: 10px 18px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; font-size: 0.9rem;">
+                    <i class="ph ph-paper-plane-tilt"></i> Send Request
+                </button>
             </form>
         </div>
         
@@ -84,7 +91,7 @@
             <div style="text-align: center; padding: 50px 20px; color: var(--text-muted); background: rgba(0,0,0,0.15); border-radius: var(--radius-lg); border: 1px dashed var(--border);">
                 <i class="ph ph-users" style="font-size: 3.5rem; color: var(--accent); opacity: 0.8; margin-bottom: 15px;"></i>
                 <h3 style="margin: 0 0 8px 0; color: var(--text-primary);">No Friends Yet</h3>
-                <p style="margin: 0; max-width: 440px; margin-inline: auto; font-size: 0.9rem; line-height: 1.5;">ChillZone is best experienced with friends! Send a friend request using a username above or join community channels to start chatting.</p>
+                <p style="margin: 0; max-width: 440px; margin-inline: auto; font-size: 0.9rem; line-height: 1.5;">ChillZone is best experienced with friends! Send a friend request using a username or Unique ID above or join community channels to start chatting.</p>
             </div>
             {% endif %}
             
@@ -105,13 +112,21 @@
                             {% endif %}
                         </div>
                         <div>
-                            <span style="font-weight: bold; font-size: 1.1rem; color: var(--text-primary);">{{ friend.username }}</span>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <span style="font-weight: bold; font-size: 1.05rem; color: var(--text-primary);">{{ friend.display_name }}</span>
+                                {% if friend.display_name != friend.username %}
+                                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">@{{ friend.username }}</span>
+                                {% endif %}
+                                {% if friend.profile.unique_id %}
+                                <span style="font-family: monospace; font-size: 0.72rem; color: #60a5fa; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); padding: 1px 6px; border-radius: 4px;" title="Unique ID: {{ friend.profile.unique_id }}">{{ friend.profile.unique_id }}</span>
+                                {% endif %}
+                            </div>
                             <div class="friend-status-text" style="font-size: 0.85rem; color: var(--text-muted);">{{ friend.profile.get_status_setting_display }}</div>
                         </div>
                     </a>
                     <div style="display: flex; gap: 10px;">
                         <a href="{% url 'dm_chat' friend.username %}" class="btn btn-secondary" style="padding: 5px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1);" title="Message"><i class="ph ph-chat-circle" style="margin: 0; font-size: 1.2rem;"></i></a>
-                        <button class="btn btn-secondary" style="padding: 5px; border-radius: 50%; width: 40px; height: 40px; color: #ff5252; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05);" title="Unfriend" onclick="if(confirm('Are you sure you want to unfriend {{ friend.username }}?')) document.getElementById('unfriend-{{ friend.username }}').submit()"><i class="ph ph-user-minus" style="margin: 0; font-size: 1.2rem;"></i></button>
+                        <button class="btn btn-secondary" style="padding: 5px; border-radius: 50%; width: 40px; height: 40px; color: #ff5252; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05);" title="Unfriend" onclick="showCzConfirm({ title: 'Remove Friend', message: 'Are you sure you want to unfriend {{ friend.username }}?', confirmText: 'Unfriend', isDanger: true, onConfirm: () => document.getElementById('unfriend-{{ friend.username }}').submit() })"><i class="ph ph-user-minus" style="margin: 0; font-size: 1.2rem;"></i></button>
                         <form id="unfriend-{{ friend.username }}" method="post" action="{% url 'friend_action' friend.username %}" style="display:none;">
                             {% csrf_token %}<input type="hidden" name="action" value="unfriend">
                         </form>
@@ -136,7 +151,15 @@
                     <a href="{% url 'profile' req.sender.username %}" style="display: flex; align-items: center; gap: 15px; text-decoration: none;">
                         <img src="{{ req.sender.profile.get_avatar_url }}" alt="{{ req.sender.username }}" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" onerror="this.src='/static/img/default_avatar.svg'">
                         <div>
-                            <span style="font-weight: bold; font-size: 1.1rem; color: var(--text-primary);">{{ req.sender.username }}</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-weight: bold; font-size: 1.05rem; color: var(--text-primary);">{{ req.sender.display_name }}</span>
+                                {% if req.sender.display_name != req.sender.username %}
+                                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">@{{ req.sender.username }}</span>
+                                {% endif %}
+                                {% if req.sender.profile.unique_id %}
+                                <span style="font-family: monospace; font-size: 0.72rem; color: #60a5fa; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); padding: 1px 6px; border-radius: 4px;">{{ req.sender.profile.unique_id }}</span>
+                                {% endif %}
+                            </div>
                             <div style="font-size: 0.85rem; color: var(--text-muted);">Incoming Friend Request</div>
                         </div>
                     </a>
@@ -171,7 +194,15 @@
                     <a href="{% url 'profile' req.receiver.username %}" style="display: flex; align-items: center; gap: 15px; text-decoration: none;">
                         <img src="{{ req.receiver.profile.get_avatar_url }}" alt="{{ req.receiver.username }}" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" onerror="this.src='/static/img/default_avatar.svg'">
                         <div>
-                            <span style="font-weight: bold; font-size: 1.1rem; color: var(--text-primary);">{{ req.receiver.username }}</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-weight: bold; font-size: 1.05rem; color: var(--text-primary);">{{ req.receiver.display_name }}</span>
+                                {% if req.receiver.display_name != req.receiver.username %}
+                                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">@{{ req.receiver.username }}</span>
+                                {% endif %}
+                                {% if req.receiver.profile.unique_id %}
+                                <span style="font-family: monospace; font-size: 0.72rem; color: #60a5fa; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); padding: 1px 6px; border-radius: 4px;">{{ req.receiver.profile.unique_id }}</span>
+                                {% endif %}
+                            </div>
                             <div style="font-size: 0.85rem; color: var(--text-muted);">Outgoing Friend Request</div>
                         </div>
                     </a>

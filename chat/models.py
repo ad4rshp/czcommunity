@@ -108,6 +108,16 @@ class Message(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True)
     reply_to = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL)
 
+    @property
+    def author_display_name(self):
+        if hasattr(self, '_author_display_name') and self._author_display_name:
+            return self._author_display_name
+        return self.author.display_name if hasattr(self.author, 'display_name') else self.author.username
+
+    @author_display_name.setter
+    def author_display_name(self, value):
+        self._author_display_name = value
+
     class Meta:
         ordering = ['created_at']
         indexes = [
@@ -195,6 +205,7 @@ class CommunityMember(models.Model):
 
     community = models.ForeignKey(Community, on_delete=models.CASCADE, related_name='members')
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='community_memberships')
+    nickname = models.CharField(max_length=50, blank=True, default="")
     roles = models.ManyToManyField(Role, blank=True, related_name='members')
     notification_level = models.CharField(max_length=20, choices=NOTIFICATION_LEVELS, default='all')
     suppress_everyone = models.BooleanField(default=False)
@@ -208,6 +219,15 @@ class CommunityMember(models.Model):
 
     def __str__(self):
         return f"{self.user.username} in {self.community.name}"
+
+    def get_display_name(self):
+        if self.nickname and self.nickname.strip():
+            return self.nickname.strip()
+        if hasattr(self.user, 'profile'):
+            return self.user.profile.get_display_name()
+        if self.user and self.user.first_name and self.user.first_name.strip():
+            return self.user.first_name.strip()
+        return self.user.username if self.user else "User"
 
     @property
     def highest_role(self):
@@ -280,6 +300,10 @@ class DirectMessage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     edited_at = models.DateTimeField(null=True, blank=True)
 
+    @property
+    def author_display_name(self):
+        return self.author.display_name if hasattr(self.author, 'display_name') else self.author.username
+
 class AuditLog(models.Model):
     community = models.ForeignKey(Community, on_delete=models.CASCADE, related_name='audit_logs')
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
@@ -294,6 +318,22 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.action} at {self.created_at}"
+
+class CommunityBan(models.Model):
+    community = models.ForeignKey(Community, on_delete=models.CASCADE, related_name='bans')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='community_bans')
+    banned_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='bans_issued')
+    reason = models.CharField(max_length=255, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('community', 'user')
+        ordering = ['-created_at']
+        verbose_name = "Community Ban"
+        verbose_name_plural = "Community Bans"
+
+    def __str__(self):
+        return f"{self.user.username} banned from {self.community.name}"
 
 class ChannelReadState(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='channel_read_states')

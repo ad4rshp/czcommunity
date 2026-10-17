@@ -852,7 +852,7 @@
                 </div>
                 {% for membership in group.members %}
                 {% with member=membership.user %}
-                <div class="panel-member-item" data-member-username="{{ member.username }}">
+                <div class="panel-member-item" data-member-username="{{ member.username }}" data-member-uid="{{ member.profile.unique_id|default:member.id }}">
                     <div style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: inherit;" onclick="openProfileModal('{{ member.username }}', '{{ community.slug }}')">
                         <div style="position: relative;">
                             <img src="{{ member.profile.get_avatar_url }}" alt="avatar" class="panel-member-avatar" style="object-fit: cover; {% if member.profile.status_setting == 'offline' %}opacity: 0.6; filter: grayscale(40%);{% endif %}">
@@ -869,11 +869,14 @@
                         </div>
                         <div class="panel-member-info">
                             <span class="name" {% if group.color %}style="color: {{ group.color }}; font-weight: 600;"{% elif membership.highest_role and membership.highest_role.color %}style="color: {{ membership.highest_role.color }}; font-weight: 600;"{% endif %}>
-                                {{ member.username }}
+                                {{ membership.get_display_name }}
                                 {% if member == community.owner %}
                                 <i class="ph-fill ph-crown" style="color: #FACC15; margin-left: 4px;" title="Community Owner"></i>
                                 {% endif %}
                             </span>
+                            {% if membership.get_display_name != member.username %}
+                            <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: -2px;">@{{ member.username }}</span>
+                            {% endif %}
                             
                             {% if member.profile.favorite_game %}
                             <span class="game"><i class="ph ph-game-controller"></i> {{ member.profile.favorite_game }}</span>
@@ -907,6 +910,8 @@
 {{ can_manage_messages|json_script:"can-manage-messages" }}
 {{ can_kick_members|json_script:"can-kick-members" }}
 {{ can_ban_members|json_script:"can-ban-members" }}
+{{ can_change_nickname|json_script:"can-change-nickname" }}
+{{ can_manage_nicknames|json_script:"can-manage-nicknames" }}
 {{ community.owner.username|json_script:"community-owner" }}
 {{ request.user.profile.get_avatar_url|json_script:"current-user-avatar" }}
 <script>
@@ -917,6 +922,8 @@
     window.canManageMessages = Boolean(JSON.parse(document.getElementById('can-manage-messages').textContent));
     window.canKickMembers = Boolean(JSON.parse(document.getElementById('can-kick-members').textContent));
     window.canBanMembers = Boolean(JSON.parse(document.getElementById('can-ban-members').textContent));
+    window.canChangeNickname = Boolean(JSON.parse(document.getElementById('can-change-nickname').textContent));
+    window.canManageNicknames = Boolean(JSON.parse(document.getElementById('can-manage-nicknames').textContent));
 </script>
 <script src="{% static 'js/chat.js' %}?v=5"></script>
 <script src="{% static 'js/autocomplete_and_files.js' %}?v=5"></script>

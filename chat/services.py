@@ -53,13 +53,18 @@ class ChatService:
                 if highest_role and highest_role.color:
                     author_color = highest_role.color
 
+            author_display_name = membership.get_display_name() if membership else (author.display_name if hasattr(author, 'display_name') else author.username)
+
             reply_to_data = None
             if message.reply_to:
                 rep_auth = message.reply_to.author
                 rep_prof = getattr(rep_auth, 'profile', None)
+                rep_membership = await CommunityMember.objects.select_related('user', 'community').filter(community=community, user=rep_auth).afirst()
+                rep_display = rep_membership.get_display_name() if rep_membership else (rep_auth.display_name if hasattr(rep_auth, 'display_name') else rep_auth.username)
                 reply_to_data = {
                     "id": message.reply_to.id,
                     "author": rep_auth.username,
+                    "author_display_name": rep_display,
                     "content": escape(message.reply_to.content[:60]),
                     "avatar_url": rep_prof.get_avatar_url() if rep_prof else "/static/img/default_avatar.svg"
                 }
@@ -70,6 +75,8 @@ class ChatService:
                 "message_id": message.id,
                 "content": escape(message.content),
                 "author": author.username,
+                "author_display_name": author_display_name,
+                "author_uid": getattr(profile, 'unique_id', str(author.id)) if profile else str(author.id),
                 "author_color": author_color,
                 "created_at": message.created_at.strftime('%I:%M %p'),
                 "avatar_url": profile.get_avatar_url() if profile else "/static/img/default_avatar.svg",

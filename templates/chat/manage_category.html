@@ -61,7 +61,7 @@
                                         {% endif %}
                                         {% endfor %}
                                     </select>
-                                    <button type="submit" name="delete_channel" value="{{ channel.id }}" style="background: none; border: none; color: #ff5252; cursor: pointer; padding: 4px; display: flex;" title="Delete Channel" onclick="return confirm('Delete #{{ channel.name }}?')">
+                                    <button type="button" style="background: none; border: none; color: #ff5252; cursor: pointer; padding: 4px; display: flex;" title="Delete Channel" onclick="confirmDeleteChannel(this, '{{ channel.id }}', '{{ channel.name }}')">
                                         <i class="ph ph-trash" style="font-size: 1rem;"></i>
                                     </button>
                                 </div>
@@ -73,7 +73,7 @@
                     </div>
 
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px; padding-top: 15px; border-top: 1px solid var(--border);">
-                        <button type="submit" name="delete" class="btn btn-secondary" style="color: #ff5252; border-color: rgba(255,82,82,0.3);" onclick="return confirm('Delete the entire {{ category.name }} category? All channels inside will be lost.')">
+                        <button type="button" class="btn btn-secondary" style="color: #ff5252; border-color: rgba(255,82,82,0.3);" onclick="confirmDeleteCategory(this, '{{ category.name }}')">
                             <i class="ph ph-trash" style="margin-right: 5px;"></i> Delete Category
                         </button>
                         <div style="display: flex; gap: 10px;">
@@ -86,4 +86,41 @@
         </div>
     </div>
 </div>
+
+<script>
+function confirmDeleteChannel(btn, chId, chName) {
+    showCzConfirm({
+        title: 'Delete Channel',
+        message: 'Delete #' + chName + '? All messages inside will be permanently lost.',
+        confirmText: 'Delete Channel',
+        isDanger: true,
+        onConfirm: () => {
+            const form = btn.closest('form');
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'delete_channel';
+            hidden.value = chId;
+            form.appendChild(hidden);
+            form.submit();
+        }
+    });
+}
+function confirmDeleteCategory(btn, catName) {
+    showCzConfirm({
+        title: 'Delete Category',
+        message: 'Delete the entire ' + catName + ' category? All channels inside will be lost.',
+        confirmText: 'Delete Category',
+        isDanger: true,
+        onConfirm: () => {
+            const form = btn.closest('form');
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'delete';
+            hidden.value = '1';
+            form.appendChild(hidden);
+            form.submit();
+        }
+    });
+}
+</script>
 {% endblock %}
