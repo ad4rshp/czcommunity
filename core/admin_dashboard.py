@@ -1,7 +1,9 @@
 import platform
+import secrets
 import django
 from django.contrib import messages
 from django.contrib.auth.models import User
+from django.contrib.sessions.models import Session
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.shortcuts import redirect
@@ -264,7 +266,6 @@ def handle_admin_dashboard_action(request):
         user_id = request.POST.get('user_id')
         try:
             target = User.objects.select_related('profile').get(id=user_id)
-            import secrets
             pin = f"{secrets.randbelow(900000) + 100000}"
             target.profile.emergency_pin = pin
             target.profile.emergency_pin_expires_at = timezone.now() + timezone.timedelta(hours=2)
@@ -278,7 +279,6 @@ def handle_admin_dashboard_action(request):
         user_id = request.POST.get('user_id')
         try:
             target = User.objects.get(id=user_id)
-            from django.contrib.sessions.models import Session
             user_id_str = str(target.id)
             purged = 0
             for s in Session.objects.filter(expire_date__gte=timezone.now()):

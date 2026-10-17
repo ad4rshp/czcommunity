@@ -1,3 +1,5 @@
+import secrets
+import string
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -235,7 +237,6 @@ def profile_edit(request):
 
         # Rotate Personal Security Recovery Key
         if request.POST.get('rotate_recovery_key') == '1':
-            import secrets, string
             chars = string.ascii_uppercase + string.digits
             c1 = ''.join(secrets.choice(chars) for _ in range(4))
             c2 = ''.join(secrets.choice(chars) for _ in range(4))

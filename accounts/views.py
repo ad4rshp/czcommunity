@@ -1,10 +1,22 @@
-from django.shortcuts import render, redirect
-from django.contrib.auth import login, logout, authenticate
+import secrets
+import string
+from django.contrib import messages
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.models import User
+from django.contrib.sessions.models import Session
 from django.db.models import Q
+from django.http import JsonResponse
+from django.shortcuts import redirect, render
+from django.utils import timezone
+
+from chat.models import Community, CommunityMember, Message, Role
+from core.models import DashboardConfig
+from profiles.models import Profile
+
 from .forms import CustomUserCreationForm
+from .models import Block, Report
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -30,8 +42,6 @@ def register_view(request):
             # Check if user opted in to join the official server
             join_official = form.cleaned_data.get('join_official', True)
             if join_official:
-                from core.models import DashboardConfig
-                from chat.models import Community, CommunityMember, Role
                 config = DashboardConfig.load()
                 official = config.official_community or Community.objects.filter(is_verified=True).first()
                 if official:
@@ -62,12 +72,6 @@ def recover_account_view(request):
     using their secret Personal Recovery Key or Admin Emergency PIN,
     without requiring expensive third-party email APIs.
     """
-    from django.contrib.sessions.models import Session
-    from django.utils import timezone
-    from profiles.models import Profile
-    import secrets
-    import string
-
     error_msg = None
     success_data = None
 
@@ -167,10 +171,6 @@ def recover_account_view(request):
 @login_required
 def logout_all_devices_view(request):
     """Logs out user across all other sessions/devices while preserving or restarting session."""
-    from django.contrib.sessions.models import Session
-    from django.utils import timezone
-    from django.contrib import messages
-
     if request.method == 'POST':
         user_id_str = str(request.user.id)
         current_session_key = request.session.session_key
@@ -185,12 +185,6 @@ def logout_all_devices_view(request):
                 pass
         messages.success(request, f"Terminated {purged} other active sessions across all devices.")
     return redirect('/profiles/edit/?tab=account')
-
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from .models import Report, Block
-from chat.models import Message
-from django.contrib.auth.models import User
 
 @login_required
 def report_message(request):

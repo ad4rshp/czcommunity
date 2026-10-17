@@ -1,3 +1,5 @@
+import secrets
+import string
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -28,9 +30,6 @@ class Profile(models.Model):
     emergency_pin_expires_at = models.DateTimeField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
-        import secrets
-        import string
-
         if not self.unique_id:
             for _ in range(10):
                 num = secrets.randbelow(900000) + 100000
