@@ -143,60 +143,23 @@ class ChatService:
             return None
 
     @staticmethod
+    def get_official_community():
+        """Returns the configured official community, without hardcoding or auto-creating any server."""
+        from .models import Community
+        from core.models import DashboardConfig
+
+        try:
+            config = DashboardConfig.load()
+            if config.official_community:
+                return config.official_community
+        except Exception:
+            pass
+
+        return Community.objects.filter(is_verified=True).first()
+
+    @staticmethod
     def get_or_create_official_community(owner=None):
-        from .models import Community, ChannelCategory, Channel, Role, CommunityMember
-        from django.contrib.auth.models import User
+        """Backwards-compatible alias: returns official community without hardcoded creation."""
+        return ChatService.get_official_community()
 
-        official = Community.objects.filter(is_verified=True).first()
-        if not official:
-            official = Community.objects.filter(slug='official-chillzone').first()
-            if official and not official.is_verified:
-                official.is_verified = True
-                official.save(update_fields=['is_verified'])
-
-        if not official:
-            if not owner:
-                owner = User.objects.filter(is_superuser=True).first() or User.objects.first()
-            if not owner:
-                return None
-
-            official, _ = Community.objects.get_or_create(
-                slug='official-chillzone',
-                defaults={
-                    'name': 'Chillzone Official',
-                    'owner': owner,
-                    'description': 'The official verified Chillzone server for announcements, hanging out, and voice channels.',
-                    'is_verified': True,
-                }
-            )
-
-            everyone_role, _ = Role.objects.get_or_create(
-                community=official,
-                name='@everyone',
-                defaults={'position': 0, 'color': '#99AAB5'}
-            )
-
-            welcome_cat, _ = ChannelCategory.objects.get_or_create(
-                community=official,
-                name='Welcome',
-                defaults={'slug': 'official-welcome', 'position': 0}
-            )
-
-            Channel.objects.get_or_create(
-                category=welcome_cat,
-                name='general',
-                defaults={'slug': 'official-general', 'channel_type': 'text', 'position': 0}
-            )
-
-            Channel.objects.get_or_create(
-                category=welcome_cat,
-                name='General Voice',
-                defaults={'slug': 'official-general-voice', 'channel_type': 'voice', 'position': 1}
-            )
-
-            if owner:
-                owner_member, _ = CommunityMember.objects.get_or_create(community=official, user=owner)
-                owner_member.roles.add(everyone_role)
-
-        return official
 

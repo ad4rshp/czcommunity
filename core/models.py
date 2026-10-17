@@ -14,6 +14,10 @@ class DashboardConfig(models.Model):
     show_beta_warning = models.BooleanField(default=True, help_text="Show the BETA warning card on the landing page.")
     maintenance_message = models.TextField(default="We are currently undergoing maintenance. Please check back later.")
     
+    # Official Community & Onboarding
+    official_community = models.ForeignKey('chat.Community', on_delete=models.SET_NULL, null=True, blank=True, related_name='+', help_text="The official community for new members to join.")
+    official_invite_link = models.CharField(max_length=255, blank=True, default="", help_text="Invite link or code of the official server for new users.")
+    
     class Meta:
         verbose_name = "Site Setting & Dashboard Config"
         verbose_name_plural = "Site Settings & Dashboard Config"

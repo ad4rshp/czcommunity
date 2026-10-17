@@ -30,7 +30,7 @@ def enhanced_admin_index(request, extra_context=None):
     extra = extra_context or {}
     try:
         if request.user.is_staff:
-            extra.update(get_admin_dashboard_context())
+            extra.update(get_admin_dashboard_context(request))
     except Exception as e:
         import traceback
         traceback.print_exc()

@@ -23,7 +23,7 @@ def chat_view(request, channel_slug=None):
             
         if not community:
             from chat.services import ChatService
-            official = Community.objects.filter(is_verified=True).first() or ChatService.get_or_create_official_community(owner=request.user)
+            official = ChatService.get_official_community()
             if official:
                 return redirect(f"/community/chat/?c={official.slug}")
             return redirect('create_community')

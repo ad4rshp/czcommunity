@@ -266,8 +266,10 @@ def community_settings(request):
 def create_community(request):
     from chat.models import Community, CommunityMember, Role, Channel, ChannelCategory, AuditLog
     from django.contrib import messages
+    from .models import DashboardConfig
     
-    official = Community.objects.filter(is_verified=True).first()
+    config = DashboardConfig.load()
+    official = config.official_community or Community.objects.filter(is_verified=True).first()
     is_official_member = CommunityMember.objects.filter(community=official, user=request.user).exists() if official else False
 
     if request.method == 'POST':
@@ -347,15 +349,19 @@ def create_community(request):
                     })
 
         elif action == 'join_official':
-            from chat.services import ChatService
-            official_comm = ChatService.get_or_create_official_community(owner=request.user)
+            official_comm = config.official_community or Community.objects.filter(is_verified=True).first()
             if official_comm:
                 member, created = CommunityMember.objects.get_or_create(community=official_comm, user=request.user)
                 everyone_role = Role.objects.filter(community=official_comm, name="@everyone").first()
                 if everyone_role:
                     member.roles.add(everyone_role)
-                messages.success(request, "Welcome to Chillzone Official!")
+                messages.success(request, f"Welcome to {official_comm.name}!")
                 return redirect(f"/community/chat/?c={official_comm.slug}")
+            elif config.official_invite_link:
+                return redirect(config.official_invite_link.strip())
+            else:
+                messages.info(request, "Official server is not currently set.")
+                return redirect('community')
 
     return render(request, 'core/create_community.html', {
         'official_community': official,

@@ -27,17 +27,22 @@ def register_view(request):
             # Check if user opted in to join the official server
             join_official = form.cleaned_data.get('join_official', True)
             if join_official:
-                from chat.services import ChatService
-                from chat.models import CommunityMember, Role
-                official = ChatService.get_or_create_official_community(owner=user)
+                from core.models import DashboardConfig
+                from chat.models import Community, CommunityMember, Role
+                config = DashboardConfig.load()
+                official = config.official_community or Community.objects.filter(is_verified=True).first()
                 if official:
                     member, created = CommunityMember.objects.get_or_create(community=official, user=user)
                     everyone_role = Role.objects.filter(community=official, name="@everyone").first()
                     if everyone_role:
                         member.roles.add(everyone_role)
                     return redirect(f"/community/chat/?c={official.slug}")
+                elif config.official_invite_link:
+                    invite_target = config.official_invite_link.strip()
+                    if invite_target:
+                        return redirect(invite_target)
             
-            return redirect('community')
+            return redirect('friends')
     else:
         form = CustomUserCreationForm()
     return render(request, 'auth/register.html', {'form': form})
