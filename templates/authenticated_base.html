@@ -1067,6 +1067,93 @@
         const query = cSlug ? `?c=${encodeURIComponent(cSlug)}` : '';
         window.openProfileModalFromUrl(`/profiles/${username}/card/${query}`);
     };
+
+    window.handleProfileFriendAction = function(username, action, triggerEl) {
+        if (!username || !action) return;
+        
+        if (action === 'unfriend') {
+            if (typeof showCzConfirm === 'function') {
+                showCzConfirm({
+                    title: 'Remove Friend',
+                    message: `Are you sure you want to remove @${username} as a friend?`,
+                    confirmText: 'Unfriend',
+                    isDanger: true,
+                    onConfirm: () => executeFriendAction(username, action, triggerEl)
+                });
+                return;
+            } else if (!confirm(`Are you sure you want to remove @${username} as a friend?`)) {
+                return;
+            }
+        }
+        executeFriendAction(username, action, triggerEl);
+    };
+
+    function executeFriendAction(username, action, triggerEl) {
+        if (triggerEl) {
+            triggerEl.disabled = true;
+            triggerEl.style.opacity = '0.6';
+        }
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                          (document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '');
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('ajax', '1');
+        
+        fetch(`/profiles/${encodeURIComponent(username)}/friend/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            },
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (triggerEl) {
+                triggerEl.disabled = false;
+                triggerEl.style.opacity = '1';
+            }
+            if (data.status === 'success') {
+                if (window.showCzToast) {
+                    showCzToast(data.message || 'Updated friend status!', 'success');
+                }
+                if (profileModal && profileModal.classList.contains('show')) {
+                    const cSlug = window.activeCommunitySlug || (new URLSearchParams(window.location.search)).get('c') || '';
+                    window.openProfileModal(username, cSlug);
+                } else {
+                    setTimeout(() => window.location.reload(), 300);
+                }
+            } else {
+                if (window.showCzToast) {
+                    showCzToast(data.message || 'Could not update friend status', 'error');
+                }
+            }
+        })
+        .catch(err => {
+            if (triggerEl) {
+                triggerEl.disabled = false;
+                triggerEl.style.opacity = '1';
+            }
+            console.error('Friend action failed:', err);
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/profiles/${encodeURIComponent(username)}/friend/`;
+            const cInput = document.createElement('input');
+            cInput.type = 'hidden';
+            cInput.name = 'csrfmiddlewaretoken';
+            cInput.value = csrfToken;
+            form.appendChild(cInput);
+            const aInput = document.createElement('input');
+            aInput.type = 'hidden';
+            aInput.name = 'action';
+            aInput.value = action;
+            form.appendChild(aInput);
+            document.body.appendChild(form);
+            form.submit();
+        });
+    }
     
     if(profileModal) {
         profileModal.addEventListener('click', function(e) {

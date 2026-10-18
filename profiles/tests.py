@@ -111,6 +111,46 @@ class ProfilesAndSocialTests(TestCase):
             'email': 'alpha@example.com',
             'display_name': 'Alpha New'
         })
-        self.user_a.refresh_from_db()
         # Should remain alpha_renamed
         self.assertEqual(self.user_a.username, 'alpha_renamed')
+
+    def test_profile_card_friend_actions_and_buttons(self):
+        """Verify profile card renders Add Friend button and updates state dynamically."""
+        card_url = reverse('profile_card_fragment', args=[self.user_b.username])
+        resp = self.client_a.get(card_url)
+        self.assertEqual(resp.status_code, 200)
+        content = resp.content.decode('utf-8')
+        self.assertIn('Add Friend', content)
+
+        # 1. User A clicks Add Friend on User B's profile
+        action_url = reverse('friend_action', args=[self.user_b.username])
+        ajax_resp = self.client_a.post(action_url, {'action': 'add', 'ajax': '1'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(ajax_resp.status_code, 200)
+        data = ajax_resp.json()
+        self.assertEqual(data.get('status'), 'success')
+        self.assertTrue(data.get('pending_sent'))
+
+        # Check DB
+        self.assertTrue(FriendRequest.objects.filter(sender=self.user_a, receiver=self.user_b).exists())
+
+        # Card for User A now shows Requested / Pending
+        resp_after = self.client_a.get(card_url)
+        self.assertIn('Requested', resp_after.content.decode('utf-8'))
+
+        # User B viewing User A's card shows Accept
+        card_a_url = reverse('profile_card_fragment', args=[self.user_a.username])
+        resp_b_view = self.client_b.get(card_a_url)
+        self.assertIn('Accept', resp_b_view.content.decode('utf-8'))
+
+        # User B accepts
+        action_b_url = reverse('friend_action', args=[self.user_a.username])
+        ajax_accept = self.client_b.post(action_b_url, {'action': 'accept', 'ajax': '1'}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(ajax_accept.status_code, 200)
+        self.assertTrue(ajax_accept.json().get('is_friend'))
+
+        # Both cards now show Friends
+        resp_friends_a = self.client_a.get(card_url)
+        self.assertIn('Friends', resp_friends_a.content.decode('utf-8'))
+        resp_friends_b = self.client_b.get(card_a_url)
+        self.assertIn('Friends', resp_friends_b.content.decode('utf-8'))
+

@@ -214,26 +214,74 @@ def handle_friend_action(request, username):
         target_user = get_object_or_404(User, username=username)
         from .models import Friendship, FriendRequest
         
-        if action == 'add':
-            if not Friendship.objects.filter(user1=request.user, user2=target_user).exists() and not Friendship.objects.filter(user1=target_user, user2=request.user).exists():
+        msg = ""
+        success = True
+        
+        if target_user == request.user:
+            msg = "You cannot add yourself as a friend."
+            success = False
+        elif action == 'add':
+            if Friendship.objects.filter(user1=request.user, user2=target_user).exists() or Friendship.objects.filter(user1=target_user, user2=request.user).exists():
+                msg = f"You are already friends with @{target_user.username}."
+            elif FriendRequest.objects.filter(sender=target_user, receiver=request.user).exists():
+                FriendRequest.objects.filter(sender=target_user, receiver=request.user).delete()
+                Friendship.objects.get_or_create(user1=target_user, user2=request.user)
+                msg = f"Accepted friend request! You and @{target_user.username} are now friends."
+            else:
                 FriendRequest.objects.get_or_create(sender=request.user, receiver=target_user)
+                msg = f"Friend request sent to @{target_user.username}."
         elif action == 'accept':
             req = FriendRequest.objects.filter(sender=target_user, receiver=request.user).first()
             if req:
                 req.delete()
                 Friendship.objects.get_or_create(user1=target_user, user2=request.user)
+                msg = f"Accepted friend request from @{target_user.username}."
+            else:
+                msg = "No pending request from this user."
         elif action == 'reject':
             req = FriendRequest.objects.filter(sender=target_user, receiver=request.user).first()
             if req:
                 req.delete()
+                msg = f"Declined friend request from @{target_user.username}."
         elif action == 'cancel':
             req = FriendRequest.objects.filter(sender=request.user, receiver=target_user).first()
             if req:
                 req.delete()
+                msg = f"Cancelled friend request to @{target_user.username}."
         elif action == 'unfriend':
             Friendship.objects.filter(user1=request.user, user2=target_user).delete()
             Friendship.objects.filter(user1=target_user, user2=request.user).delete()
+            msg = f"Removed @{target_user.username} from your friends."
+
+        is_ajax = (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+            request.headers.get('HX-Request') == 'true' or
+            'application/json' in request.headers.get('Accept', '') or
+            request.POST.get('ajax') == '1'
+        )
+        if is_ajax:
+            is_friend = Friendship.objects.filter(user1=request.user, user2=target_user).exists() or \
+                        Friendship.objects.filter(user1=target_user, user2=request.user).exists()
+            pending_sent = FriendRequest.objects.filter(sender=request.user, receiver=target_user).exists()
+            pending_received = FriendRequest.objects.filter(sender=target_user, receiver=request.user).exists()
+            return JsonResponse({
+                'status': 'success' if success else 'error',
+                'action': action,
+                'message': msg,
+                'is_friend': is_friend,
+                'pending_sent': pending_sent,
+                'pending_received': pending_received,
+            })
             
+        if msg:
+            if success:
+                messages.success(request, msg)
+            else:
+                messages.error(request, msg)
+            
+    referer = request.META.get('HTTP_REFERER')
+    if referer:
+        return redirect(referer)
     return redirect('profile', username=username)
 
 @login_required
