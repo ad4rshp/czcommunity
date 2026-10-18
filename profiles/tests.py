@@ -133,9 +133,9 @@ class ProfilesAndSocialTests(TestCase):
         # Check DB
         self.assertTrue(FriendRequest.objects.filter(sender=self.user_a, receiver=self.user_b).exists())
 
-        # Card for User A now shows Requested / Pending
+        # Card for User A now shows Friend Request Sent in banner
         resp_after = self.client_a.get(card_url)
-        self.assertIn('Requested', resp_after.content.decode('utf-8'))
+        self.assertIn('Friend Request Sent', resp_after.content.decode('utf-8'))
 
         # User B viewing User A's card shows Accept
         card_a_url = reverse('profile_card_fragment', args=[self.user_a.username])
