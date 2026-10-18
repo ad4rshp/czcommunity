@@ -47,6 +47,51 @@
         gap: 12px;
     }
 
+    .server-back-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: #cbd5e1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+        flex-shrink: 0;
+        transition: all 0.18s ease;
+        text-decoration: none;
+    }
+
+    .server-back-btn:hover {
+        background: rgba(255, 107, 43, 0.15);
+        border-color: rgba(255, 107, 43, 0.35);
+        color: var(--accent, #ff6b2b);
+        transform: translateX(-2px);
+    }
+
+    .server-exit-badge {
+        display: none;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #94a3b8;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-decoration: none;
+        flex-shrink: 0;
+        transition: all 0.18s ease;
+    }
+
+    .server-exit-badge:hover {
+        background: rgba(239, 68, 68, 0.15);
+        border-color: rgba(239, 68, 68, 0.35);
+        color: #f87171;
+    }
+
     .server-brand-icon {
         width: 42px;
         height: 42px;
@@ -624,54 +669,93 @@
         }
 
         .settings-sidebar {
-            width: 100%;
-            border-right: none;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            position: sticky;
-            top: 0;
-            z-index: 50;
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            height: auto !important;
+            min-height: 0 !important;
+            flex: 0 0 auto !important;
+            border-right: none !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 50 !important;
+            background: rgba(18, 20, 26, 0.98) !important;
+            backdrop-filter: blur(14px) !important;
+            -webkit-backdrop-filter: blur(14px) !important;
         }
 
         .settings-header {
-            padding: 12px 16px;
+            padding: 10px 14px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+        }
+
+        .server-exit-badge.mobile-only {
+            display: inline-flex !important;
+            margin-left: auto !important;
         }
 
         .settings-nav {
-            flex-direction: row;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            padding: 8px 12px 10px 12px;
-            gap: 8px;
-            white-space: nowrap;
-            scrollbar-width: none;
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: center !important;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: 54px !important;
+            flex: 0 0 auto !important;
+            overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            padding: 6px 14px 12px 14px !important;
+            gap: 8px !important;
+            white-space: nowrap !important;
+            scrollbar-width: none !important;
         }
 
         .settings-nav::-webkit-scrollbar {
-            display: none;
+            display: none !important;
         }
 
-        .nav-category-header {
-            display: none;
+        .nav-category-header,
+        .desktop-only {
+            display: none !important;
         }
 
         .settings-nav-item {
-            padding: 7px 14px;
-            font-size: 0.85rem;
-            flex-shrink: 0;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            padding: 6px 14px !important;
+            height: 34px !important;
+            min-height: 34px !important;
+            max-height: 34px !important;
+            font-size: 0.85rem !important;
+            font-weight: 600 !important;
+            flex: 0 0 auto !important;
+            flex-shrink: 0 !important;
+            border-radius: 999px !important;
+            white-space: nowrap !important;
+            line-height: 1 !important;
+            box-sizing: border-box !important;
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            color: #94a3b8 !important;
+        }
+
+        .settings-nav-item i {
+            font-size: 1rem !important;
         }
 
         .settings-nav-item.active {
-            background: var(--accent, #ff6b2b);
-            color: #fff;
-            border-left: 1px solid var(--accent, #ff6b2b);
-            border-radius: 20px;
+            background: var(--accent, #ff6b2b) !important;
+            color: #ffffff !important;
+            border: 1px solid var(--accent, #ff6b2b) !important;
+            box-shadow: 0 2px 10px rgba(255, 107, 43, 0.35) !important;
         }
 
         .settings-nav-item.active i {
-            color: #fff;
+            color: #ffffff !important;
         }
 
         .settings-content-area {
@@ -707,6 +791,9 @@
     <!-- Sidebar Navigation -->
     <aside class="settings-sidebar">
         <div class="settings-header">
+            <a href="{% url 'chat' %}?c={{ community.slug }}" class="server-back-btn" title="Back to {{ community.name }}">
+                <i class="ph-bold ph-arrow-left"></i>
+            </a>
             <div class="server-brand-icon">
                 {% if community.icon %}
                 <img src="{{ community.get_icon_url }}" alt="{{ community.name }}">
@@ -718,38 +805,42 @@
                 <h2>{{ community.name }}</h2>
                 <div class="subtitle">Server Settings</div>
             </div>
+            <a href="{% url 'chat' %}?c={{ community.slug }}" class="server-exit-badge mobile-only" title="Exit Settings">
+                <i class="ph-bold ph-x"></i>
+                <span>Exit</span>
+            </a>
         </div>
 
         <nav class="settings-nav">
             {% if access_denied %}
-            <div class="nav-category-header">Server Settings</div>
+            <div class="nav-category-header desktop-only">Server Settings</div>
+            <a href="{% url 'chat' %}?c={{ community.slug }}" class="settings-nav-item active">
+                <i class="ph ph-arrow-left"></i> <span>Return to Server</span>
+            </a>
             {% else %}
             
-            <div class="nav-category-header">Server Settings</div>
-            <a href="{% url 'chat' %}?c={{ community.slug }}" class="settings-nav-item" id="settingsExitLink" title="Return to this server">
-                <i class="ph ph-arrow-left"></i> Return to Server
-            </a>
+            <div class="nav-category-header desktop-only">Server Settings</div>
             <a href="?tab=overview&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'overview' %}active{% endif %}">
-                <i class="ph ph-sliders-horizontal"></i> Overview
+                <i class="ph ph-sliders-horizontal"></i> <span>Overview</span>
             </a>
             <a href="?tab=roles&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'roles' %}active{% endif %}">
-                <i class="ph ph-shield-star"></i> Roles
+                <i class="ph ph-shield-star"></i> <span>Roles</span>
             </a>
 
-            <div class="nav-category-header">User Management</div>
+            <div class="nav-category-header desktop-only">User Management</div>
             <a href="?tab=invites&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'invites' %}active{% endif %}">
-                <i class="ph ph-envelope-simple-open"></i> Invites
+                <i class="ph ph-envelope-simple-open"></i> <span>Invites</span>
             </a>
             <a href="?tab=bans&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'bans' %}active{% endif %}">
-                <i class="ph ph-prohibit"></i> Bans
+                <i class="ph ph-prohibit"></i> <span>Bans</span>
             </a>
             <a href="?tab=audit_log&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'audit_log' %}active{% endif %}">
-                <i class="ph ph-scroll"></i> Audit Log
+                <i class="ph ph-scroll"></i> <span>Audit Log</span>
             </a>
 
             <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.06);" class="desktop-only">
                 <a href="{% url 'chat' %}?c={{ community.slug }}" class="settings-nav-item" style="color: #f87171;">
-                    <i class="ph ph-arrow-left"></i> Back to Server
+                    <i class="ph ph-arrow-left"></i> <span>Back to Server</span>
                 </a>
             </div>
             {% endif %}
