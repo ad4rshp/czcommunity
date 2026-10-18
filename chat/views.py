@@ -7,6 +7,7 @@ from django.http import JsonResponse
 from django.db.models import Q
 import re
 from .models import Community, Channel, ChannelCategory, Message, CommunityMember, ChannelReadState, CommunityBan, AuditLog
+from .permissions import can_user_perform_channel_action, can_user_view_channel
 
 @login_required
 def chat_view(request, channel_slug=None):
@@ -42,16 +43,29 @@ def chat_view(request, channel_slug=None):
                 return redirect(f"/community/chat/?c={other_membership.community.slug}")
             return redirect('home')
         membership, _ = CommunityMember.objects.get_or_create(community=community, user=request.user)
+        from .roles import ensure_member_default_role
+        ensure_member_default_role(membership)
     else:
         membership = None
         
-    # UI Permissions
+    # Resolve the same channel-level policy for the page, sidebar, and composer.
     is_owner = (request.user == community.owner)
-    can_view_channel = is_owner or (membership and membership.has_permission('VIEW_CHANNEL'))
+    can_view_channel = bool(
+        active_channel and can_user_view_channel(request.user, active_channel, membership)
+    )
+    if active_channel and not can_view_channel:
+        return render(request, '403.html', status=403)
+
     can_read_history = is_owner or (membership and membership.has_permission('READ_MESSAGE_HISTORY'))
-    can_send_messages = is_owner or (membership and membership.has_permission('SEND_MESSAGES'))
-    can_embed_links = is_owner or (membership and membership.has_permission('EMBED_LINKS'))
-    can_attach_files = is_owner or (membership and membership.has_permission('ATTACH_FILES'))
+    can_send_messages = bool(active_channel and can_user_perform_channel_action(
+        request.user, active_channel, 'send_messages', 'SEND_MESSAGES', membership
+    ))
+    can_embed_links = bool(active_channel and can_user_perform_channel_action(
+        request.user, active_channel, 'send_embeds', 'EMBED_LINKS', membership
+    ))
+    can_attach_files = bool(active_channel and can_user_perform_channel_action(
+        request.user, active_channel, 'attach_files', 'ATTACH_FILES', membership
+    ))
     can_manage_channels = is_owner or (membership and membership.has_permission('MANAGE_CHANNELS'))
     can_manage_messages = is_owner or (membership and membership.has_permission('MANAGE_MESSAGES'))
     can_kick_members = is_owner or (membership and membership.has_permission('KICK_MEMBERS'))
@@ -104,10 +118,16 @@ def chat_view(request, channel_slug=None):
 
 
 
+    for category in categories:
+        category.visible_channels = list(category.channels.all()) if can_manage_channels else [
+            channel for channel in category.channels.all()
+            if can_user_view_channel(request.user, channel, membership)
+        ]
+
     memberships = list(CommunityMember.objects.filter(community=community).select_related('user', 'user__profile').prefetch_related('roles').order_by('user__username'))
 
     # Group members by highest role
-    roles = list(community.roles.exclude(name='@everyone').order_by('-position', 'id'))
+    roles = list(community.roles.exclude(name__iexact='@everyone').order_by('-position', 'id'))
     
     role_member_groups = []
     assigned_user_ids = set()
@@ -164,7 +184,7 @@ def chat_view(request, channel_slug=None):
         
     channel_data = []
     for cat in categories:
-        for ch in cat.channels.all():
+        for ch in cat.visible_channels:
             if ch.channel_type == 'text':
                 channel_data.append({'name': ch.name, 'slug': ch.slug, 'type': 'text'})
             
@@ -257,6 +277,8 @@ def add_channel(request, category_id=None, category_slug=None):
     
     community = category.community
     categories = ChannelCategory.objects.filter(community=community).prefetch_related('channels')
+    for item in categories:
+        item.visible_channels = list(item.channels.all())
     
     from .forms import ChannelForm
     from .models import AuditLog
@@ -283,7 +305,8 @@ def add_channel(request, category_id=None, category_slug=None):
         'form': form, 
         'category': category,
         'community': community,
-        'categories': categories
+        'categories': categories,
+        'can_manage_channels': True,
     })
 
 @login_required
@@ -308,6 +331,8 @@ def manage_category(request, category_id=None, category_slug=None):
     
     community = category.community
     categories = ChannelCategory.objects.filter(community=community).prefetch_related('channels')
+    for item in categories:
+        item.visible_channels = list(item.channels.all())
     
     from .forms import CategoryForm
     from .models import AuditLog
@@ -357,7 +382,8 @@ def manage_category(request, category_id=None, category_slug=None):
         'form': form, 
         'category': category,
         'community': community,
-        'categories': categories
+        'categories': categories,
+        'can_manage_channels': True,
     })
 
 @login_required
@@ -394,6 +420,9 @@ def edit_channel(request, channel_slug):
         return render(request, '403.html', {'message': 'You do not have permission to manage channels.'}, status=403)
         
     from .forms import ChannelForm
+    categories = ChannelCategory.objects.filter(community=community).prefetch_related('channels')
+    for item in categories:
+        item.visible_channels = list(item.channels.all())
     
     if request.method == 'POST':
         post_data = request.POST.copy()
@@ -478,7 +507,9 @@ def edit_channel(request, channel_slug):
     return render(request, 'chat/edit_channel.html', {
         'form': form,
         'channel': channel,
-        'community': community
+        'community': community,
+        'categories': categories,
+        'can_manage_channels': True,
     })
 
 @login_required
@@ -582,7 +613,7 @@ def get_channel_permissions(request, channel_slug):
             'role_id': r.id,
             'role_name': r.name,
             'color': r.color,
-            'is_everyone': (r.name == '@everyone')
+            'is_everyone': (r.name.casefold() == '@everyone')
         })
 
     # Community members for override selection
@@ -678,40 +709,16 @@ def search_messages(request):
     if not community:
         return JsonResponse({'results': [], 'count': 0, 'filters': {}})
 
-    # Determine accessible channels for user
+    # Determine accessible channels with the same policy used by chat pages and sockets.
+    if CommunityBan.objects.filter(community=community, user=request.user).exists():
+        return JsonResponse({'results': [], 'count': 0, 'filters': {}})
     membership = CommunityMember.objects.filter(community=community, user=request.user).first()
-    is_owner = (request.user == community.owner)
-    
-    accessible_channels = []
-    user_roles = list(membership.roles.all()) if membership else []
-    everyone_role = community.roles.filter(name='@everyone').first()
-
-    for ch in Channel.objects.filter(category__community=community):
-        if is_owner:
-            accessible_channels.append(ch.id)
-            continue
-        # User override
-        user_override = ch.permissions.filter(user=request.user).first()
-        if user_override and user_override.view_channel is not None:
-            if user_override.view_channel:
-                accessible_channels.append(ch.id)
-            continue
-        # Role override
-        role_override = ch.permissions.filter(role__in=user_roles, view_channel__isnull=False).first()
-        if role_override and role_override.view_channel is not None:
-            if role_override.view_channel:
-                accessible_channels.append(ch.id)
-            continue
-        # Everyone override
-        if everyone_role:
-            ev_override = ch.permissions.filter(role=everyone_role, view_channel__isnull=False).first()
-            if ev_override and ev_override.view_channel is not None:
-                if ev_override.view_channel:
-                    accessible_channels.append(ch.id)
-                continue
-        # Base role permission
-        if not ch.is_private and (membership and membership.has_permission('VIEW_CHANNEL')):
-            accessible_channels.append(ch.id)
+    accessible_channels = [
+        channel.id
+        for channel in Channel.objects.filter(category__community=community)
+        .select_related('category__community')
+        if can_user_view_channel(request.user, channel, membership)
+    ]
 
     messages_qs = Message.objects.filter(channel_id__in=accessible_channels)
 
@@ -979,7 +986,7 @@ def mark_notifications_read(request):
 
 
 def resolve_user_by_identifier(identifier):
-    """Resolves a User by Unique ID (CZ-XXXXXX), username, or numeric pk."""
+    """Resolves a User by User ID (CZ-XXXXXX), username, or numeric pk."""
     if not identifier:
         return None
     raw = str(identifier).strip()
@@ -1037,7 +1044,7 @@ def api_ban_member(request, slug):
     AuditLog.objects.create(
         community=community,
         user=request.user,
-        action=f"Banned user '{target.username}' (UID: {uid})",
+        action=f"Banned user '{target.username}' (User ID: {uid})",
         details=f"Reason: {reason or 'No reason provided'}"
     )
 
@@ -1068,7 +1075,7 @@ def api_unban_member(request, slug):
     deleted_count, _ = CommunityBan.objects.filter(community=community, user=target).delete()
     uid = getattr(target.profile, 'unique_id', target.id)
     if deleted_count > 0:
-        AuditLog.objects.create(community=community, user=request.user, action=f"Unbanned user '{target.username}' (UID: {uid})")
+        AuditLog.objects.create(community=community, user=request.user, action=f"Unbanned user '{target.username}' (User ID: {uid})")
         return JsonResponse({
             'status': 'ok',
             'message': f"User '{target.username}' ({uid}) has been unbanned from {community.name}.",
@@ -1112,7 +1119,7 @@ def api_kick_member(request, slug):
     AuditLog.objects.create(
         community=community,
         user=request.user,
-        action=f"Kicked user '{target.username}' (UID: {uid})",
+        action=f"Kicked user '{target.username}' (User ID: {uid})",
         details=f"Reason: {reason or 'No reason provided'}"
     )
 
@@ -1169,4 +1176,3 @@ def change_nickname(request, slug):
         'display_name': target_member.get_display_name(),
         'username': target_user.username
     })
-

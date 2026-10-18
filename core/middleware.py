@@ -14,15 +14,15 @@ class RateLimitMiddleware:
         if request.path in ['/login/', '/register/'] and request.method == 'POST':
             ip = self.get_client_ip(request)
             cache_key = f"ratelimit_{ip}_{request.path}"
-            
-            # Get current attempts
-            attempts = cache.get(cache_key, 0)
-            
-            if attempts >= 10:
+            attempts = self.increment_counter(cache_key, 300)
+            if attempts > 10:
                 return HttpResponse("You have exceeded the maximum number of attempts. Please try again later.", status=429)
-                
-            # Increment attempts
-            cache.set(cache_key, attempts + 1, timeout=300) # 5 minutes
+        elif request.path == '/accounts/recover/' and request.method == 'POST':
+            ip = self.get_client_ip(request)
+            cache_key = f"ratelimit_{ip}_/accounts/recover/"
+            attempts = self.increment_counter(cache_key, 300)
+            if attempts > 20:
+                return HttpResponse("Too many recovery attempts. Please try again later.", status=429)
 
         response = self.get_response(request)
         
@@ -32,11 +32,22 @@ class RateLimitMiddleware:
             cache.delete(f"ratelimit_{ip}_{request.path}")
             
         return response
+
+    @staticmethod
+    def increment_counter(cache_key, timeout):
+        if cache.add(cache_key, 1, timeout=timeout):
+            return 1
+        try:
+            return cache.incr(cache_key)
+        except ValueError:
+            cache.set(cache_key, 1, timeout=timeout)
+            return 1
         
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
+            # The reverse proxy appends the address it observed; earlier values can be client supplied.
+            ip = x_forwarded_for.split(',')[-1].strip()
         else:
             ip = request.META.get('REMOTE_ADDR')
         return ip

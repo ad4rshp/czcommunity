@@ -10,6 +10,14 @@
         --settings-max-w: 880px;
     }
 
+    /* Use this page's server navigation instead of the duplicate global launchers. */
+    .top-navbar .nav-communities,
+    .top-navbar .nav-actions a[title="Community Settings"],
+    .top-navbar .nav-actions a[title="User Settings"],
+    .mobile-bottom-nav a[title="Settings"] {
+        display: none !important;
+    }
+
     .settings-layout {
         display: flex;
         min-height: calc(100vh - 56px);
@@ -696,14 +704,6 @@
 
 {% block content %}
 <div class="settings-layout">
-    <!-- Floating Discord ESC Exit Button (Desktop) -->
-    <a href="{% url 'chat' %}?c={{ community.slug }}" class="discord-esc-container" title="Exit Server Settings (Press ESC)" id="discordEscBtn">
-        <div class="discord-esc-btn">
-            <i class="ph-bold ph-x"></i>
-        </div>
-        <span class="discord-esc-badge">ESC</span>
-    </a>
-
     <!-- Sidebar Navigation -->
     <aside class="settings-sidebar">
         <div class="settings-header">
@@ -718,19 +718,17 @@
                 <h2>{{ community.name }}</h2>
                 <div class="subtitle">Server Settings</div>
             </div>
-            <a href="{% url 'chat' %}?c={{ community.slug }}" class="btn btn-secondary btn-sm mobile-only" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px;">
-                <i class="ph ph-arrow-left"></i> Exit
-            </a>
         </div>
 
         <nav class="settings-nav">
             {% if access_denied %}
-            <a href="{% url 'chat' %}?c={{ community.slug }}" class="settings-nav-item active">
-                <i class="ph ph-arrow-left"></i> Return to Server
-            </a>
+            <div class="nav-category-header">Server Settings</div>
             {% else %}
             
             <div class="nav-category-header">Server Settings</div>
+            <a href="{% url 'chat' %}?c={{ community.slug }}" class="settings-nav-item" id="settingsExitLink" title="Return to this server">
+                <i class="ph ph-arrow-left"></i> Return to Server
+            </a>
             <a href="?tab=overview&c={{ community.slug }}" class="settings-nav-item {% if current_tab == 'overview' %}active{% endif %}">
                 <i class="ph ph-sliders-horizontal"></i> Overview
             </a>
@@ -772,7 +770,7 @@
                 <p style="color: #94a3b8; font-size: 0.95rem; margin-bottom: 24px; line-height: 1.5;">
                     You do not have administrative privileges to manage this server. Only server owners, administrators, and designated moderators can access server settings.
                 </p>
-                <a href="{% url 'chat' %}?c={{ community.slug }}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px;">
+                <a href="{% url 'chat' %}?c={{ community.slug }}" class="btn btn-primary" id="settingsExitLink" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px;">
                     <i class="ph ph-arrow-left"></i> Return to Server
                 </a>
             </div>
@@ -849,7 +847,7 @@
             <!-- TAB: ROLES -->
             <div class="settings-page-header">
                 <h1><i class="ph-bold ph-shield-star" style="color: var(--accent, #ff6b2b);"></i> Server Roles</h1>
-                <p>Use roles to group server members and assign specific permissions.</p>
+                <p>Set clear permission boundaries for your server. Roles below your highest role can be managed here.</p>
             </div>
 
             <!-- Create Role Card -->
@@ -877,6 +875,7 @@
                             </button>
                         </div>
                     </div>
+                    <p style="margin: -4px 0 0; color: #8390a3; font-size: 0.82rem;">Role names are unique. The reserved <strong>@everyone</strong> role is created automatically for every member.</p>
 
                     <!-- Preset Palette & Preview -->
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06);">
@@ -964,6 +963,12 @@
                                     </div>
                                 </div>
 
+                                {% if role.name == '@everyone' %}
+                                <div style="margin-bottom: 20px; padding: 12px 14px; border: 1px solid rgba(255,255,255,0.08); border-radius: 9px; background: rgba(255,255,255,0.025); color: #aab4c4; font-size: 0.84rem; line-height: 1.5;">
+                                    <i class="ph ph-info" style="color: #ffad7c; margin-right: 5px;"></i>
+                                    This baseline role applies to every server member. It cannot be deleted, mentioned as a custom role, or given Administrator access.
+                                </div>
+                                {% else %}
                                 <!-- Membership Display Toggles -->
                                 <div style="margin-bottom: 20px;">
                                     <div class="permission-toggle-item">
@@ -988,6 +993,7 @@
                                         </label>
                                     </div>
                                 </div>
+                                {% endif %}
 
                                 <!-- Text Permissions Group -->
                                 <h4 style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: #64748b; margin: 18px 0 10px 0;">Text Channel Permissions</h4>
@@ -1148,12 +1154,12 @@
                                             <div class="permission-title" style="color: #f87171; display: flex; align-items: center; gap: 8px;">
                                                 <i class="ph-bold ph-shield-warning"></i> Administrator
                                             </div>
-                                            <div class="permission-desc" style="color: #fca5a5;">
-                                                Members with this permission have every single permission and bypass all channel-specific restrictions. Use with extreme caution.
+                                        <div class="permission-desc" style="color: #fca5a5;">
+                                                Members with this permission have every permission and bypass channel restrictions. Only server owners and administrators can grant it.
                                             </div>
                                         </div>
                                         <label class="cz-switch">
-                                            <input type="checkbox" name="ADMINISTRATOR" {% if role.ADMINISTRATOR %}checked{% endif %}>
+                                            <input type="checkbox" name="ADMINISTRATOR" {% if role.name == '@everyone' or not can_grant_administrator %}disabled{% endif %} {% if role.name != '@everyone' and role.ADMINISTRATOR %}checked{% endif %}>
                                             <span class="cz-slider" style="background-color: rgba(239, 68, 68, 0.2) !important;"></span>
                                         </label>
                                     </div>
@@ -1293,9 +1299,9 @@
 
             <!-- Ban User Card -->
             <div class="settings-card">
-                <h3 class="settings-card-title" style="color: #ef4444;"><i class="ph ph-user-minus"></i> Ban User by Unique ID or Username</h3>
+                <h3 class="settings-card-title" style="color: #ef4444;"><i class="ph ph-user-minus"></i> Ban User by User ID or Username</h3>
                 <p style="font-size: 0.85rem; color: #94a3b8; margin-top: -6px; margin-bottom: 16px; line-height: 1.45;">
-                    Ban any user permanently using their <strong>ChillZone Unique ID (e.g. CZ-123456)</strong> or username handle. Even if they have left the server, banning their User ID prevents them from returning through any active invite links.
+                    Ban a user by <strong>User ID</strong> or username, even after they leave the server.
                 </p>
 
                 <form method="post" class="mobile-stack-form" style="display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;">
@@ -1324,7 +1330,7 @@
             <div class="settings-card" style="padding: 0; overflow: hidden;">
                 <div class="table-header">
                     <div style="flex: 2;">User</div>
-                    <div style="flex: 1.5;">Unique ID</div>
+                    <div style="flex: 1.5;">User ID</div>
                     <div style="flex: 2;">Reason</div>
                     <div style="flex: 1.5;">Banned By</div>
                     <div style="width: 100px; text-align: right;">Action</div>
@@ -1448,9 +1454,9 @@
             // Only trigger if not inside an active text input or textarea
             const activeTag = (document.activeElement && document.activeElement.tagName) || '';
             if (activeTag !== 'INPUT' && activeTag !== 'TEXTAREA') {
-                const escBtn = document.getElementById('discordEscBtn');
-                if (escBtn) {
-                    window.location.href = escBtn.href;
+                const exitLink = document.getElementById('settingsExitLink');
+                if (exitLink) {
+                    window.location.href = exitLink.href;
                 }
             }
         }

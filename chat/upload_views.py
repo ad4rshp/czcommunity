@@ -1,14 +1,15 @@
 import json
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from django.utils.html import escape
 from django.shortcuts import get_object_or_404
 from .models import Channel, Message
+from .models import CommunityBan
+from .permissions import can_user_perform_channel_action
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
 @login_required
-@csrf_exempt
 def upload_attachment(request, channel_slug):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
@@ -22,12 +23,18 @@ def upload_attachment(request, channel_slug):
         
     # Check permissions
     from .models import CommunityMember
+    community = channel.category.community
+    if CommunityBan.objects.filter(community=community, user=request.user).exists():
+        return JsonResponse({'error': 'You are banned from this community.'}, status=403)
+
     membership = CommunityMember.objects.filter(
         community=channel.category.community,
         user=request.user
-    ).first()
-    
-    if not (request.user == channel.category.community.owner or (membership and membership.has_permission('ATTACH_FILES'))):
+    ).select_related('community', 'user').prefetch_related('roles').first()
+
+    if not can_user_perform_channel_action(
+        request.user, channel, 'attach_files', 'ATTACH_FILES', membership
+    ):
         return JsonResponse({'error': 'You do not have permission to attach files.'}, status=403)
         
     message = Message.objects.create(
@@ -46,7 +53,7 @@ def upload_attachment(request, channel_slug):
             "type": "chat.message",
             "action": "message.created",
             "message_id": message.id,
-            "content": message.content,
+            "content": escape(message.content),
             "author": message.author.username,
             "author_display_name": author_display,
             "created_at": message.created_at.strftime('%I:%M %p'),

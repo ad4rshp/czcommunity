@@ -4,11 +4,11 @@
 {% block title %}Chillzone{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/home.css' %}?v=7">
+<link rel="stylesheet" href="{% static 'css/home.css' %}?v=10">
 {% endblock %}
 
 {% block body %}
-<div class="landing-page" x-data="{ mobileMenuOpen: false, activeFaq: null }">
+<div class="landing-page" x-data="{ mobileMenuOpen: false, activeFaq: null, heroLines: ['all in one place.', 'closer every day.', 'ready for the next game.'], heroLine: 0, heroTimer: null, init() { if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) { this.heroTimer = window.setInterval(() => { this.heroLine = (this.heroLine + 1) % this.heroLines.length }, 3600) } }, destroy() { window.clearInterval(this.heroTimer) } }">
     <div class="bg-glow bg-glow-1"></div>
     <div class="bg-glow bg-glow-2"></div>
     
@@ -74,6 +74,18 @@
     </nav>
 
     <main>
+        {% if site_settings and site_settings.show_announcement %}
+        <aside class="site-announcement" x-data="{ visible: true }" x-show="visible" x-transition role="status">
+            <div class="site-announcement-icon"><i class="ph-fill ph-megaphone"></i></div>
+            <div class="site-announcement-copy">
+                <span class="site-announcement-label">COMMUNITY UPDATE</span>
+                <strong>{{ site_settings.announcement_title }}</strong>
+                <p>{{ site_settings.announcement_content }}</p>
+            </div>
+            <button type="button" class="site-announcement-close" @click="visible = false" aria-label="Dismiss announcement"><i class="ph-bold ph-x"></i></button>
+        </aside>
+        {% endif %}
+
         <!-- Hero Section -->
         <section class="hero-section">
             <div class="hero-container">
@@ -89,16 +101,16 @@
 
                     <div class="hero-badge">
                         <span class="badge-dot"></span>
-                        <span>NEXT-GEN SOCIAL SPACES • 100% FREE</span>
+                        <span>CHAT, VOICE & COMMUNITY • 100% FREE</span>
                     </div>
                     
                     <h1 class="hero-headline">
-                        Where your friends<br>
-                        <span class="gradient-text">actually hang out.</span>
+                        Your people,<br>
+                        <span class="gradient-text hero-rotating-line" :class="'hero-phrase-' + heroLine" x-text="heroLines[heroLine]" aria-live="polite">all in one place.</span>
                     </h1>
                     
                     <p class="hero-subtitle">
-                        Drop into crystal-clear low latency voice rooms, chat in organized spaces, share music, and build a community you love. Fast, modern, and effortless.
+                        Bring your group together with organized chat, direct messages, and voice rooms. Make a space that feels like yours, then keep the conversation flowing.
                     </p>
                     
                     <div class="hero-actions">
@@ -123,30 +135,30 @@
                     <div class="hero-perks">
                         <div class="perk-item">
                             <i class="ph-fill ph-shield-check"></i>
-                            <span>Zero Lag WebRTC</span>
+                            <span>Browser voice rooms</span>
                         </div>
                         <div class="perk-item">
                             <i class="ph-fill ph-sparkle"></i>
-                            <span>Rich Markdown & GIFs</span>
+                            <span>Chat, DMs & reactions</span>
                         </div>
                         <div class="perk-item">
                             <i class="ph-fill ph-device-mobile"></i>
-                            <span>Mobile & Desktop</span>
+                            <span>No app download</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Interactive Hero Visual: Live App Showcase Card -->
-                <div class="hero-visual desktop-only" x-data="{ micActive: true, isSpeaking: true }">
+                <div class="hero-visual desktop-only" aria-label="Illustrative ChillZone product preview">
                     <div class="hero-mockup-card">
                         <div class="mockup-top-bar">
                             <div class="mockup-dots">
                                 <span></span><span></span><span></span>
                             </div>
                             <div class="mockup-title">
-                                <i class="ph-fill ph-seal-check" style="color: #4CAF50;"></i> Chillzone Official
+                                <i class="ph-fill ph-sparkle" style="color: var(--accent);"></i> Your community
                             </div>
-                            <span class="mockup-status">Live</span>
+                            <span class="mockup-status">PREVIEW</span>
                         </div>
 
                         <!-- Active Voice Room Pill -->
@@ -157,7 +169,7 @@
                                     <span style="font-weight: 700; font-size: 0.95rem; color: #fff;">Chill Lounge VC</span>
                                 </div>
                                 <span style="font-size: 0.75rem; color: #23A55A; font-weight: 600; background: rgba(35,165,90,0.15); padding: 2px 8px; border-radius: 12px; border: 1px solid rgba(35,165,90,0.3);">
-                                    RTC 18ms
+                                    VOICE ROOM
                                 </span>
                             </div>
 
@@ -216,7 +228,7 @@
                             <button class="mockup-dock-btn active" title="Noise Cancellation">
                                 <i class="ph-fill ph-ear"></i>
                             </button>
-                            <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: auto;">Krisp Active</span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: auto;">Mic controls</span>
                         </div>
                     </div>
                 </div>
@@ -227,23 +239,23 @@
         <section class="metrics-bar">
             <div class="metrics-container">
                 <div class="metric-item">
-                    <span class="metric-val">{{ users_count|default:"1,500+" }}</span>
-                    <span class="metric-label">Community Members</span>
+                    <span class="metric-val">{{ users_count|default:"0" }}</span>
+                    <span class="metric-label">Registered accounts</span>
                 </div>
                 <div class="metric-divider"></div>
                 <div class="metric-item">
-                    <span class="metric-val">100%</span>
-                    <span class="metric-label">Free Forever</span>
+                    <span class="metric-val">Free</span>
+                    <span class="metric-label">No subscription</span>
                 </div>
                 <div class="metric-divider"></div>
                 <div class="metric-item">
-                    <span class="metric-val">&lt; 25ms</span>
-                    <span class="metric-label">WebRTC Voice Latency</span>
+                    <span class="metric-val">Voice</span>
+                    <span class="metric-label">Rooms in your browser</span>
                 </div>
                 <div class="metric-divider"></div>
                 <div class="metric-item">
-                    <span class="metric-val">99.9%</span>
-                    <span class="metric-label">Uptime & Reliability</span>
+                    <span class="metric-val">Together</span>
+                    <span class="metric-label">Chat, friends & spaces</span>
                 </div>
             </div>
         </section>
@@ -262,10 +274,10 @@
                     autoplay: true,
                     timer: null,
                     slides: [
-                        { id: 'chat', label: 'Rich Chat', icon: 'ph-chat-circle-dots', badge: 'Next-Gen' },
-                        { id: 'voice', label: 'Voice Lounge', icon: 'ph-speaker-high', badge: '16ms WebRTC' },
-                        { id: 'spatial', label: 'Spatial Infinite Canvas', icon: 'ph-planet', badge: 'Interactive 2D' },
-                        { id: 'music', label: 'Music Stage', icon: 'ph-music-notes', badge: 'Synchronized' },
+                        { id: 'chat', label: 'Rich Chat', icon: 'ph-chat-circle-dots', badge: 'Messages' },
+                        { id: 'voice', label: 'Voice Lounge', icon: 'ph-speaker-high', badge: 'Mic controls' },
+                        { id: 'friends', label: 'Friends & Presence', icon: 'ph-users', badge: 'Social' },
+                        { id: 'music', label: 'Music Player', icon: 'ph-music-notes', badge: 'Preview' },
                         { id: 'roles', label: 'Spaces & Roles', icon: 'ph-shield-check', badge: 'Full Control' }
                     ],
                     nextSlide() {
@@ -324,14 +336,14 @@
                                 <div class="window-url-bar">
                                     <i class="ph ph-lock-simple" style="color: #4CAF50;"></i>
                                     <span x-show="activeSlide === 0">chillzone.app / community / official / #welcome-rules</span>
-                                    <span x-show="activeSlide === 1">chillzone.app / community / official / vc-chill-lounge</span>
-                                    <span x-show="activeSlide === 2">chillzone.app / community / official / spatial-infinite-canvas</span>
-                                    <span x-show="activeSlide === 3">chillzone.app / community / official / music-lounge</span>
+                                    <span x-show="activeSlide === 1">chillzone.app / community / voice-room</span>
+                                    <span x-show="activeSlide === 2">chillzone.app / friends / active</span>
+                                    <span x-show="activeSlide === 3">chillzone.app / community / music-player-preview</span>
                                     <span x-show="activeSlide === 4">chillzone.app / community / official / settings-roles</span>
                                 </div>
                                 <div class="window-meta desktop-only">
                                     <span class="online-pill" x-show="activeSlide !== 1"><i class="ph-fill ph-circle"></i> Connected</span>
-                                    <span class="online-pill" x-show="activeSlide === 1" style="color: #23A55A;"><i class="ph-fill ph-broadcast"></i> WebRTC Active • 16ms</span>
+                                    <span class="online-pill" x-show="activeSlide === 1" style="color: #23A55A;"><i class="ph-fill ph-broadcast"></i> Voice connected</span>
                                 </div>
                             </div>
 
@@ -389,7 +401,7 @@
                                                         <span class="role-badge-pill" style="background: rgba(255,107,43,0.15); color: var(--accent); border: 1px solid var(--accent);">FOUNDER</span>
                                                         <span class="stage-time">10:45 AM</span>
                                                     </div>
-                                                    <p class="stage-text">Welcome to CHILL ZONE! Grab a cup of coffee, explore our smooth spatial audio, and jump into chat! ☕🎉</p>
+                                                    <p class="stage-text">Welcome to CHILL ZONE! Grab a cup of coffee, explore our voice rooms, and jump into chat! ☕🎉</p>
                                                     <div class="mockup-reactions" style="margin-top: 8px; display: flex; gap: 8px;">
                                                         <button type="button" class="reaction-tag" :class="fireCount > 14 ? 'active' : ''" @click="fireCount++">🔥 <span x-text="fireCount"></span></button>
                                                         <button type="button" class="reaction-tag" :class="starCount > 8 ? 'active' : ''" @click="starCount++">✨ <span x-text="starCount"></span></button>
@@ -406,10 +418,10 @@
                                                         <span class="role-badge-pill" style="background: rgba(76,175,80,0.15); color: #4CAF50; border: 1px solid #4CAF50;">MOD</span>
                                                         <span class="stage-time">10:48 AM</span>
                                                     </div>
-                                                    <p class="stage-text">Audio sounds crystal clear on the new WebRTC engine. Love the instant theme switching & spatial canvas too!</p>
+                                                    <p class="stage-text">Audio sounds crystal clear on the new WebRTC engine. Love the instant theme switching & community spaces too!</p>
                                                     <div class="stage-attachment-pill">
                                                         <i class="ph-fill ph-file-audio" style="color: var(--accent);"></i>
-                                                        <span>chillzone_intro.mp3 (320kbps stereo)</span>
+                                                        <span>chillzone_intro.mp3</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -435,9 +447,9 @@
                                             <div style="display: flex; align-items: center; gap: 10px;">
                                                 <i class="ph-fill ph-speaker-high" style="color: #23A55A; font-size: 1.3rem;"></i>
                                                 <strong style="color: #fff; font-size: 1rem;">Chill Lounge Voice Stage</strong>
-                                                <span class="vc-rtc-pill"><i class="ph-fill ph-check-circle"></i> RTC Connected (16ms)</span>
+                                                <span class="vc-rtc-pill"><i class="ph-fill ph-check-circle"></i> Voice connected</span>
                                             </div>
-                                            <div style="font-size: 0.8rem; color: var(--text-muted);">Opus 320kbps • 0% Packet Loss</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-muted);">Voice channel • Noise controls</div>
                                         </div>
 
                                         <div class="voice-stage-grid">
@@ -493,21 +505,21 @@
                                             </button>
                                             <button type="button" class="stage-dock-btn" :class="krispActive ? 'highlight' : ''" @click="krispActive = !krispActive">
                                                 <i class="ph-fill ph-ear"></i>
-                                                <span>Krisp AI Noise Reduction</span>
+                                                <span>Noise suppression controls</span>
                                             </button>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- SLIDE 2: Spatial Infinite Canvas (Interactive 2D Proximity Audio) -->
+                                <!-- SLIDE 2: Friends & Presence Preview -->
                                 <div class="showcase-slide-item" x-show="activeSlide === 2" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-100 translate-x-0" style="width: 100%; display: flex;">
                                     <div class="spatial-canvas-wrapper" x-data="{
                                         draggingNode: null,
                                         nodes: [
-                                            { id: 1, name: 'You (Adarsh)', role: 'Founder', avatar: '{% static 'img/default_avatar_orange.svg' %}', x: 220, y: 130, speaking: true, color: '#FF6B2B' },
-                                            { id: 2, name: 'Sarah', role: 'Voice Lead', avatar: '{% static 'img/default_avatar_green.svg' %}', x: 380, y: 100, speaking: false, color: '#4CAF50' },
-                                            { id: 3, name: 'Liam', role: 'DJ Vibes', avatar: '{% static 'img/default_avatar_purple.svg' %}', x: 500, y: 220, speaking: true, color: '#A855F7' },
-                                            { id: 4, name: 'Maya', role: 'Gamer', avatar: '{% static 'img/default_avatar_blue.svg' %}', x: 180, y: 250, speaking: false, color: '#38BDF8' }
+                                            { id: 1, name: 'You', role: 'Online', avatar: '{% static 'img/default_avatar_orange.svg' %}', x: 220, y: 130, speaking: true, color: '#FF6B2B' },
+                                            { id: 2, name: 'Sarah', role: 'Online', avatar: '{% static 'img/default_avatar_green.svg' %}', x: 380, y: 100, speaking: false, color: '#4CAF50' },
+                                            { id: 3, name: 'Liam', role: 'In a voice room', avatar: '{% static 'img/default_avatar_purple.svg' %}', x: 500, y: 220, speaking: true, color: '#A855F7' },
+                                            { id: 4, name: 'Maya', role: 'Online', avatar: '{% static 'img/default_avatar_blue.svg' %}', x: 180, y: 250, speaking: false, color: '#38BDF8' }
                                         ],
                                         startDrag(e, node) {
                                             this.draggingNode = node;
@@ -543,11 +555,11 @@
                                     }">
                                         <div class="spatial-canvas-hud">
                                             <div class="spatial-hud-left">
-                                                <span class="spatial-hud-badge"><i class="ph-bold ph-arrows-out-cardinal"></i> Infinite Spatial Grid</span>
-                                                <span class="spatial-hud-hint">Interactive: Drag any avatar to test 3D spatial proximity audio</span>
+                                                <span class="spatial-hud-badge"><i class="ph-bold ph-users"></i> Friends & Presence</span>
+                                                <span class="spatial-hud-hint">Illustrative friend status preview</span>
                                             </div>
                                             <div class="spatial-hud-controls">
-                                                <button type="button" class="spatial-hud-btn" @click="recenter()" title="Recenter nodes"><i class="ph-bold ph-arrows-counter-clockwise"></i> Recenter</button>
+                                                <span class="spatial-hud-btn"><i class="ph-bold ph-users-three"></i> Friend list</span>
                                             </div>
                                         </div>
 
@@ -604,7 +616,7 @@
                                             <div class="music-track-meta">
                                                 <span class="track-badge">LIVE IN MUSIC ROOM</span>
                                                 <h3 class="track-title">Chillzone Midnight Beats</h3>
-                                                <p class="track-artist">Lofi & Synthwave Collective • Lossless 320kbps</p>
+                                                <p class="track-artist">Lofi & Synthwave Collective • playlist preview</p>
                                             </div>
 
                                             <!-- Interactive Progress Bar -->
@@ -623,7 +635,7 @@
                                                     <i :class="isPlaying ? 'ph-fill ph-pause' : 'ph-fill ph-play'"></i>
                                                 </button>
                                                 <button type="button" class="music-ctrl-btn" title="Next Track"><i class="ph-bold ph-skip-forward"></i></button>
-                                                <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: auto;">4 listeners connected</span>
+                                                <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: auto;">Music room preview</span>
                                             </div>
                                         </div>
                                     </div>
@@ -712,8 +724,8 @@
                         <div class="feature-icon-wrap" style="background: rgba(35, 165, 90, 0.12); color: #23A55A; border-color: rgba(35, 165, 90, 0.3);">
                             <i class="ph-fill ph-speaker-high"></i>
                         </div>
-                        <h3>Low-Latency Voice Rooms</h3>
-                        <p>Instant peer-to-peer WebRTC voice channels with active speaking detection, Krisp noise reduction, and mute/deafen controls.</p>
+                        <h3>Voice Rooms</h3>
+                        <p>Join voice from your browser with speaking indicators, microphone controls, and noise suppression.</p>
                     </div>
 
                     <div class="feature-card">
@@ -749,13 +761,13 @@
                 <div class="voice-spotlight-card">
                     <div class="voice-spotlight-text">
                         <span class="spotlight-tag">
-                            <i class="ph-fill ph-broadcast"></i> ZERO-CONFIG AUDIO
+                            <i class="ph-fill ph-broadcast"></i> VOICE IN YOUR BROWSER
                         </span>
                         <h2>Voice channels that just work.</h2>
-                        <p>No clunky third-party apps to install. Click a voice channel, connect immediately, and talk with friends. Features real-time speaking pulses, microphone testing, and automatic background noise filtering.</p>
+                        <p>Open a voice room from your community and keep talking while chat and friends stay close by. Use mic controls, speaking indicators, and noise suppression from the same space.</p>
                         <div class="voice-checks">
-                            <div><i class="ph-bold ph-check"></i> High fidelity audio stream</div>
-                            <div><i class="ph-bold ph-check"></i> Krisp-style noise cancellation</div>
+                            <div><i class="ph-bold ph-check"></i> Browser-based voice rooms</div>
+                            <div><i class="ph-bold ph-check"></i> Noise suppression controls</div>
                             <div><i class="ph-bold ph-check"></i> Direct in-sidebar participant view</div>
                         </div>
                     </div>
@@ -786,7 +798,7 @@
                             <i :class="activeFaq === 1 ? 'ph-bold ph-minus' : 'ph-bold ph-plus'"></i>
                         </button>
                         <div class="faq-answer" x-show="activeFaq === 1" x-transition>
-                            <p>Yes, 100%! You can create unlimited servers, invite friends, use high-quality voice channels, and send messages without any paywalls or subscriptions.</p>
+                            <p>Yes. Create a community, invite friends, use voice rooms, and chat without a paid tier or subscription.</p>
                         </div>
                     </div>
 
@@ -818,7 +830,7 @@
             <div class="cta-card">
                 <div class="cta-glow"></div>
                 <h2>Ready to hang out?</h2>
-                <p>Join the Chillzone community today. Setup takes less than 10 seconds.</p>
+                <p>Create an account, open your space, and bring your people together.</p>
                 <div class="cta-buttons">
                     {% if user.is_authenticated %}
                     <a href="{% url 'friends' %}" class="btn btn-primary btn-lg">

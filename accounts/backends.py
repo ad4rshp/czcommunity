@@ -7,7 +7,7 @@ class EmailOrUsernameOrUIDBackend(ModelBackend):
     Allows authentication using:
     1. Username
     2. Email address (case-insensitive)
-    3. ChillZone Unique ID (e.g. 'CZ-858666' or '858666')
+    3. User ID (e.g. 'CZ-858666' or '858666')
     """
     def authenticate(self, request, username=None, password=None, **kwargs):
         if not username or not password:

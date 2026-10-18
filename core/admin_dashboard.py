@@ -1,8 +1,10 @@
 import platform
 import secrets
 import django
+from django.contrib import admin
 from django.contrib import messages
 from django.contrib.auth.models import User
+from django.contrib import admin
 from django.contrib.sessions.models import Session
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
@@ -12,6 +14,55 @@ from accounts.models import Report, Block
 from chat.models import Community, Channel, Message, DirectMessage, AuditLog
 from core.models import DashboardConfig
 from profiles.models import Profile
+
+
+MODEL_GROUPS = (
+    ('platform', 'Platform', {'core'}),
+    ('communities', 'Communities & chat', {'chat', 'bots'}),
+    ('members', 'Members & social', {'auth', 'profiles'}),
+    ('safety', 'Safety & moderation', {'accounts'}),
+)
+
+
+def _page_numbers(page_obj, radius=2):
+    start = max(1, page_obj.number - radius)
+    stop = min(page_obj.paginator.num_pages, page_obj.number + radius)
+    return range(start, stop + 1)
+
+
+def _model_registry(request, query, selected_group, per_page=12):
+    app_list = admin.site.get_app_list(request) if request else []
+    entries = []
+    group_options = []
+
+    for position, (group_key, group_label, app_labels) in enumerate(MODEL_GROUPS):
+        group_entries = []
+        for app in app_list:
+            if app.get('app_label') not in app_labels:
+                continue
+            for model in app.get('models', []):
+                entry = {
+                    **model,
+                    'app_name': app.get('name', ''),
+                    'app_label': app.get('app_label', ''),
+                    'group_key': group_key,
+                    'group_label': group_label,
+                    'group_position': position,
+                }
+                search_text = f"{entry['name']} {entry['app_name']} {entry['app_label']}"
+                if query and query.casefold() not in search_text.casefold():
+                    continue
+                group_entries.append(entry)
+        if group_entries:
+            group_options.append({'key': group_key, 'name': group_label})
+            entries.extend(group_entries)
+
+    valid_groups = {option['key'] for option in group_options}
+    selected_group = selected_group if selected_group in valid_groups else ''
+    if selected_group:
+        entries = [entry for entry in entries if entry['group_key'] == selected_group]
+    entries.sort(key=lambda entry: (entry['group_position'], entry['app_name'], entry['name']))
+    return Paginator(entries, per_page), group_options, selected_group
 
 def get_admin_dashboard_context(request=None):
     """Gathers real-time telemetry, moderation status, and scalable paginated records for admin dashboard."""
@@ -32,8 +83,11 @@ def get_admin_dashboard_context(request=None):
     # All communities for selection
     all_communities = Community.objects.only('id', 'name', 'slug', 'is_verified').order_by('name')
     
-    # Searchable & Paginated Users (scale-ready for 100k+ users with UID support)
+    # Searchable, status-filtered, paginated user directory.
     user_q = request.GET.get('user_q', '').strip() if request else ''
+    user_status = request.GET.get('user_status', 'all') if request else 'all'
+    if user_status not in {'all', 'active', 'suspended', 'staff', 'superuser'}:
+        user_status = 'all'
     user_qs = User.objects.select_related('profile')
     if user_q:
         user_qs = user_qs.filter(
@@ -41,19 +95,34 @@ def get_admin_dashboard_context(request=None):
             Q(email__icontains=user_q) |
             Q(profile__unique_id__icontains=user_q)
         )
+    if user_status == 'active':
+        user_qs = user_qs.filter(is_active=True, is_superuser=False)
+    elif user_status == 'suspended':
+        user_qs = user_qs.filter(is_active=False)
+    elif user_status == 'staff':
+        user_qs = user_qs.filter(is_staff=True)
+    elif user_status == 'superuser':
+        user_qs = user_qs.filter(is_superuser=True)
     user_qs = user_qs.order_by('-date_joined')
     user_paginator = Paginator(user_qs, 10)
     user_page = request.GET.get('user_page', 1) if request else 1
     users_page_obj = user_paginator.get_page(user_page)
     
-    # Searchable & Paginated Communities
+    # Searchable, status-filtered, paginated community directory.
     comm_q = request.GET.get('comm_q', '').strip() if request else ''
+    comm_status = request.GET.get('comm_status', 'all') if request else 'all'
+    if comm_status not in {'all', 'verified', 'standard'}:
+        comm_status = 'all'
     comm_qs = Community.objects.select_related('owner').annotate(
         members_count=Count('members', distinct=True),
         channels_count=Count('categories__channels', distinct=True)
     )
     if comm_q:
         comm_qs = comm_qs.filter(Q(name__icontains=comm_q) | Q(slug__icontains=comm_q) | Q(owner__username__icontains=comm_q))
+    if comm_status == 'verified':
+        comm_qs = comm_qs.filter(is_verified=True)
+    elif comm_status == 'standard':
+        comm_qs = comm_qs.filter(is_verified=False)
     comm_qs = comm_qs.order_by('-created_at')
     comm_paginator = Paginator(comm_qs, 10)
     comm_page = request.GET.get('comm_page', 1) if request else 1
@@ -62,7 +131,11 @@ def get_admin_dashboard_context(request=None):
     # Message Monitoring: Channel Messages Query & Filter
     msg_q = request.GET.get('msg_q', '').strip() if request else ''
     msg_type = request.GET.get('msg_type', 'all') if request else 'all'
+    if msg_type not in {'all', 'channel', 'dm'}:
+        msg_type = 'all'
     msg_comm_id = request.GET.get('msg_comm', '') if request else ''
+    if msg_type == 'dm' or (msg_comm_id and not str(msg_comm_id).isdigit()):
+        msg_comm_id = ''
     
     msg_qs = Message.objects.select_related(
         'author', 'author__profile', 'channel', 'channel__category__community'
@@ -79,6 +152,8 @@ def get_admin_dashboard_context(request=None):
         msg_qs = msg_qs.filter(channel__category__community_id=msg_comm_id)
         
     msg_qs = msg_qs.order_by('-created_at')
+    if msg_type == 'dm':
+        msg_qs = Message.objects.none()
     msg_paginator = Paginator(msg_qs, 12)
     msg_page = request.GET.get('msg_page', 1) if request else 1
     messages_page_obj = msg_paginator.get_page(msg_page)
@@ -95,10 +170,30 @@ def get_admin_dashboard_context(request=None):
             Q(session__user1__username__icontains=msg_q) |
             Q(session__user2__username__icontains=msg_q)
         )
+    if msg_type == 'channel':
+        dm_qs = DirectMessage.objects.none()
     dm_qs = dm_qs.order_by('-created_at')
     dm_paginator = Paginator(dm_qs, 12)
     dm_page = request.GET.get('dm_page', 1) if request else 1
     dms_page_obj = dm_paginator.get_page(dm_page)
+
+    active_tab = request.GET.get('tab', 'overview') if request else 'overview'
+    if active_tab not in {'overview', 'messages', 'moderation', 'servers', 'users', 'models'}:
+        active_tab = 'overview'
+
+    # Curated, searchable model registry. Technical framework and plugin models
+    # stay out of the platform dashboard unless explicitly grouped here.
+    model_q = request.GET.get('model_q', '').strip() if request else ''
+    requested_model_group = request.GET.get('model_group', '') if request else ''
+    if active_tab == 'models':
+        model_paginator, model_group_options, model_group = _model_registry(
+            request, model_q, requested_model_group
+        )
+    else:
+        model_paginator = Paginator([], 12)
+        model_group_options = []
+        model_group = ''
+    model_page_obj = model_paginator.get_page(request.GET.get('model_page', 1) if request else 1)
     
     # Messages created in last 24h
     last_24h = timezone.now() - timezone.timedelta(hours=24)
@@ -113,9 +208,8 @@ def get_admin_dashboard_context(request=None):
         'os_info': f"{platform.system()} {platform.release()}",
         'db_engine': django.db.connection.settings_dict.get('ENGINE', '').split('.')[-1],
         'debug_mode': django.conf.settings.DEBUG,
+        'channel_layer': django.conf.settings.CHANNEL_LAYERS['default']['BACKEND'].rsplit('.', 1)[-1],
     }
-    
-    active_tab = request.GET.get('tab', 'overview') if request else 'overview'
     
     return {
         'total_users': total_users,
@@ -132,14 +226,25 @@ def get_admin_dashboard_context(request=None):
         'pending_reports_count': pending_reports_count,
         'all_communities': all_communities,
         'users_page_obj': users_page_obj,
+        'user_page_numbers': _page_numbers(users_page_obj),
         'user_q': user_q,
+        'user_status': user_status,
         'comm_page_obj': comm_page_obj,
+        'comm_page_numbers': _page_numbers(comm_page_obj),
         'comm_q': comm_q,
+        'comm_status': comm_status,
         'messages_page_obj': messages_page_obj,
+        'message_page_numbers': _page_numbers(messages_page_obj),
         'dms_page_obj': dms_page_obj,
+        'dm_page_numbers': _page_numbers(dms_page_obj),
         'msg_q': msg_q,
         'msg_type': msg_type,
         'msg_comm_id': msg_comm_id,
+        'model_page_obj': model_page_obj,
+        'model_page_numbers': _page_numbers(model_page_obj),
+        'model_q': model_q,
+        'model_group': model_group,
+        'model_group_options': model_group_options,
         'recent_audit_logs': recent_audit_logs,
         'site_config': site_config,
         'system_info': system_info,
@@ -198,6 +303,20 @@ def handle_admin_dashboard_action(request):
         config.save()
         messages.success(request, "Global site announcement updated successfully.")
 
+    elif action_type == 'update_platform_content':
+        config = DashboardConfig.load()
+        config.maintenance_message = request.POST.get(
+            'maintenance_message', config.maintenance_message
+        ).strip()
+        config.welcome_message = request.POST.get(
+            'welcome_message', config.welcome_message
+        ).strip()
+        config.rules_text = request.POST.get('rules_text', config.rules_text).strip()
+        config.show_rules = request.POST.get('show_rules') == 'on'
+        config.show_quick_actions = request.POST.get('show_quick_actions') == 'on'
+        config.save()
+        messages.success(request, "Platform content and community defaults saved.")
+
     elif action_type == 'resolve_report':
         report_id = request.POST.get('report_id')
         try:
@@ -212,7 +331,7 @@ def handle_admin_dashboard_action(request):
     elif action_type == 'ban_user':
         user_identifier = request.POST.get('user_identifier') or request.POST.get('user_id')
         if not user_identifier:
-            messages.error(request, "Please enter a username, user ID, or Unique ID to ban.")
+            messages.error(request, "Please enter a username or User ID to ban.")
             return redirect(f"/admin/?tab={redirect_tab}")
             
         target = None
@@ -234,13 +353,13 @@ def handle_admin_dashboard_action(request):
             target.is_active = False
             target.save()
             uid = getattr(target, 'profile', None) and target.profile.unique_id
-            messages.warning(request, f"User '{target.username}' (UID: {uid or 'None'}) has been BANNED / SUSPENDED.")
+            messages.warning(request, f"User '{target.username}' (User ID: {uid or 'None'}) has been BANNED / SUSPENDED.")
         return redirect(f"/admin/?tab={redirect_tab}")
 
     elif action_type == 'unban_user':
         user_identifier = request.POST.get('user_identifier') or request.POST.get('user_id')
         if not user_identifier:
-            messages.error(request, "Please enter a username, user ID, or Unique ID to restore.")
+            messages.error(request, "Please enter a username or User ID to restore.")
             return redirect(f"/admin/?tab={redirect_tab}")
             
         target = None
@@ -270,7 +389,7 @@ def handle_admin_dashboard_action(request):
             target.profile.emergency_pin = pin
             target.profile.emergency_pin_expires_at = timezone.now() + timezone.timedelta(hours=2)
             target.profile.save()
-            messages.success(request, f"🔑 Generated Emergency Recovery PIN for @{target.username} (UID: {target.profile.unique_id}): {pin} (Valid for 2 hours). Share this with the user to recover their account.")
+            messages.success(request, f"🔑 Generated Emergency Recovery PIN for @{target.username} (User ID: {target.profile.unique_id}): {pin} (Valid for 2 hours). Share this with the user to recover their account.")
         except User.DoesNotExist:
             messages.error(request, "User not found.")
         return redirect(f"/admin/?tab={redirect_tab}")

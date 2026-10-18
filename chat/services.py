@@ -1,46 +1,67 @@
+import logging
+
 from asgiref.sync import sync_to_async
+from django.utils.html import escape
 from django.utils import timezone
+from urllib.parse import quote, urlparse
 from .models import Channel, Message, Reaction, CommunityMember
+from .permissions import can_user_perform_channel_action, can_user_view_channel
+
+logger = logging.getLogger(__name__)
 
 class ChatService:
+    @staticmethod
+    def clean_embed_data(embed_data):
+        if not isinstance(embed_data, dict) or embed_data.get('type') != 'gif':
+            return None
+        url = embed_data.get('url')
+        if not isinstance(url, str) or len(url) > 2048:
+            return None
+        parsed = urlparse(url)
+        if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+            return None
+        return {'type': 'gif', 'url': quote(url, safe=':/?&=#%._-~+@')}
+
     @staticmethod
     async def create_message(channel_slug, user, content, embed_data=None, reply_to_id=None):
         try:
             channel = await Channel.objects.select_related('category__community').aget(slug=channel_slug)
             community = channel.category.community
+            clean_embed_data = ChatService.clean_embed_data(embed_data)
+            if not (content or '').strip() and not clean_embed_data:
+                return None, None
             
             # Use async ORM for related objects — select_related avoids lazy loads in async
-            membership = await CommunityMember.objects.select_related('community', 'user').filter(community=community, user=user).afirst()
-            is_owner = (user.id == community.owner_id)
-            
-            # Check SEND_MESSAGES
-            if not is_owner:
-                if not membership:
-                    return None, None
-                has_send = await membership.ahas_permission('SEND_MESSAGES')
-                if not has_send:
-                    return None, None
+            membership = await CommunityMember.objects.select_related(
+                'community', 'user', 'user__profile'
+            ).filter(community=community, user=user).afirst()
+            has_send = await sync_to_async(can_user_perform_channel_action)(
+                user, channel, 'send_messages', 'SEND_MESSAGES', membership
+            )
+            if not has_send:
+                return None, None
             
             # Check EMBED_LINKS
-            if embed_data and not is_owner:
-                has_embed = await membership.ahas_permission('EMBED_LINKS')
+            if clean_embed_data:
+                has_embed = await sync_to_async(can_user_perform_channel_action)(
+                    user, channel, 'send_embeds', 'EMBED_LINKS', membership
+                )
                 if not has_embed:
                     return None, None
 
             reply_to = None
             if reply_to_id:
-                reply_to = await Message.objects.select_related('author', 'author__profile').filter(id=reply_to_id).afirst()
+                reply_to = await Message.objects.select_related(
+                    'author', 'author__profile'
+                ).filter(id=reply_to_id, channel=channel).afirst()
 
             message = await Message.objects.acreate(
                 channel=channel,
                 author=user,
                 content=content,
-                embed_data=embed_data,
+                embed_data=clean_embed_data,
                 reply_to=reply_to
             )
-            
-            # Prepare payload
-            from django.utils.html import escape
             
             # Re-fetch with select_related for payload data
             message = await Message.objects.select_related('author', 'author__profile', 'reply_to__author', 'reply_to__author__profile', 'channel__category__community').aget(id=message.id)
@@ -49,7 +70,7 @@ class ChatService:
             
             author_color = None
             if membership:
-                highest_role = await membership.roles.exclude(name='@everyone').order_by('-position', '-id').afirst()
+                highest_role = await membership.roles.exclude(name__iexact='@everyone').order_by('-position', '-id').afirst()
                 if highest_role and highest_role.color:
                     author_color = highest_role.color
 
@@ -59,7 +80,9 @@ class ChatService:
             if message.reply_to:
                 rep_auth = message.reply_to.author
                 rep_prof = getattr(rep_auth, 'profile', None)
-                rep_membership = await CommunityMember.objects.select_related('user', 'community').filter(community=community, user=rep_auth).afirst()
+                rep_membership = await CommunityMember.objects.select_related(
+                    'user', 'user__profile', 'community'
+                ).filter(community=community, user=rep_auth).afirst()
                 rep_display = rep_membership.get_display_name() if rep_membership else (rep_auth.display_name if hasattr(rep_auth, 'display_name') else rep_auth.username)
                 reply_to_data = {
                     "id": message.reply_to.id,
@@ -87,18 +110,27 @@ class ChatService:
                 "reply_to": reply_to_data,
             }
             return message, payload
-        except Exception as e:
-            print(f"Error creating message: {e}")
+        except Exception:
+            logger.exception("Could not create message in channel %s", channel_slug)
             return None, None
 
     @staticmethod
-    async def update_message(message_id, user, new_content):
+    async def update_message(message_id, user, new_content, channel_slug=None):
         try:
-            message = await Message.objects.aget(
-                id=message_id,
-                author=user,
-                deleted_at__isnull=True
-            )
+            filters = {
+                'id': message_id,
+                'author': user,
+                'deleted_at__isnull': True,
+            }
+            if channel_slug:
+                filters['channel__slug'] = channel_slug
+            message = await Message.objects.select_related(
+                'channel__category__community'
+            ).aget(**filters)
+            if not await sync_to_async(can_user_perform_channel_action)(
+                user, message.channel, 'send_messages', 'SEND_MESSAGES'
+            ):
+                return None
             message.content = new_content
             message.edited_at = timezone.now()
             await message.asave()
@@ -107,12 +139,16 @@ class ChatService:
             return None
 
     @staticmethod
-    async def delete_message(message_id, user):
+    async def delete_message(message_id, user, channel_slug=None):
         try:
-            message = await Message.objects.select_related('channel__category__community').aget(
-                id=message_id,
-                deleted_at__isnull=True
-            )
+            filters = {'id': message_id, 'deleted_at__isnull': True}
+            if channel_slug:
+                filters['channel__slug'] = channel_slug
+            message = await Message.objects.select_related(
+                'channel__category__community'
+            ).aget(**filters)
+            if not await sync_to_async(can_user_view_channel)(user, message.channel):
+                return False
             can_delete = (message.author_id == user.id)
             
             if not can_delete:
@@ -132,12 +168,16 @@ class ChatService:
             return False
 
     @staticmethod
-    async def toggle_reaction(message_id, user, emoji):
+    async def toggle_reaction(message_id, user, emoji, channel_slug=None):
         try:
-            message = await Message.objects.aget(
-                id=message_id,
-                deleted_at__isnull=True
-            )
+            filters = {'id': message_id, 'deleted_at__isnull': True}
+            if channel_slug:
+                filters['channel__slug'] = channel_slug
+            message = await Message.objects.select_related(
+                'channel__category__community'
+            ).aget(**filters)
+            if not await sync_to_async(can_user_view_channel)(user, message.channel):
+                return None
             reaction, created = await Reaction.objects.aget_or_create(
                 message=message, user=user, emoji=emoji
             )
@@ -168,5 +208,3 @@ class ChatService:
     def get_or_create_official_community(owner=None):
         """Backwards-compatible alias: returns official community without hardcoded creation."""
         return ChatService.get_official_community()
-
-

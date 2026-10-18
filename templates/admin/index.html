@@ -195,6 +195,48 @@
         border-color: #3b82f6 !important;
         box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
     }
+
+    .cz-action-box, .cz-kpi-card, .cz-model-card {
+        transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    }
+
+    .cz-action-box:hover, .cz-model-card:hover {
+        border-color: rgba(96, 165, 250, 0.45);
+        box-shadow: 0 16px 36px rgba(2, 6, 23, 0.24);
+    }
+
+    .cz-dash-header {
+        background:
+            radial-gradient(circle at 88% 10%, rgba(249, 115, 22, 0.18), transparent 28%),
+            linear-gradient(135deg, #172033, #0b1220 72%);
+    }
+
+    .cz-filter-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .cz-page-link {
+        min-width: 34px;
+        text-align: center;
+    }
+
+    .cz-model-card {
+        height: 100%;
+        background: linear-gradient(145deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.96));
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 18px;
+    }
+
+    .cz-model-card:hover { transform: translateY(-3px); }
+
+    @media (prefers-reduced-motion: reduce) {
+        .cz-action-box, .cz-kpi-card, .cz-model-card, .cz-dash-tab { transition: none !important; }
+        .cz-pulse-dot { animation: none !important; }
+    }
 </style>
 {% endblock %}
 
@@ -273,6 +315,7 @@
     </div>
 
     <!-- Live Telemetry KPI Cards -->
+    {% if active_tab == 'overview' %}
     <div class="row">
         <!-- 1. Registered Users -->
         <div class="col-xl-3 col-md-6 mb-4">
@@ -350,6 +393,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Scalable Navigation Tabs -->
     <div class="cz-dash-nav-pills">
@@ -372,7 +416,7 @@
             <i class="fas fa-user-friends"></i> User Directory & Security ({{ total_users }})
         </a>
         <a href="?tab=models" class="cz-dash-tab {% if active_tab == 'models' %}active{% endif %}">
-            <i class="fas fa-database"></i> Database Models
+            <i class="fas fa-database"></i> Platform Registry
         </a>
     </div>
 
@@ -450,6 +494,37 @@
                     </div>
                 </form>
             </div>
+
+            <div class="cz-action-box" style="border-top: 3px solid #a78bfa;">
+                <h5 class="font-weight-bold text-white mb-2">
+                    <i class="fas fa-sliders-h mr-2" style="color: #a78bfa;"></i> Platform Content & Defaults
+                </h5>
+                <p class="text-muted" style="font-size: 0.86rem;">Control maintenance copy, the welcome message, community rules, and quick-action visibility.</p>
+                <form method="post" class="mt-3">
+                    {% csrf_token %}
+                    <input type="hidden" name="action_type" value="update_platform_content">
+                    <input type="hidden" name="redirect_tab" value="overview">
+                    <div class="form-group mb-2">
+                        <label class="text-white-50 font-weight-bold" for="maintenanceMessage">Maintenance screen</label>
+                        <textarea id="maintenanceMessage" name="maintenance_message" rows="2" class="form-control cz-search-input">{{ site_config.maintenance_message }}</textarea>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label class="text-white-50 font-weight-bold" for="welcomeMessage">Welcome message</label>
+                        <textarea id="welcomeMessage" name="welcome_message" rows="2" class="form-control cz-search-input">{{ site_config.welcome_message }}</textarea>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label class="text-white-50 font-weight-bold" for="communityRules">Community rules</label>
+                        <textarea id="communityRules" name="rules_text" rows="4" class="form-control cz-search-input">{{ site_config.rules_text }}</textarea>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center flex-wrap" style="gap: 12px;">
+                        <div class="d-flex flex-wrap" style="gap: 16px;">
+                            <label class="text-white-50 mb-0"><input type="checkbox" name="show_rules" {% if site_config.show_rules %}checked{% endif %}> Show rules</label>
+                            <label class="text-white-50 mb-0"><input type="checkbox" name="show_quick_actions" {% if site_config.show_quick_actions %}checked{% endif %}> Show quick actions</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm font-weight-bold"><i class="fas fa-save mr-1"></i> Save platform content</button>
+                    </div>
+                </form>
+            </div>
         </div>
 
         <!-- System Telemetry & Health -->
@@ -492,7 +567,7 @@
                     <div class="mt-2 pt-2 border-top" style="border-color: #334155 !important;">
                         <div class="d-flex justify-content-between align-items-center mb-1 font-size-sm" style="font-size: 0.85rem;">
                             <span class="text-white-50">WebSockets / Channel Layer:</span>
-                            <span class="badge badge-success font-weight-bold"><i class="fas fa-check mr-1"></i> InMemoryChannelLayer Active</span>
+                            <span class="badge {% if 'Redis' in system_info.channel_layer %}badge-success{% else %}badge-warning text-dark{% endif %} font-weight-bold"><i class="fas fa-check mr-1"></i> {{ system_info.channel_layer }}</span>
                         </div>
                         <div class="d-flex justify-content-between align-items-center mb-1 font-size-sm" style="font-size: 0.85rem;">
                             <span class="text-white-50">Content-Security-Policy (CSP):</span>
@@ -524,24 +599,26 @@
                 <small class="text-muted">Real-time inspection of public server channels and direct communications.</small>
             </div>
             <!-- Search & Filter Form -->
-            <form method="get" class="form-inline m-0" style="gap: 8px;">
+            <form method="get" class="cz-filter-bar m-0">
                 <input type="hidden" name="tab" value="messages">
-                <select name="msg_type" class="form-control form-control-sm cz-search-input" onchange="this.form.submit()">
+                <select name="msg_type" class="form-control form-control-sm cz-search-input" aria-label="Message type" onchange="this.form.submit()">
                     <option value="all" {% if msg_type == 'all' %}selected{% endif %}>All Messages (Channel + DM)</option>
                     <option value="channel" {% if msg_type == 'channel' %}selected{% endif %}>Channel Messages Only</option>
                     <option value="dm" {% if msg_type == 'dm' %}selected{% endif %}>Direct Messages (DMs) Only</option>
                 </select>
+                {% if msg_type != 'dm' %}
                 <select name="msg_comm" class="form-control form-control-sm cz-search-input" onchange="this.form.submit()">
                     <option value="">All Servers / Communities</option>
                     {% for c in all_communities %}
                     <option value="{{ c.id }}" {% if msg_comm_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
                     {% endfor %}
                 </select>
+                {% endif %}
                 <div class="input-group input-group-sm">
-                    <input type="text" name="msg_q" class="form-control cz-search-input" value="{{ msg_q }}" placeholder="Search text, username, or UID...">
+                    <input type="text" name="msg_q" class="form-control cz-search-input" value="{{ msg_q }}" placeholder="Search text, username, or User ID...">
                     <div class="input-group-append">
                         <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i></button>
-                        {% if msg_q or msg_comm_id or msg_type != 'all' %}
+                {% if msg_q or msg_comm_id or msg_type != 'all' %}
                         <a href="?tab=messages" class="btn btn-secondary" title="Reset Filters"><i class="fas fa-times"></i></a>
                         {% endif %}
                     </div>
@@ -592,7 +669,7 @@
                         <thead style="background: rgba(0, 0, 0, 0.2); color: #94a3b8; font-size: 0.78rem; text-transform: uppercase;">
                             <tr>
                                 <th style="width: 70px;">ID</th>
-                                <th>Author (User & Unique ID)</th>
+                                <th>Author (User ID)</th>
                                 <th>Server & Channel</th>
                                 <th>Content</th>
                                 <th>Timestamp</th>
@@ -653,7 +730,7 @@
 
                                         {% if not m.author.is_superuser and m.author.is_active %}
                                         <!-- Ban Author Form -->
-                                        <form method="post" class="d-inline m-0" onsubmit="return confirm('Ban user @{{ m.author.username }} (UID: {{ m.author.profile.unique_id }})?')">
+                                        <form method="post" class="d-inline m-0" onsubmit="return confirm('Ban user @{{ m.author.username }} (User ID: {{ m.author.profile.unique_id }})?')">
                                             {% csrf_token %}
                                             <input type="hidden" name="action_type" value="ban_user">
                                             <input type="hidden" name="user_id" value="{{ m.author.id }}">
@@ -684,10 +761,13 @@
                 </div>
                 <div>
                     {% if messages_page_obj.has_previous %}
-                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_comm={{ msg_comm_id }}&msg_q={{ msg_q }}&msg_page={{ messages_page_obj.previous_page_number }}" class="btn btn-secondary btn-xs mr-1">&laquo; Previous</a>
+                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_comm={{ msg_comm_id }}&msg_q={{ msg_q|urlencode }}&msg_page={{ messages_page_obj.previous_page_number }}" class="btn btn-secondary btn-xs mr-1">&laquo; Previous</a>
                     {% endif %}
+                    {% for page_num in message_page_numbers %}
+                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_comm={{ msg_comm_id }}&msg_q={{ msg_q|urlencode }}&msg_page={{ page_num }}" class="btn btn-xs mr-1 {% if page_num == messages_page_obj.number %}btn-primary{% else %}btn-secondary{% endif %}" {% if page_num == messages_page_obj.number %}aria-current="page"{% endif %}>{{ page_num }}</a>
+                    {% endfor %}
                     {% if messages_page_obj.has_next %}
-                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_comm={{ msg_comm_id }}&msg_q={{ msg_q }}&msg_page={{ messages_page_obj.next_page_number }}" class="btn btn-primary btn-xs">Next &raquo;</a>
+                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_comm={{ msg_comm_id }}&msg_q={{ msg_q|urlencode }}&msg_page={{ messages_page_obj.next_page_number }}" class="btn btn-primary btn-xs">Next &raquo;</a>
                     {% endif %}
                 </div>
             </div>
@@ -788,10 +868,13 @@
                 </div>
                 <div>
                     {% if dms_page_obj.has_previous %}
-                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_q={{ msg_q }}&dm_page={{ dms_page_obj.previous_page_number }}" class="btn btn-secondary btn-xs mr-1">&laquo; Previous</a>
+                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_q={{ msg_q|urlencode }}&dm_page={{ dms_page_obj.previous_page_number }}" class="btn btn-secondary btn-xs mr-1">&laquo; Previous</a>
                     {% endif %}
+                    {% for page_num in dm_page_numbers %}
+                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_q={{ msg_q|urlencode }}&dm_page={{ page_num }}" class="btn btn-xs mr-1 {% if page_num == dms_page_obj.number %}btn-primary{% else %}btn-secondary{% endif %}" {% if page_num == dms_page_obj.number %}aria-current="page"{% endif %}>{{ page_num }}</a>
+                    {% endfor %}
                     {% if dms_page_obj.has_next %}
-                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_q={{ msg_q }}&dm_page={{ dms_page_obj.next_page_number }}" class="btn btn-primary btn-xs">Next &raquo;</a>
+                    <a href="?tab=messages&msg_type={{ msg_type }}&msg_q={{ msg_q|urlencode }}&dm_page={{ dms_page_obj.next_page_number }}" class="btn btn-primary btn-xs">Next &raquo;</a>
                     {% endif %}
                 </div>
             </div>
@@ -917,10 +1000,10 @@
         <div class="col-md-6 mb-4">
             <div class="cz-action-box">
                 <h5 class="font-weight-bold text-white mb-3">
-                    <i class="fas fa-user-slash text-danger mr-2"></i> Moderate User by Username or Unique ID
+                    <i class="fas fa-user-slash text-danger mr-2"></i> Moderate User by Username or User ID
                 </h5>
                 <p class="text-muted" style="font-size: 0.85rem;">
-                    Enter any username or Unique ID (e.g. CZ-858666) to suspend or restore their account instantly.
+                    Enter any username or User ID (e.g. CZ-858666) to suspend or restore their account instantly.
                 </p>
                 <div class="d-flex" style="gap: 10px;">
                     <form method="post" class="flex-grow-1" onsubmit="return confirm('Ban this user?')">
@@ -928,7 +1011,7 @@
                         <input type="hidden" name="action_type" value="ban_user">
                         <input type="hidden" name="redirect_tab" value="moderation">
                         <div class="input-group">
-                            <input type="text" name="user_identifier" class="form-control cz-search-input" placeholder="Username or Unique ID (CZ-...)..." required>
+                            <input type="text" name="user_identifier" class="form-control cz-search-input" placeholder="Username or User ID (CZ-...)..." required>
                             <div class="input-group-append">
                                 <button type="submit" class="btn btn-danger font-weight-bold">Ban User</button>
                             </div>
@@ -941,7 +1024,7 @@
                         <input type="hidden" name="action_type" value="unban_user">
                         <input type="hidden" name="redirect_tab" value="moderation">
                         <div class="input-group">
-                            <input type="text" name="user_identifier" class="form-control cz-search-input" placeholder="Username or Unique ID to restore..." required>
+                            <input type="text" name="user_identifier" class="form-control cz-search-input" placeholder="Username or User ID to restore..." required>
                             <div class="input-group-append">
                                 <button type="submit" class="btn btn-success font-weight-bold">Restore User</button>
                             </div>
@@ -983,13 +1066,18 @@
             </h5>
             <div class="d-flex align-items-center" style="gap: 10px;">
                 <!-- Live Search Form -->
-                <form method="get" class="form-inline m-0">
-                    <input type="hidden" name="tab" value="servers">
-                    <div class="input-group input-group-sm">
+            <form method="get" class="cz-filter-bar m-0">
+                <input type="hidden" name="tab" value="servers">
+                <select name="comm_status" class="form-control form-control-sm cz-search-input" aria-label="Community status" onchange="this.form.submit()">
+                    <option value="all" {% if comm_status == 'all' %}selected{% endif %}>All communities</option>
+                    <option value="verified" {% if comm_status == 'verified' %}selected{% endif %}>Verified</option>
+                    <option value="standard" {% if comm_status == 'standard' %}selected{% endif %}>Standard</option>
+                </select>
+                <div class="input-group input-group-sm">
                         <input type="text" name="comm_q" class="form-control cz-search-input" value="{{ comm_q }}" placeholder="Search server or owner...">
                         <div class="input-group-append">
                             <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i></button>
-                            {% if comm_q %}
+                            {% if comm_q or comm_status != 'all' %}
                             <a href="?tab=servers" class="btn btn-secondary"><i class="fas fa-times"></i></a>
                             {% endif %}
                         </div>
@@ -1059,10 +1147,13 @@
             </div>
             <div>
                 {% if comm_page_obj.has_previous %}
-                <a href="?tab=servers&comm_q={{ comm_q }}&comm_page={{ comm_page_obj.previous_page_number }}" class="btn btn-secondary btn-sm mr-1">&laquo; Previous</a>
+                <a href="?tab=servers&comm_q={{ comm_q|urlencode }}&comm_status={{ comm_status }}&comm_page={{ comm_page_obj.previous_page_number }}" class="btn btn-secondary btn-sm mr-1">&laquo; Previous</a>
                 {% endif %}
+                {% for page_num in comm_page_numbers %}
+                <a href="?tab=servers&comm_q={{ comm_q|urlencode }}&comm_status={{ comm_status }}&comm_page={{ page_num }}" class="btn btn-sm mr-1 {% if page_num == comm_page_obj.number %}btn-primary{% else %}btn-secondary{% endif %}" {% if page_num == comm_page_obj.number %}aria-current="page"{% endif %}>{{ page_num }}</a>
+                {% endfor %}
                 {% if comm_page_obj.has_next %}
-                <a href="?tab=servers&comm_q={{ comm_q }}&comm_page={{ comm_page_obj.next_page_number }}" class="btn btn-primary btn-sm">Next &raquo;</a>
+                <a href="?tab=servers&comm_q={{ comm_q|urlencode }}&comm_status={{ comm_status }}&comm_page={{ comm_page_obj.next_page_number }}" class="btn btn-primary btn-sm">Next &raquo;</a>
                 {% endif %}
             </div>
         </div>
@@ -1078,13 +1169,20 @@
                 <i class="fas fa-users text-primary mr-2"></i> Scalable User Directory & Control ({{ total_users }})
             </h5>
             <!-- Live User Search Form -->
-            <form method="get" class="form-inline m-0">
+            <form method="get" class="cz-filter-bar m-0">
                 <input type="hidden" name="tab" value="users">
+                <select name="user_status" class="form-control form-control-sm cz-search-input" aria-label="User status" onchange="this.form.submit()">
+                    <option value="all" {% if user_status == 'all' %}selected{% endif %}>All accounts</option>
+                    <option value="active" {% if user_status == 'active' %}selected{% endif %}>Active members</option>
+                    <option value="suspended" {% if user_status == 'suspended' %}selected{% endif %}>Suspended</option>
+                    <option value="staff" {% if user_status == 'staff' %}selected{% endif %}>Staff</option>
+                    <option value="superuser" {% if user_status == 'superuser' %}selected{% endif %}>Superusers</option>
+                </select>
                 <div class="input-group input-group-sm">
-                    <input type="text" name="user_q" class="form-control cz-search-input" value="{{ user_q }}" placeholder="Search username, email, or Unique ID (CZ-...)...">
+                    <input type="text" name="user_q" class="form-control cz-search-input" value="{{ user_q }}" placeholder="Search username, email, or User ID (CZ-...)...">
                     <div class="input-group-append">
                         <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i></button>
-                        {% if user_q %}
+                            {% if user_q or user_status != 'all' %}
                         <a href="?tab=users" class="btn btn-secondary"><i class="fas fa-times"></i></a>
                         {% endif %}
                     </div>
@@ -1097,11 +1195,11 @@
                 <thead style="background: rgba(0, 0, 0, 0.2); color: #94a3b8; font-size: 0.8rem; text-transform: uppercase;">
                     <tr>
                         <th>Username</th>
-                        <th>Unique ID</th>
+                        <th>User ID</th>
                         <th>Email</th>
                         <th>Date Joined</th>
                         <th>Role / Status</th>
-                        <th>Zero-Cost Recovery & Security</th>
+                        <th>Recovery & Security</th>
                         <th class="text-right">Actions</th>
                     </tr>
                 </thead>
@@ -1145,7 +1243,7 @@
                                     <input type="hidden" name="action_type" value="issue_emergency_pin">
                                     <input type="hidden" name="user_id" value="{{ u.id }}">
                                     <input type="hidden" name="redirect_tab" value="users">
-                                    <button type="submit" class="btn btn-outline-warning btn-xs" title="Generate zero-cost 6-digit emergency PIN for account recovery" onclick="return confirm('Generate emergency recovery PIN for @{{ u.username }} (UID: {{ u.profile.unique_id }})?')">
+                                    <button type="submit" class="btn btn-outline-warning btn-xs" title="Generate a 6-digit recovery PIN" onclick="return confirm('Generate emergency recovery PIN for @{{ u.username }} (User ID: {{ u.profile.unique_id }})?')">
                                         <i class="fas fa-key mr-1"></i> Issue PIN
                                     </button>
                                 </form>
@@ -1198,10 +1296,13 @@
             </div>
             <div>
                 {% if users_page_obj.has_previous %}
-                <a href="?tab=users&user_q={{ user_q }}&user_page={{ users_page_obj.previous_page_number }}" class="btn btn-secondary btn-sm mr-1">&laquo; Previous</a>
+                <a href="?tab=users&user_q={{ user_q|urlencode }}&user_status={{ user_status }}&user_page={{ users_page_obj.previous_page_number }}" class="btn btn-secondary btn-sm mr-1">&laquo; Previous</a>
                 {% endif %}
+                {% for page_num in user_page_numbers %}
+                <a href="?tab=users&user_q={{ user_q|urlencode }}&user_status={{ user_status }}&user_page={{ page_num }}" class="btn btn-sm mr-1 {% if page_num == users_page_obj.number %}btn-primary{% else %}btn-secondary{% endif %}" {% if page_num == users_page_obj.number %}aria-current="page"{% endif %}>{{ page_num }}</a>
+                {% endfor %}
                 {% if users_page_obj.has_next %}
-                <a href="?tab=users&user_q={{ user_q }}&user_page={{ users_page_obj.next_page_number }}" class="btn btn-primary btn-sm">Next &raquo;</a>
+                <a href="?tab=users&user_q={{ user_q|urlencode }}&user_status={{ user_status }}&user_page={{ users_page_obj.next_page_number }}" class="btn btn-primary btn-sm">Next &raquo;</a>
                 {% endif %}
             </div>
         </div>
@@ -1211,46 +1312,64 @@
 
     <!-- TAB 5: DATABASE MODEL REGISTRY -->
     {% if active_tab == 'models' %}
-    <div class="card card-dark card-outline" style="background: #1e293b; border-color: #334155;">
-        <div class="card-header" style="border-bottom: 1px solid #334155;">
-            <h5 class="card-title font-weight-bold text-white m-0">
-                <i class="fas fa-database text-warning mr-2"></i> Complete Database Model Registry
-            </h5>
+    <div class="cz-action-box">
+        <div class="d-flex justify-content-between align-items-center flex-wrap mb-3" style="gap: 14px;">
+            <div>
+                <h5 class="font-weight-bold text-white m-0"><i class="fas fa-database text-warning mr-2"></i> Platform Registry</h5>
+                <small class="text-muted">Curated platform models with permission-aware links.</small>
+            </div>
+            <span class="badge badge-info">{{ model_page_obj.paginator.count }} models</span>
         </div>
-        <div class="card-body">
-            <div class="row">
-                {% for app in app_list %}
-                <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="card bg-dark border-secondary h-100 mb-0">
-                        <div class="card-header bg-secondary py-2">
-                            <h6 class="m-0 font-weight-bold text-white">{{ app.name }}</h6>
-                        </div>
-                        <div class="card-body p-0">
-                            <ul class="list-group list-group-flush bg-transparent">
-                                {% for model in app.models %}
-                                <li class="list-group-item bg-transparent d-flex justify-content-between align-items-center py-2 px-3" style="border-color: #334155;">
-                                    {% if model.admin_url %}
-                                    <a href="{{ model.admin_url }}" class="text-white font-weight-bold" style="font-size: 0.88rem;">{{ model.name }}</a>
-                                    {% else %}
-                                    <span class="text-muted" style="font-size: 0.88rem;">{{ model.name }}</span>
-                                    {% endif %}
-                                    <div>
-                                        {% if model.add_url %}
-                                        <a href="{{ model.add_url }}" class="btn btn-outline-success btn-xs" title="Add {{ model.name }}"><i class="fas fa-plus"></i></a>
-                                        {% endif %}
-                                        {% if model.admin_url %}
-                                        <a href="{{ model.admin_url }}" class="btn btn-outline-info btn-xs" title="Change {{ model.name }}"><i class="fas fa-edit"></i></a>
-                                        {% endif %}
-                                    </div>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                    </div>
-                </div>
+
+        <form method="get" class="cz-filter-bar mb-4">
+            <input type="hidden" name="tab" value="models">
+            <select name="model_group" class="form-control form-control-sm cz-search-input" aria-label="Model category" onchange="this.form.submit()">
+                <option value="">All platform categories</option>
+                {% for option in model_group_options %}
+                <option value="{{ option.key }}" {% if model_group == option.key %}selected{% endif %}>{{ option.name }}</option>
                 {% endfor %}
+            </select>
+            <div class="input-group input-group-sm" style="max-width: 430px;">
+                <input type="search" name="model_q" class="form-control cz-search-input" value="{{ model_q }}" placeholder="Find a model or platform area…">
+                <div class="input-group-append">
+                    <button type="submit" class="btn btn-primary" aria-label="Search registry"><i class="fas fa-search"></i></button>
+                    {% if model_q or model_group %}<a href="?tab=models" class="btn btn-secondary" title="Clear filters"><i class="fas fa-times"></i></a>{% endif %}
+                </div>
+            </div>
+        </form>
+
+        <div class="row">
+            {% for model in model_page_obj %}
+            <div class="col-md-6 col-xl-4 mb-3">
+                <article class="cz-model-card">
+                    <div class="d-flex justify-content-between align-items-start mb-3" style="gap: 8px;">
+                        <span class="badge badge-secondary">{{ model.group_label }}</span>
+                        <span class="text-muted small">{{ model.app_name }}</span>
+                    </div>
+                    <h6 class="text-white font-weight-bold mb-3">{{ model.name }}</h6>
+                    <div class="d-flex flex-wrap" style="gap: 8px;">
+                        {% if model.admin_url %}<a href="{{ model.admin_url }}" class="btn btn-outline-info btn-sm"><i class="fas fa-sliders-h mr-1"></i> Manage</a>{% endif %}
+                        {% if model.add_url %}<a href="{{ model.add_url }}" class="btn btn-outline-success btn-sm"><i class="fas fa-plus mr-1"></i> Add</a>{% endif %}
+                    </div>
+                </article>
+            </div>
+            {% empty %}
+            <div class="col-12"><div class="text-center text-muted py-5">No platform models match these filters.</div></div>
+            {% endfor %}
+        </div>
+
+        {% if model_page_obj.has_other_pages %}
+        <div class="d-flex justify-content-between align-items-center flex-wrap mt-3 pt-3" style="gap: 12px; border-top: 1px solid #334155;">
+            <span class="text-muted small">Page {{ model_page_obj.number }} of {{ model_page_obj.paginator.num_pages }}</span>
+            <div class="d-flex flex-wrap" style="gap: 5px;">
+                {% if model_page_obj.has_previous %}<a class="btn btn-secondary btn-sm" href="?tab=models&model_q={{ model_q|urlencode }}&model_group={{ model_group|urlencode }}&model_page={{ model_page_obj.previous_page_number }}" aria-label="Previous page">&laquo;</a>{% endif %}
+                {% for page_num in model_page_numbers %}
+                <a class="btn btn-sm {% if page_num == model_page_obj.number %}btn-primary{% else %}btn-secondary{% endif %}" href="?tab=models&model_q={{ model_q|urlencode }}&model_group={{ model_group|urlencode }}&model_page={{ page_num }}" {% if page_num == model_page_obj.number %}aria-current="page"{% endif %}>{{ page_num }}</a>
+                {% endfor %}
+                {% if model_page_obj.has_next %}<a class="btn btn-secondary btn-sm" href="?tab=models&model_q={{ model_q|urlencode }}&model_group={{ model_group|urlencode }}&model_page={{ model_page_obj.next_page_number }}" aria-label="Next page">&raquo;</a>{% endif %}
             </div>
         </div>
+        {% endif %}
     </div>
     {% endif %}
 

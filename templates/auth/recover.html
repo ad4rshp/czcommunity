@@ -75,7 +75,7 @@
                 <span class="recovery-badge ml-2">{{ success_data.unique_id }}</span>
             </div>
             <div style="font-size: 0.82rem; color: #94a3b8; margin-bottom: 12px;">
-                ✓ <strong>{{ success_data.purged_count|default:"All" }} active sessions</strong> across every browser and device were permanently terminated. Any unauthorized user has been booted out.
+                <strong>{{ success_data.purged_count|default:"All" }} active sessions</strong> were signed out.
             </div>
 
             <div style="font-size: 0.82rem; color: #f59e0b; font-weight: 600; margin-top: 14px;">
@@ -88,7 +88,7 @@
                 </button>
             </div>
             <div style="font-size: 0.76rem; color: #94a3b8; margin-top: 6px;">
-                Your old recovery key is now void. Save this new key in a secure place for zero-cost emergency recovery.
+                Your previous key no longer works. Store the new key somewhere safe.
             </div>
         </div>
 
@@ -100,11 +100,11 @@
 
         <div class="auth-header">
             <h2>Account Recovery</h2>
-            <p>Zero-cost verification & anti-hack global device logout.</p>
+            <p>Reset your password with your User ID and recovery key.</p>
         </div>
 
         <div class="recovery-banner">
-            <strong>🛡️ Instant Protection:</strong> Resetting your password will immediately terminate all active sessions across every device, kicking out any intruder.
+            <strong>Resetting your password signs out other active sessions.</strong>
         </div>
 
         {% if error_msg %}
@@ -117,9 +117,9 @@
             {% csrf_token %}
             
             <div class="form-group">
-                <label for="identifier">Username, Email, or Unique ID</label>
+                <label for="identifier">Username, Email, or User ID</label>
                 <input type="text" name="identifier" id="identifier" class="form-control" required placeholder="e.g. adarsh, user@example.com, or CZ-514642" value="{{ request.POST.identifier|default:'' }}">
-                <span class="helptext">You can enter your username, email, or unique ID badge.</span>
+                <span class="helptext">You can enter your username, email, or User ID badge.</span>
             </div>
 
             <div class="form-group">
@@ -139,14 +139,14 @@
             </div>
 
             <button type="submit" class="auth-btn" style="margin-top: 10px;">
-                Secure Account & Terminate All Sessions
+                Reset Password
             </button>
         </form>
 
         <div class="auth-footer" style="margin-top: 20px;">
             <p>Remember your password? <a href="{% url 'login' %}">Sign in</a></p>
             <p style="font-size: 0.8rem; margin-top: 6px; color: #64748b;">
-                Lost your key? Contact your community administrator with your Unique ID for zero-cost emergency verification.
+                Lost your key? Contact your administrator with your User ID.
             </p>
         </div>
         {% endif %}

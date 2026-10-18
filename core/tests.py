@@ -1,7 +1,8 @@
-from django.test import TestCase, Client
+from django.test import TestCase, Client, RequestFactory
 from django.contrib.auth.models import User
 from django.urls import reverse
 from chat.models import Community, CommunityMember, Role, CommunityInvite, AuditLog
+from core.middleware import RateLimitMiddleware
 
 class CoreRoleAndPermissionsTests(TestCase):
     def setUp(self):
@@ -34,6 +35,17 @@ class CoreRoleAndPermissionsTests(TestCase):
 
         self.client_reg = Client()
         self.client_reg.login(username='ordinary_member', password='password123')
+
+    def test_rate_limiter_uses_address_appended_by_reverse_proxy(self):
+        request = RequestFactory().post(
+            '/accounts/recover/',
+            HTTP_X_FORWARDED_FOR='198.51.100.44, 203.0.113.18',
+            REMOTE_ADDR='127.0.0.1',
+        )
+        self.assertEqual(
+            RateLimitMiddleware(None).get_client_ip(request),
+            '203.0.113.18',
+        )
 
     def test_create_community_validation(self):
         """Verify server creation validates non-empty name and trims whitespace."""
@@ -71,6 +83,34 @@ class CoreRoleAndPermissionsTests(TestCase):
         })
         self.assertTrue(Role.objects.filter(community=self.community, name='VIP Member').exists())
         self.assertTrue(AuditLog.objects.filter(community=self.community, action='Created role: VIP Member').exists())
+
+    def test_role_hierarchy_and_everyone_administrator_are_enforced(self):
+        url = f"{reverse('community_settings')}?c={self.community.slug}&tab=roles"
+        higher_role = Role.objects.create(
+            community=self.community,
+            name='Server Lead',
+            position=20,
+            SEND_MESSAGES=True,
+        )
+
+        self.client_mod.post(url, {
+            'action': 'update_role',
+            'role_id': higher_role.id,
+            'name': 'Escalated Role',
+            'SEND_MESSAGES': 'on',
+        })
+        higher_role.refresh_from_db()
+        self.assertEqual(higher_role.name, 'Server Lead')
+        self.assertTrue(higher_role.SEND_MESSAGES)
+
+        everyone = Role.objects.get(community=self.community, name='@everyone')
+        self.client_owner.post(url, {
+            'action': 'update_role',
+            'role_id': everyone.id,
+            'ADMINISTRATOR': 'on',
+        })
+        everyone.refresh_from_db()
+        self.assertFalse(everyone.ADMINISTRATOR)
 
     def test_invite_creation_validation_and_permission(self):
         """Verify negative invite limits are rejected, ordinary member is blocked, moderator can create invite."""

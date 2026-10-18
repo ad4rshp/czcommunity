@@ -8,6 +8,11 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 from .models import Channel, Message, Reaction, DirectMessage, DirectMessageSession
 from .services import ChatService
+from .permissions import (
+    can_send_dm,
+    get_dm_session_for_user,
+    can_user_view_channel,
+)
 
 class NotificationConsumer(AsyncWebsocketConsumer):
     # Class-level connection tracking
@@ -125,7 +130,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
 
         # Check if channel exists and get its cooldown
-        self.channel_cooldown = await self.get_channel_cooldown(self.channel_slug)
+        self.channel_cooldown = await self.get_channel_cooldown(
+            self.channel_slug, self.scope["user"]
+        )
         if self.channel_cooldown is None:
             await self.close()
             return
@@ -144,6 +151,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
 
     async def receive(self, text_data):
+        if not await self.has_channel_access():
+            await self.close(code=4403)
+            return
+
         text_data_json = json.loads(text_data)
         action = text_data_json.get("action")
 
@@ -220,7 +231,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             new_content = text_data_json.get("content", "")
             if message_id and new_content.strip():
                 updated_message = await ChatService.update_message(
-                    message_id, self.scope["user"], new_content
+                    message_id,
+                    self.scope["user"],
+                    new_content,
+                    channel_slug=self.channel_slug,
                 )
                 if updated_message:
                     await self.channel_layer.group_send(
@@ -235,7 +249,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         elif action == "message.delete":
             message_id = text_data_json.get("message_id")
             if message_id:
-                deleted = await ChatService.delete_message(message_id, self.scope["user"])
+                deleted = await ChatService.delete_message(
+                    message_id,
+                    self.scope["user"],
+                    channel_slug=self.channel_slug,
+                )
                 if deleted:
                     await self.channel_layer.group_send(
                         self.room_group_name,
@@ -249,7 +267,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message_id = text_data_json.get("message_id")
             emoji = text_data_json.get("emoji", "❤️")
             if message_id:
-                reaction_count = await ChatService.toggle_reaction(message_id, self.scope["user"], emoji)
+                reaction_count = await ChatService.toggle_reaction(
+                    message_id,
+                    self.scope["user"],
+                    emoji,
+                    channel_slug=self.channel_slug,
+                )
                 if reaction_count is not None:
                     await self.channel_layer.group_send(
                         self.room_group_name,
@@ -280,11 +303,33 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps(event))
 
     @sync_to_async
-    def get_channel_cooldown(self, slug):
-        channel = Channel.objects.filter(slug=slug).first()
-        if channel:
+    def get_channel_cooldown(self, slug, user):
+        from .models import CommunityBan
+
+        channel = Channel.objects.select_related(
+            'category__community'
+        ).filter(slug=slug).first()
+        if channel and can_user_view_channel(user, channel):
+            if CommunityBan.objects.filter(
+                community_id=channel.category.community_id, user_id=user.id
+            ).exists():
+                return None
             return channel.cooldown
         return None
+
+    @sync_to_async
+    def has_channel_access(self):
+        from .models import CommunityBan
+
+        channel = Channel.objects.select_related(
+            'category__community'
+        ).filter(slug=self.channel_slug).first()
+        if not channel or not can_user_view_channel(self.scope['user'], channel):
+            return False
+        return not CommunityBan.objects.filter(
+            community_id=channel.category.community_id,
+            user_id=self.scope['user'].id,
+        ).exists()
         
     @sync_to_async
     def get_users_by_usernames(self, usernames):
@@ -303,6 +348,16 @@ class DirectMessageConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
+        session = await sync_to_async(get_dm_session_for_user)(
+            self.session_id, self.user
+        )
+        if not session:
+            await self.close(code=4403)
+            return
+        if not await sync_to_async(can_send_dm)(session, self.user):
+            await self.close(code=4403)
+            return
+
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 
@@ -310,6 +365,16 @@ class DirectMessageConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def receive(self, text_data):
+        session = await sync_to_async(get_dm_session_for_user)(
+            self.session_id, self.user
+        )
+        if not session:
+            await self.close(code=4403)
+            return
+        if not await sync_to_async(can_send_dm)(session, self.user):
+            await self.close(code=4403)
+            return
+
         data = json.loads(text_data)
         action = data.get('action')
         content = data.get('content', '')
@@ -339,7 +404,9 @@ class DirectMessageConsumer(AsyncWebsocketConsumer):
                     )
         elif action == 'message.update':
             message_id = data.get('message_id')
-            updated_msg = await self.update_message(message_id, self.user, content)
+            updated_msg = await self.update_message(
+                self.session_id, message_id, self.user, content
+            )
             if updated_msg:
                 await self.channel_layer.group_send(
                     self.room_group_name,
@@ -347,12 +414,14 @@ class DirectMessageConsumer(AsyncWebsocketConsumer):
                         'type': 'chat_message',
                         'action': 'message.updated',
                         'message_id': message_id,
-                        'content': content
+                        'content': escape(content)
                     }
                 )
         elif action == 'message.delete':
             message_id = data.get('message_id')
-            success = await self.delete_message(message_id, self.user)
+            success = await self.delete_message(
+                self.session_id, message_id, self.user
+            )
             if success:
                 await self.channel_layer.group_send(
                     self.room_group_name,
@@ -380,14 +449,16 @@ class DirectMessageConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def create_message_payload(self, session_id, author, content):
-        session = DirectMessageSession.objects.get(id=session_id)
+        session = get_dm_session_for_user(session_id, author)
+        if not session or not can_send_dm(session, author):
+            return None
         message = DirectMessage.objects.create(session=session, author=author, content=content)
         profile = getattr(author, 'profile', None)
         return {
             'type': 'chat_message',
             'action': 'message.created',
             'message_id': message.id,
-            'content': message.content,
+            'content': escape(message.content),
             'author': author.username,
             'author_display_name': author.display_name,
             'avatar_url': profile.get_avatar_url() if profile else '/static/img/default_avatar.svg',
@@ -396,18 +467,22 @@ class DirectMessageConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def get_target_user_id(self, session_id, current_user):
-        try:
-            session = DirectMessageSession.objects.get(id=session_id)
-            if session.user1 == current_user:
-                return session.user2.id
-            return session.user1.id
-        except DirectMessageSession.DoesNotExist:
+        session = get_dm_session_for_user(session_id, current_user)
+        if not session:
             return None
+        if session.user1_id == current_user.id:
+            return session.user2_id
+        return session.user1_id
 
     @sync_to_async
-    def update_message(self, message_id, author, content):
+    def update_message(self, session_id, message_id, author, content):
         try:
-            msg = DirectMessage.objects.get(id=message_id, author=author)
+            session = get_dm_session_for_user(session_id, author)
+            if not session or not can_send_dm(session, author):
+                return None
+            msg = DirectMessage.objects.get(
+                id=message_id, session=session, author=author
+            )
             msg.content = content
             msg.edited_at = timezone.now()
             msg.save()
@@ -416,9 +491,14 @@ class DirectMessageConsumer(AsyncWebsocketConsumer):
             return None
 
     @sync_to_async
-    def delete_message(self, message_id, author):
+    def delete_message(self, session_id, message_id, author):
         try:
-            msg = DirectMessage.objects.get(id=message_id, author=author)
+            session = get_dm_session_for_user(session_id, author)
+            if not session:
+                return False
+            msg = DirectMessage.objects.get(
+                id=message_id, session=session, author=author
+            )
             msg.delete()
             return True
         except DirectMessage.DoesNotExist:

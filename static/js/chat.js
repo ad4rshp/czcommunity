@@ -61,9 +61,19 @@ function updateTypingIndicator() {
 // Helper to escape HTML safely in typing strings
 function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/[&<>"']/g, function (m) {
+    return String(str).replace(/[&<>"']/g, function (m) {
         return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m];
     });
+}
+
+function safeHttpUrl(value) {
+    if (typeof value !== 'string' || !value.trim()) return '';
+    try {
+        const url = new URL(value, window.location.origin);
+        return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+    } catch (e) {
+        return '';
+    }
 }
 
 // Periodic cleanup for typing indicator
@@ -76,7 +86,7 @@ setInterval(() => {
 // Basic Markdown Parser (bold, italic, inline code, @mentions)
 function parseMarkdown(text) {
     if (!text) return '';
-    // text is already HTML escaped from the backend
+    // Message payloads are escaped by the server before broadcast.
     let parsed = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); // Bold
     parsed = parsed.replace(/\*(.*?)\*/g, '<em>$1</em>');               // Italic
     parsed = parsed.replace(/`(.*?)`/g, '<code>$1</code>');             // Code
@@ -183,8 +193,8 @@ function initChatSocket() {
                 actionsHtml += `<button type="button" class="msg-action-btn" onclick="reportMessage(${data.message_id})" title="Report message" aria-label="Report"><i class="ph-bold ph-flag"></i></button>`;
             }
 
-            const avatarUrl = data.avatar_url || '/static/img/default_avatar.svg';
-            const avatarContent = `<img src="${avatarUrl}" alt="${data.author}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">`;
+            const avatarUrl = safeHttpUrl(data.avatar_url || '/static/img/default_avatar.svg');
+            const avatarContent = `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(data.author)}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.src='/static/img/default_avatar.svg'">`;
 
             const isMentioned = currentUsername && data.content && (
                 data.content.toLowerCase().includes('@' + currentUsername.toLowerCase()) ||
@@ -197,24 +207,27 @@ function initChatSocket() {
 
             let mediaHtml = '';
             if (data.attachment_url) {
-                if (data.attachment_url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
-                    mediaHtml += `<div style="margin-top: 10px;"><img src="${data.attachment_url}" style="max-width: 100%; max-height: 300px; width: auto; object-fit: contain; border-radius: 8px;"></div>`;
+                const attachmentUrl = safeHttpUrl(data.attachment_url);
+                if (attachmentUrl && attachmentUrl.match(/\.(jpeg|jpg|gif|png|webp)(?:[?#].*)?$/i)) {
+                    mediaHtml += `<div style="margin-top: 10px;"><img src="${escapeHtml(attachmentUrl)}" style="max-width: 100%; max-height: 300px; width: auto; object-fit: contain; border-radius: 8px;"></div>`;
                 } else {
-                    mediaHtml += `<div style="margin-top: 10px;"><a href="${data.attachment_url}" target="_blank" style="color: var(--accent);"><i class="ph ph-file"></i> Download Attachment</a></div>`;
+                    if (attachmentUrl) mediaHtml += `<div style="margin-top: 10px;"><a href="${escapeHtml(attachmentUrl)}" target="_blank" rel="noopener noreferrer" style="color: var(--accent);"><i class="ph ph-file"></i> Download Attachment</a></div>`;
                 }
             }
 
             if (data.embed_data && data.embed_data.type === 'gif') {
-                mediaHtml += `<div style="margin-top: 10px;"><img src="${data.embed_data.url}" style="max-width: 100%; max-height: 250px; width: auto; object-fit: contain; border-radius: 8px;"></div>`;
+                const embedUrl = safeHttpUrl(data.embed_data.url);
+                if (embedUrl) mediaHtml += `<div style="margin-top: 10px;"><img src="${escapeHtml(embedUrl)}" alt="GIF" style="max-width: 100%; max-height: 250px; width: auto; object-fit: contain; border-radius: 8px;"></div>`;
             }
 
-            const colorStyle = data.author_color ? `color: ${data.author_color};` : '';
+            const authorColor = /^#[\da-f]{6}$/i.test(data.author_color || '') ? data.author_color : '';
+            const colorStyle = authorColor ? `color: ${authorColor};` : '';
             let replyHtml = '';
             if (data.reply_to) {
                 replyHtml = `
                     <div class="message-reply-preview" onclick="scrollToMessage(${data.reply_to.id})" title="Jump to message">
                         <div class="reply-spine-curve"></div>
-                        <img src="${data.reply_to.avatar_url}" class="reply-avatar" alt="${escapeHtml(data.reply_to.author)}" onerror="this.src='/static/img/default_avatar.svg'">
+                        <img src="${escapeHtml(safeHttpUrl(data.reply_to.avatar_url))}" class="reply-avatar" alt="${escapeHtml(data.reply_to.author)}" onerror="this.src='/static/img/default_avatar.svg'">
                         <span class="reply-author">@${escapeHtml(data.reply_to.author_display_name || data.reply_to.author)}</span>
                         <span class="reply-snippet">${data.reply_to.content}</span>
                     </div>
@@ -224,12 +237,12 @@ function initChatSocket() {
             const authorUid = data.author_uid || '';
             const authorDisplayName = data.author_display_name || data.author;
             const messageHtml = `
-                <div class="message-group ${mentionClass}" id="msg-${data.message_id}" data-msg-id="${data.message_id}" data-author="${data.author}" data-author-uid="${authorUid}" data-raw-content="${data.content}">
-                    <div class="message-avatar" style="cursor: pointer;" onclick="openProfileModal('${data.author}', window.activeCommunitySlug)" data-author="${data.author}" data-author-uid="${authorUid}">${avatarContent}</div>
+                <div class="message-group ${mentionClass}" id="msg-${data.message_id}" data-msg-id="${data.message_id}" data-author="${escapeHtml(data.author)}" data-author-uid="${escapeHtml(authorUid)}" data-raw-content="${data.content}">
+                    <div class="message-avatar" style="cursor: pointer;" onclick="openProfileModal('${escapeHtml(data.author)}', window.activeCommunitySlug)" data-author="${escapeHtml(data.author)}" data-author-uid="${escapeHtml(authorUid)}">${avatarContent}</div>
                     <div class="message-content-wrapper">
                         ${replyHtml}
                         <div class="message-meta">
-                            <span class="author" style="cursor: pointer; ${colorStyle}" onclick="mentionUser('${data.author}')" data-author="${data.author}" data-author-uid="${authorUid}">${escapeHtml(authorDisplayName)}</span>
+                            <span class="author" style="cursor: pointer; ${colorStyle}" onclick="mentionUser('${escapeHtml(data.author)}')" data-author="${escapeHtml(data.author)}" data-author-uid="${escapeHtml(authorUid)}">${escapeHtml(authorDisplayName)}</span>
                             ${botBadge}
                             <span class="timestamp">${data.created_at}</span>
                         </div>
@@ -1042,15 +1055,7 @@ function showContextMenu(x, y, msgEl) {
 
     if (author) {
         menuHtml += `<div class="ctx-item" onclick="openProfileModal('${escapeHtml(author)}', window.activeCommunitySlug); hideContextMenu();"><i class="ph ph-user"></i> View Profile</div>`;
-        menuHtml += `<div class="ctx-item" onclick="copyAuthorUserId('${escapeHtml(author)}', '${escapeHtml(authorUid)}')"><i class="ph ph-copy"></i> Copy User ID</div>`;
         menuHtml += `<div class="ctx-item" onclick="mentionUser('${escapeHtml(author)}'); hideContextMenu();"><i class="ph ph-at"></i> Mention @${escapeHtml(author)}</div>`;
-        if (window.activeCommunitySlug) {
-            if (isOwn && window.canChangeNickname) {
-                menuHtml += `<div class="ctx-item" onclick="promptChangeNickname('${escapeHtml(author)}', window.activeCommunitySlug); hideContextMenu();"><i class="ph ph-identification-card"></i> Change Nickname</div>`;
-            } else if (!isOwn && window.canManageNicknames) {
-                menuHtml += `<div class="ctx-item" onclick="promptChangeNickname('${escapeHtml(author)}', window.activeCommunitySlug); hideContextMenu();"><i class="ph ph-identification-card"></i> Change Nickname</div>`;
-            }
-        }
     }
 
     if (msgId) {
@@ -1062,8 +1067,8 @@ function showContextMenu(x, y, msgEl) {
         menuHtml += `<div class="ctx-item" onclick="startEdit('${msgId}'); hideContextMenu();"><i class="ph ph-pencil-simple"></i> Edit</div>`;
     }
 
-    if ((isOwn || canManage) && msgId) {
-        menuHtml += `<div class="ctx-item text-danger" onclick="deleteMessage('${msgId}'); hideContextMenu();"><i class="ph ph-trash"></i> Delete</div>`;
+    if (author) {
+        menuHtml += `<div class="ctx-item" onclick="copyAuthorUserId('${escapeHtml(author)}', '${escapeHtml(authorUid)}'); hideContextMenu();"><i class="ph ph-copy"></i> Copy User ID</div>`;
     }
 
     if (!isOwn && author) {
@@ -1077,6 +1082,10 @@ function showContextMenu(x, y, msgEl) {
         if (canBan && !isTargetProtected) {
             menuHtml += `<div class="ctx-item text-danger" onclick="banUser('${escapeHtml(author)}')"><i class="ph ph-prohibit"></i> Ban Member</div>`;
         }
+    }
+
+    if ((isOwn || canManage) && msgId) {
+        menuHtml += `<div class="ctx-item text-danger" onclick="deleteMessage('${msgId}'); hideContextMenu();"><i class="ph ph-trash"></i> Delete</div>`;
     }
 
     positionAndShowContextMenu(x, y, menuHtml);
@@ -1097,8 +1106,8 @@ function showMemberContextMenu(x, y, memberEl) {
     let menuHtml = '';
 
     menuHtml += `<div class="ctx-item" onclick="openProfileModal('${escapeHtml(username)}', window.activeCommunitySlug); hideContextMenu();"><i class="ph ph-user"></i> View Profile</div>`;
-    menuHtml += `<div class="ctx-item" onclick="copyAuthorUserId('${escapeHtml(username)}', '${escapeHtml(memberUid)}')"><i class="ph ph-copy"></i> Copy User ID</div>`;
     menuHtml += `<div class="ctx-item" onclick="mentionUser('${escapeHtml(username)}'); hideContextMenu();"><i class="ph ph-at"></i> Mention @${escapeHtml(username)}</div>`;
+    menuHtml += `<div class="ctx-item" onclick="copyAuthorUserId('${escapeHtml(username)}', '${escapeHtml(memberUid)}'); hideContextMenu();"><i class="ph ph-copy"></i> Copy User ID</div>`;
     if (window.activeCommunitySlug) {
         if (isOwn && window.canChangeNickname) {
             menuHtml += `<div class="ctx-item" onclick="promptChangeNickname('${escapeHtml(username)}', window.activeCommunitySlug); hideContextMenu();"><i class="ph ph-identification-card"></i> Change Nickname</div>`;
@@ -1460,5 +1469,3 @@ function changeUserNicknameDirect(newNick, targetUsername, commSlug) {
 
 window.promptChangeNickname = promptChangeNickname;
 window.changeUserNicknameDirect = changeUserNicknameDirect;
-
-

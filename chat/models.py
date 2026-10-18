@@ -231,7 +231,7 @@ class CommunityMember(models.Model):
 
     @property
     def highest_role(self):
-        return self.roles.exclude(name='@everyone').order_by('-position', '-id').first()
+        return self.roles.exclude(name__iexact='@everyone').order_by('-position', '-id').first()
 
     @property
     def role_color(self):
@@ -242,15 +242,21 @@ class CommunityMember(models.Model):
         # Owner has all permissions
         if self.user == self.community.owner:
             return True
-            
+
         # Get roles (user roles + @everyone)
         roles_to_check = list(self.roles.all())
-        everyone_role = self.community.roles.filter(name="@everyone").first()
-        if everyone_role:
-            roles_to_check.append(everyone_role)
-            
+        from .roles import ensure_everyone_role
+        roles_to_check.append(ensure_everyone_role(self.community_id))
+
         # Check roles
         for role in roles_to_check:
+            # Never let a malformed duplicate default role become an admin escape hatch.
+            if role.name.casefold() == "@everyone":
+                if perm_name == 'ADMINISTRATOR':
+                    continue
+                if getattr(role, perm_name, False):
+                    return True
+                continue
             if getattr(role, 'ADMINISTRATOR', False):
                 return True
             if getattr(role, perm_name, False):
@@ -273,11 +279,39 @@ class CommunityMember(models.Model):
         async for role in self.roles.all():
             roles_to_check.append(role)
             
-        everyone_role = await Role.objects.filter(community_id=self.community_id, name="@everyone").afirst()
-        if everyone_role:
-            roles_to_check.append(everyone_role)
-            
+        everyone_role = await Role.objects.filter(
+            community_id=self.community_id, name__iexact="@everyone"
+        ).order_by('id').afirst()
+        if everyone_role is None:
+            everyone_role, _ = await Role.objects.aget_or_create(
+                community_id=self.community_id,
+                name="@everyone",
+                defaults={'color': '#99AAB5', 'position': 0},
+            )
+        protected_fields = []
+        if everyone_role.name != '@everyone':
+            everyone_role.name = '@everyone'
+            protected_fields.append('name')
+        if everyone_role.ADMINISTRATOR:
+            everyone_role.ADMINISTRATOR = False
+            protected_fields.append('ADMINISTRATOR')
+        if everyone_role.display_separately:
+            everyone_role.display_separately = False
+            protected_fields.append('display_separately')
+        if everyone_role.allow_mention:
+            everyone_role.allow_mention = False
+            protected_fields.append('allow_mention')
+        if protected_fields:
+            await everyone_role.asave(update_fields=protected_fields)
+        roles_to_check.append(everyone_role)
+
         for role in roles_to_check:
+            if role.name.casefold() == "@everyone":
+                if perm_name == 'ADMINISTRATOR':
+                    continue
+                if getattr(role, perm_name, False):
+                    return True
+                continue
             if getattr(role, 'ADMINISTRATOR', False):
                 return True
             if getattr(role, perm_name, False):

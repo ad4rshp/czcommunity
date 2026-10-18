@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,14 +29,6 @@ IS_PRODUCTION = (
     bool(os.environ.get('RAILWAY_ENVIRONMENT'))
 )
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
-if not SECRET_KEY:
-    if IS_PRODUCTION:
-        import warnings
-        warnings.warn("DJANGO_SECRET_KEY is not set in production! Using fallback key.")
-    SECRET_KEY = 'django-insecure-gus3sx2x9nl(9m$9)_^$-(_khj$ux2ehusd#sgv+@-4y!#_me-'
-
 # SECURITY WARNING: don't run with debug turned on in production!
 # In production environments (or when DJANGO_DEBUG=False), DEBUG is False.
 if 'DJANGO_DEBUG' in os.environ:
@@ -43,21 +36,50 @@ if 'DJANGO_DEBUG' in os.environ:
 else:
     DEBUG = not IS_PRODUCTION
 
+# Never start a production or non-debug instance with a published signing key.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    if IS_PRODUCTION or not DEBUG:
+        raise ImproperlyConfigured('DJANGO_SECRET_KEY must be set when DEBUG is False.')
+    SECRET_KEY = 'django-insecure-gus3sx2x9nl(9m$9)_^$-(_khj$ux2ehusd#sgv+@-4y!#_me-'
+
 # Allowed hosts configuration
 allowed_hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS')
 if allowed_hosts_env:
     ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(',') if h.strip()]
 else:
     ALLOWED_HOSTS = [
-        '*', 
         'localhost', 
         '127.0.0.1', 
-        '.railway.app', 
-        '.up.railway.app', 
         'czcommunity-production.up.railway.app',
         'czcommunity.com', 
-        'www.czcommunity.com'
+        'www.czcommunity.com',
+        'chillzone.com',
+        'www.chillzone.com',
     ]
+
+websocket_origins_env = os.environ.get('WEBSOCKET_ALLOWED_ORIGINS')
+if websocket_origins_env:
+    WEBSOCKET_ALLOWED_ORIGINS = [
+        origin.strip().rstrip('/')
+        for origin in websocket_origins_env.split(',')
+        if origin.strip()
+    ]
+else:
+    WEBSOCKET_ALLOWED_ORIGINS = [
+        'http://localhost:8000',
+        'http://127.0.0.1:8000',
+        'https://czcommunity-production.up.railway.app',
+        'https://czcommunity.com',
+        'https://www.czcommunity.com',
+        'https://chillzone.com',
+        'https://www.chillzone.com',
+    ]
+    if DEBUG:
+        WEBSOCKET_ALLOWED_ORIGINS.extend([
+            'http://localhost:8765',
+            'http://127.0.0.1:8765',
+        ])
 
 # Proxy & SSL configuration for Railway / Cloud deployment
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
@@ -149,11 +171,28 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
+CHANNEL_REDIS_URL = os.environ.get('CHANNEL_REDIS_URL') or os.environ.get('REDIS_URL')
+if CHANNEL_REDIS_URL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [CHANNEL_REDIS_URL]},
+        }
     }
-}
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer"
+        }
+    }
+
+if CHANNEL_REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': CHANNEL_REDIS_URL,
+        }
+    }
 
 
 # Database

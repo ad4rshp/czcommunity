@@ -779,6 +779,7 @@
             </div>
 
             <form id="chatForm" class="cz-composer-form">
+                {% csrf_token %}
                 <input type="file" id="fileInput" style="display: none;">
                 
                 <div class="composer-tools-left">

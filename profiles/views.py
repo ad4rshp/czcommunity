@@ -41,7 +41,7 @@ def validate_username_candidate(new_username, current_user=None):
         return False, f"Username '@{new_username}' is already taken."
         
     if Profile.objects.filter(unique_id__iexact=new_username).exists():
-        return False, f"Username '@{new_username}' conflicts with an existing Unique ID."
+        return False, f"Username '@{new_username}' conflicts with an existing User ID."
 
     return True, None
 
@@ -62,7 +62,7 @@ def profile_detail(request, username):
             friend_request = FriendRequest.objects.filter(sender=request.user, receiver=user_obj).first() or \
                              FriendRequest.objects.filter(sender=user_obj, receiver=request.user).first()
 
-    from chat.models import Community, Role, CommunityMember, AuditLog
+    from chat.models import Community, CommunityMember, AuditLog
     community_slug = request.GET.get('c') or request.POST.get('community_slug')
     community = None
     if community_slug:
@@ -75,27 +75,17 @@ def profile_detail(request, username):
     available_roles = []
     
     if community:
+        from chat.roles import can_manage_role, is_role_administrator, manageable_roles
+
         membership = CommunityMember.objects.filter(community=community, user=user_obj).first()
         request_member = CommunityMember.objects.filter(community=community, user=request.user).first()
-        can_manage_roles = False
-        max_position = -1
-        
-        if request.user.is_superuser or request.user == community.owner:
-            can_manage_roles = True
-            max_position = 999999
-        elif request_member and (request_member.has_permission('ADMINISTRATOR') or request_member.has_permission('MANAGE_ROLES')):
-            can_manage_roles = True
-            if request_member.has_permission('ADMINISTRATOR'):
-                max_position = 999999
-            else:
-                highest_role = request_member.roles.exclude(name='@everyone').order_by('-position', '-id').first()
-                max_position = highest_role.position if highest_role else 0
-                
+        can_manage_roles = is_role_administrator(request.user, community, request_member) or bool(
+            request_member and request_member.has_permission('MANAGE_ROLES')
+        )
+
         if can_manage_roles:
-            all_roles = Role.objects.filter(community=community).exclude(name='@everyone')
-            if not (request.user.is_superuser or request.user == community.owner or (request_member and request_member.has_permission('ADMINISTRATOR'))):
-                all_roles = all_roles.filter(position__lt=max_position)
-                
+            all_roles = manageable_roles(request.user, community, request_member).exclude(name__iexact='@everyone')
+
             # Handle role assignment POST actions here to keep it on the profile page
             if request.method == 'POST':
                 action = request.POST.get('role_action') or request.POST.get('action')
@@ -108,8 +98,8 @@ def profile_detail(request, username):
                             AuditLog.objects.create(community=community, user=request.user, action=f"Assigned role {role.name} to {user_obj.username}")
                     elif action == 'remove_role':
                         role_id = request.POST.get('role_id')
-                        role = Role.objects.filter(community=community, id=role_id).first()
-                        if role:
+                        role = all_roles.filter(id=role_id).first()
+                        if role and can_manage_role(request.user, community, request_member, role):
                             membership.roles.remove(role)
                             AuditLog.objects.create(community=community, user=request.user, action=f"Removed role {role.name} from {user_obj.username}")
                     membership.refresh_from_db()
@@ -145,7 +135,7 @@ def profile_detail(request, username):
 def profile_card_fragment(request, username):
     user_obj = get_object_or_404(User.objects.select_related('profile'), username=username)
     
-    from chat.models import Community, CommunityMember, Role, AuditLog
+    from chat.models import Community, CommunityMember, AuditLog
     from .models import Friendship, FriendRequest
     
     community_slug = request.GET.get('c') or request.POST.get('community_slug')
@@ -169,28 +159,18 @@ def profile_card_fragment(request, username):
         community = Community.objects.filter(id=request.POST.get('community_id')).first()
     
     if community:
+        from chat.roles import can_manage_role, is_role_administrator, manageable_roles
+
         membership = CommunityMember.objects.filter(community=community, user=user_obj).first()
         request_member = CommunityMember.objects.filter(community=community, user=request.user).first()
         
-        can_manage_roles = False
-        max_position = -1
-        
-        if request.user.is_superuser or request.user == community.owner:
-            can_manage_roles = True
-            max_position = 999999
-        elif request_member and (request_member.has_permission('ADMINISTRATOR') or request_member.has_permission('MANAGE_ROLES')):
-            can_manage_roles = True
-            if request_member.has_permission('ADMINISTRATOR'):
-                max_position = 999999
-            else:
-                highest_role = request_member.roles.exclude(name='@everyone').order_by('-position', '-id').first()
-                max_position = highest_role.position if highest_role else 0
-                
+        can_manage_roles = is_role_administrator(request.user, community, request_member) or bool(
+            request_member and request_member.has_permission('MANAGE_ROLES')
+        )
+
         if can_manage_roles:
-            all_roles = Role.objects.filter(community=community).exclude(name='@everyone')
-            if not (request.user.is_superuser or request.user == community.owner or (request_member and request_member.has_permission('ADMINISTRATOR'))):
-                all_roles = all_roles.filter(position__lt=max_position)
-                
+            all_roles = manageable_roles(request.user, community, request_member).exclude(name__iexact='@everyone')
+
             if request.method == 'POST':
                 action = request.POST.get('role_action') or request.POST.get('action')
                 if membership:
@@ -202,8 +182,8 @@ def profile_card_fragment(request, username):
                             AuditLog.objects.create(community=community, user=request.user, action=f"Assigned role {role.name} to {user_obj.username}")
                     elif action == 'remove_role':
                         role_id = request.POST.get('role_id')
-                        role = Role.objects.filter(community=community, id=role_id).first()
-                        if role:
+                        role = all_roles.filter(id=role_id).first()
+                        if role and can_manage_role(request.user, community, request_member, role):
                             membership.roles.remove(role)
                             AuditLog.objects.create(community=community, user=request.user, action=f"Removed role {role.name} from {user_obj.username}")
                     membership.refresh_from_db()
@@ -270,6 +250,16 @@ def profile_edit(request):
             account_display_name = request.POST.get('display_name', '').strip()
             new_username = request.POST.get('username', '').strip()
 
+            if len(account_display_name) > 50:
+                error_msg = 'Display names must be 50 characters or fewer.'
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': error_msg}, status=400)
+                return render(request, 'profiles/edit.html', {
+                    'profile': profile,
+                    'error': error_msg,
+                    'base_template': 'base_empty.html' if (request.headers.get('HX-Request') or request.headers.get('X-Requested-With') == 'XMLHttpRequest') else 'authenticated_base.html'
+                })
+
             if not email or '@' not in email or '.' not in email:
                 error_msg = 'Please enter a valid email address.'
                 if is_ajax:
@@ -331,17 +321,45 @@ def profile_edit(request):
                     'error': error_msg,
                     'base_template': 'base_empty.html' if (request.headers.get('HX-Request') or request.headers.get('X-Requested-With') == 'XMLHttpRequest') else 'authenticated_base.html'
                 })
+            if len(display_name) > 50:
+                error_msg = 'Display names must be 50 characters or fewer.'
+                if is_ajax:
+                    return JsonResponse({'status': 'error', 'message': error_msg}, status=400)
+                return render(request, 'profiles/edit.html', {
+                    'profile': profile,
+                    'error': error_msg,
+                    'base_template': 'base_empty.html' if (request.headers.get('HX-Request') or request.headers.get('X-Requested-With') == 'XMLHttpRequest') else 'authenticated_base.html'
+                })
             request.user.first_name = display_name
             profile.display_name = display_name
             request.user.save()
 
-        profile.bio = request.POST.get('bio', '')
-        profile.favorite_game = request.POST.get('favorite_game', '')
+        bio = request.POST.get('bio', '')
+        favorite_game = request.POST.get('favorite_game', '')
+        dm_setting = request.POST.get('dm_setting', 'everyone')
+        profile_error = None
+        if len(bio) > 500:
+            profile_error = 'Your bio must be 500 characters or fewer.'
+        elif len(favorite_game) > 100:
+            profile_error = 'Favorite game must be 100 characters or fewer.'
+        elif dm_setting not in {'everyone', 'friends', 'noone'}:
+            profile_error = 'Choose a valid direct message privacy setting.'
+        if profile_error:
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': profile_error}, status=400)
+            return render(request, 'profiles/edit.html', {
+                'profile': profile,
+                'error': profile_error,
+                'base_template': 'base_empty.html' if (request.headers.get('HX-Request') or request.headers.get('X-Requested-With') == 'XMLHttpRequest') else 'authenticated_base.html'
+            })
+
+        profile.bio = bio
+        profile.favorite_game = favorite_game
         status_setting = request.POST.get('status_setting')
         if status_setting in ['online', 'idle', 'dnd', 'offline']:
             profile.status_setting = status_setting
             profile.manual_status = status_setting
-        profile.dm_setting = request.POST.get('dm_setting', 'everyone')
+        profile.dm_setting = dm_setting
         
         if 'avatar' in request.FILES:
             avatar_file = request.FILES['avatar']
@@ -440,6 +458,7 @@ def friends_list(request):
         
     received_requests = FriendRequest.objects.filter(receiver=request.user).select_related('sender', 'sender__profile')
     sent_requests = FriendRequest.objects.filter(sender=request.user).select_related('receiver', 'receiver__profile')
+    pending_requests_count = received_requests.count() + sent_requests.count()
     
     dm_sessions = DirectMessageSession.objects.filter(Q(user1=request.user) | Q(user2=request.user)).order_by('-updated_at')
     
@@ -450,6 +469,7 @@ def friends_list(request):
         'friends': friends,
         'received_requests': received_requests,
         'sent_requests': sent_requests,
+        'pending_requests_count': pending_requests_count,
         'dm_sessions': dm_sessions
     })
 
@@ -463,7 +483,7 @@ def send_friend_request_by_username(request):
     if request.method == 'POST':
         identifier = (request.POST.get('username') or request.POST.get('identifier') or '').strip()
         if not identifier:
-            messages.error(request, "Please enter a username or Unique ID.")
+            messages.error(request, "Please enter a username or User ID.")
             return redirect('friends')
 
         # 1. Check by profile unique_id (CZ-XXXXXX)
@@ -476,7 +496,7 @@ def send_friend_request_by_username(request):
             target_user = User.objects.filter(id=int(identifier)).first()
 
         if not target_user:
-            messages.error(request, f"No user found matching '{identifier}'. Please check the username or Unique ID.")
+            messages.error(request, f"No user found matching '{identifier}'. Please check the username or User ID.")
             return redirect('friends')
 
         if target_user == request.user:
@@ -561,4 +581,3 @@ def check_username_api(request):
         'available': True,
         'message': f"Username '@{raw_username}' is available!"
     })
-

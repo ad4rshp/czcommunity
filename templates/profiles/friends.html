@@ -60,8 +60,8 @@
             
             <span @click="activeTab = 'pending'" :style="activeTab === 'pending' ? 'background: rgba(255,255,255,0.1);' : 'opacity: 0.7;'" style="font-weight: bold; cursor: pointer; color: var(--text-primary); padding: 5px 15px; border-radius: var(--radius-sm);">
                 Pending 
-                {% if received_requests %}
-                <span style="background: #ff5252; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; margin-left: 5px;">{{ received_requests.count }}</span>
+                {% if pending_requests_count %}
+                <span style="background: #ff5252; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; margin-left: 5px;">{{ pending_requests_count }}</span>
                 {% endif %}
             </span>
 
@@ -73,11 +73,11 @@
                 <i class="ph ph-user-plus" style="color: var(--accent);"></i> ADD FRIEND
             </h4>
             <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: -4px; margin-bottom: 15px;">
-                You can send a friend request using their <strong>Username</strong> or their permanent <strong>ChillZone Unique ID (e.g. CZ-123456)</strong>.
+                Send a friend request with a <strong>username</strong> or <strong>User ID</strong>.
             </p>
             <form method="post" action="{% url 'send_friend_request_by_username' %}" style="display: flex; gap: 10px; margin: 0; flex-wrap: wrap;">
                 {% csrf_token %}
-                <input type="text" name="username" placeholder="Enter username or Unique ID (e.g. CZ-123456)..." style="flex: 1; min-width: 200px; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-primary);" required>
+                <input type="text" name="username" placeholder="Enter username or User ID (e.g. CZ-123456)..." style="flex: 1; min-width: 200px; padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-primary);" required>
                 <button type="submit" class="btn btn-primary" style="padding: 10px 18px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; font-size: 0.9rem;">
                     <i class="ph ph-paper-plane-tilt"></i> Send Request
                 </button>
@@ -91,7 +91,7 @@
             <div style="text-align: center; padding: 50px 20px; color: var(--text-muted); background: rgba(0,0,0,0.15); border-radius: var(--radius-lg); border: 1px dashed var(--border);">
                 <i class="ph ph-users" style="font-size: 3.5rem; color: var(--accent); opacity: 0.8; margin-bottom: 15px;"></i>
                 <h3 style="margin: 0 0 8px 0; color: var(--text-primary);">No Friends Yet</h3>
-                <p style="margin: 0; max-width: 440px; margin-inline: auto; font-size: 0.9rem; line-height: 1.5;">ChillZone is best experienced with friends! Send a friend request using a username or Unique ID above or join community channels to start chatting.</p>
+                <p style="margin: 0; max-width: 440px; margin-inline: auto; font-size: 0.9rem; line-height: 1.5;">ChillZone is best experienced with friends! Send a friend request using a username or User ID above or join community channels to start chatting.</p>
             </div>
             {% endif %}
             
@@ -118,7 +118,7 @@
                                 <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">@{{ friend.username }}</span>
                                 {% endif %}
                                 {% if friend.profile.unique_id %}
-                                <span style="font-family: monospace; font-size: 0.72rem; color: #60a5fa; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); padding: 1px 6px; border-radius: 4px;" title="Unique ID: {{ friend.profile.unique_id }}">{{ friend.profile.unique_id }}</span>
+                                <span style="font-family: monospace; font-size: 0.72rem; color: #60a5fa; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); padding: 1px 6px; border-radius: 4px;" title="User ID: {{ friend.profile.unique_id }}">{{ friend.profile.unique_id }}</span>
                                 {% endif %}
                             </div>
                             <div class="friend-status-text" style="font-size: 0.85rem; color: var(--text-muted);">{{ friend.profile.get_status_setting_display }}</div>
@@ -137,44 +137,73 @@
         </div>
 
         <div x-show="activeTab === 'pending'" style="display: none;">
-            <h4 style="color: var(--text-muted); font-size: 0.85rem; letter-spacing: 1px; margin-bottom: 15px;">PENDING REQUESTS — {{ received_requests|length }}</h4>
-            {% if not received_requests %}
+            <h4 style="color: var(--text-muted); font-size: 0.85rem; letter-spacing: 1px; margin-bottom: 20px;">PENDING REQUESTS: {{ pending_requests_count }}</h4>
+
+            {% if received_requests %}
+            <section style="margin-bottom: 32px;">
+                <h5 style="color: var(--text-secondary); font-size: 0.78rem; letter-spacing: 0.8px; margin: 0 0 12px;">INCOMING: {{ received_requests|length }}</h5>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    {% for req in received_requests %}
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--bg-surface); border-radius: var(--radius-md); box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <a href="{% url 'profile' req.sender.username %}" style="display: flex; align-items: center; gap: 15px; text-decoration: none;">
+                            <img src="{{ req.sender.profile.get_avatar_url }}" alt="{{ req.sender.username }}" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" onerror="this.src='/static/img/default_avatar.svg'">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <span style="font-weight: bold; font-size: 1.05rem; color: var(--text-primary);">{{ req.sender.display_name }}</span>
+                                    {% if req.sender.display_name != req.sender.username %}<span style="font-size: 0.8rem; color: var(--text-muted);">@{{ req.sender.username }}</span>{% endif %}
+                                    {% if req.sender.profile.unique_id %}<span style="font-family: monospace; font-size: 0.72rem; color: #60a5fa; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); padding: 1px 6px; border-radius: 4px;">{{ req.sender.profile.unique_id }}</span>{% endif %}
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">Incoming Friend Request</div>
+                            </div>
+                        </a>
+                        <div style="display: flex; gap: 10px;">
+                            <form method="post" action="{% url 'friend_action' req.sender.username %}" style="margin:0;">
+                                {% csrf_token %}<input type="hidden" name="action" value="accept">
+                                <button class="btn btn-primary" style="padding: 8px; border-radius: 50%; width: 40px; height: 40px;" title="Accept"><i class="ph ph-check" style="margin:0; font-size: 1.2rem; font-weight: bold;"></i></button>
+                            </form>
+                            <form method="post" action="{% url 'friend_action' req.sender.username %}" style="margin:0;">
+                                {% csrf_token %}<input type="hidden" name="action" value="reject">
+                                <button class="btn btn-secondary" style="padding: 8px; border-radius: 50%; width: 40px; height: 40px; color: #ff5252;" title="Reject"><i class="ph ph-x" style="margin:0; font-size: 1.2rem; font-weight: bold;"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            {% if sent_requests %}
+            <section style="margin-bottom: 32px;">
+                <h5 style="color: var(--text-secondary); font-size: 0.78rem; letter-spacing: 0.8px; margin: 0 0 12px;">OUTGOING: {{ sent_requests|length }}</h5>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    {% for req in sent_requests %}
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--bg-surface); border-radius: var(--radius-md); box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                        <a href="{% url 'profile' req.receiver.username %}" style="display: flex; align-items: center; gap: 15px; text-decoration: none;">
+                            <img src="{{ req.receiver.profile.get_avatar_url }}" alt="{{ req.receiver.username }}" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" onerror="this.src='/static/img/default_avatar.svg'">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <span style="font-weight: bold; font-size: 1.05rem; color: var(--text-primary);">{{ req.receiver.display_name }}</span>
+                                    {% if req.receiver.display_name != req.receiver.username %}<span style="font-size: 0.8rem; color: var(--text-muted);">@{{ req.receiver.username }}</span>{% endif %}
+                                    {% if req.receiver.profile.unique_id %}<span style="font-family: monospace; font-size: 0.72rem; color: #60a5fa; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); padding: 1px 6px; border-radius: 4px;">{{ req.receiver.profile.unique_id }}</span>{% endif %}
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">Outgoing Friend Request</div>
+                            </div>
+                        </a>
+                        <form method="post" action="{% url 'friend_action' req.receiver.username %}" style="margin:0;">
+                            {% csrf_token %}<input type="hidden" name="action" value="cancel">
+                            <button class="btn btn-secondary" style="padding: 8px; border-radius: 50%; width: 40px; height: 40px; color: #ff5252;" title="Cancel Request"><i class="ph ph-x" style="margin:0; font-size: 1.2rem; font-weight: bold;"></i></button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            {% if not received_requests and not sent_requests %}
             <div style="text-align: center; padding: 50px 20px; color: var(--text-muted); background: rgba(0,0,0,0.15); border-radius: var(--radius-lg); border: 1px dashed var(--border);">
                 <i class="ph ph-envelope-open" style="font-size: 3.5rem; color: #4CAF50; opacity: 0.8; margin-bottom: 15px;"></i>
                 <h3 style="margin: 0 0 8px 0; color: var(--text-primary);">All Caught Up</h3>
-                <p style="margin: 0; font-size: 0.9rem;">There are no incoming friend requests waiting for your response.</p>
-            </div>
-            {% else %}
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 40px;">
-                {% for req in received_requests %}
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: var(--bg-surface); border-radius: var(--radius-md); box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                    <a href="{% url 'profile' req.sender.username %}" style="display: flex; align-items: center; gap: 15px; text-decoration: none;">
-                        <img src="{{ req.sender.profile.get_avatar_url }}" alt="{{ req.sender.username }}" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);" onerror="this.src='/static/img/default_avatar.svg'">
-                        <div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="font-weight: bold; font-size: 1.05rem; color: var(--text-primary);">{{ req.sender.display_name }}</span>
-                                {% if req.sender.display_name != req.sender.username %}
-                                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: normal;">@{{ req.sender.username }}</span>
-                                {% endif %}
-                                {% if req.sender.profile.unique_id %}
-                                <span style="font-family: monospace; font-size: 0.72rem; color: #60a5fa; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); padding: 1px 6px; border-radius: 4px;">{{ req.sender.profile.unique_id }}</span>
-                                {% endif %}
-                            </div>
-                            <div style="font-size: 0.85rem; color: var(--text-muted);">Incoming Friend Request</div>
-                        </div>
-                    </a>
-                    <div style="display: flex; gap: 10px;">
-                        <form method="post" action="{% url 'friend_action' req.sender.username %}" style="margin:0;">
-                            {% csrf_token %}<input type="hidden" name="action" value="accept">
-                            <button class="btn btn-primary" style="padding: 8px; border-radius: 50%; width: 40px; height: 40px;" title="Accept"><i class="ph ph-check" style="margin:0; font-size: 1.2rem; font-weight: bold;"></i></button>
-                        </form>
-                        <form method="post" action="{% url 'friend_action' req.sender.username %}" style="margin:0;">
-                            {% csrf_token %}<input type="hidden" name="action" value="reject">
-                            <button class="btn btn-secondary" style="padding: 8px; border-radius: 50%; width: 40px; height: 40px; color: #ff5252;" title="Reject"><i class="ph ph-x" style="margin:0; font-size: 1.2rem; font-weight: bold;"></i></button>
-                        </form>
-                    </div>
-                </div>
-                {% endfor %}
+                <p style="margin: 0; font-size: 0.9rem;">You have no incoming or outgoing friend requests.</p>
             </div>
             {% endif %}
         </div>

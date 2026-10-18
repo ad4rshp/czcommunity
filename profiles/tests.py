@@ -47,6 +47,18 @@ class ProfilesAndSocialTests(TestCase):
         self.assertEqual(data.get('username'), self.user_b.username)
         self.assertEqual(data.get('unique_id'), self.user_b.profile.unique_id)
 
+    def test_pending_tab_includes_incoming_and_outgoing_requests(self):
+        FriendRequest.objects.create(sender=self.user_b, receiver=self.user_a)
+        FriendRequest.objects.create(sender=self.user_a, receiver=self.user_b)
+
+        response = self.client_a.get(reverse('friends'))
+        content = response.content.decode('utf-8')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('INCOMING', content)
+        self.assertIn('OUTGOING', content)
+        self.assertIn('PENDING REQUESTS', content)
+
     def test_check_username_api(self):
         """Test real-time username availability check API."""
         url = reverse('check_username_api')
@@ -102,4 +114,3 @@ class ProfilesAndSocialTests(TestCase):
         self.user_a.refresh_from_db()
         # Should remain alpha_renamed
         self.assertEqual(self.user_a.username, 'alpha_renamed')
-

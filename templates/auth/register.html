@@ -113,25 +113,41 @@
 
         refreshBtn.addEventListener('click', function(e) {
             e.preventDefault();
+            if (refreshBtn.disabled) return;
+            refreshBtn.disabled = true;
+            refreshBtn.setAttribute('aria-busy', 'true');
             const icon = refreshBtn.querySelector('i');
             if (icon) icon.classList.add('ph-spin');
             
             fetch('/captcha/refresh/', {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error(`Captcha refresh returned ${res.status}`);
+                return res.json();
+            })
             .then(data => {
-                if (data.image_url) {
-                    captchaImg.src = data.image_url;
-                }
                 const hiddenInput = document.querySelector('input[name="captcha_0"]');
-                if (hiddenInput && data.key) {
-                    hiddenInput.value = data.key;
+                if (!data.image_url || !data.key || !hiddenInput) {
+                    throw new Error('Captcha refresh response was incomplete');
                 }
+                hiddenInput.value = data.key;
+                captchaImg.src = data.image_url;
             })
-            .catch(err => console.error('Failed to refresh captcha', err))
+            .catch(err => {
+                console.error('Failed to refresh captcha', err);
+                if (window.showCzToast) showCzToast('Could not refresh the captcha. Please try again.', 'error');
+            })
             .finally(() => {
                 if (icon) icon.classList.remove('ph-spin');
+                refreshBtn.disabled = false;
+                refreshBtn.removeAttribute('aria-busy');
             });
         });
 

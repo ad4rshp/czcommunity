@@ -5,13 +5,15 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.contrib.sessions.models import Session
 from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 
-from chat.models import Community, CommunityMember, Message, Role
+from chat.models import Community, CommunityMember, Message
+from chat.roles import ensure_member_default_role
 from core.models import DashboardConfig
 from profiles.models import Profile
 
@@ -46,9 +48,7 @@ def register_view(request):
                 official = config.official_community or Community.objects.filter(is_verified=True).first()
                 if official:
                     member, created = CommunityMember.objects.get_or_create(community=official, user=user)
-                    everyone_role = Role.objects.filter(community=official, name="@everyone").first()
-                    if everyone_role:
-                        member.roles.add(everyone_role)
+                    ensure_member_default_role(member)
                     return redirect(f"/community/chat/?c={official.slug}")
                 elif config.official_invite_link:
                     invite_target = config.official_invite_link.strip()
@@ -66,11 +66,7 @@ def logout_view(request):
 
 def recover_account_view(request):
     """
-    Zero-Cost Account Recovery & Anti-Hack Password Reset:
-    Enables users whose accounts were compromised or passwords forgotten
-    to reset password and terminate sessions globally across all devices
-    using their secret Personal Recovery Key or Admin Emergency PIN,
-    without requiring expensive third-party email APIs.
+    Password and account recovery for users who cannot sign in.
     """
     error_msg = None
     success_data = None
@@ -82,7 +78,7 @@ def recover_account_view(request):
         confirm_password = request.POST.get('confirm_password', '')
 
         if not identifier:
-            error_msg = "Please enter your Username, Email, or Unique ID."
+            error_msg = "Please enter your Username, Email, or User ID."
         elif not recovery_secret:
             error_msg = "Please enter your Personal Security Recovery Key or Admin Emergency PIN."
         elif not new_password:
@@ -92,7 +88,7 @@ def recover_account_view(request):
         elif len(new_password) < 8:
             error_msg = "Password must be at least 8 characters long."
         else:
-            # 1. Find User by username, email, or Unique ID
+            # 1. Find User by username, email, or User ID
             user = User.objects.filter(
                 Q(username__iexact=identifier) | Q(email__iexact=identifier)
             ).first()
@@ -109,7 +105,7 @@ def recover_account_view(request):
                 ).first()
 
             if not user:
-                error_msg = f"No account found matching '{identifier}'. Check your username, email, or Unique ID."
+                error_msg = f"No account found matching '{identifier}'. Check your username, email, or User ID."
             else:
                 profile = getattr(user, 'profile', None)
                 if not profile:
@@ -126,9 +122,24 @@ def recover_account_view(request):
 
                 is_key_valid = (recovery_secret == stored_key and bool(stored_key))
 
-                if not (is_key_valid or is_pin_valid):
-                    error_msg = "Invalid Recovery Key or Emergency PIN. If your account was hacked and you lost your key, please contact a ChillZone Admin with your Unique ID."
+                attempt_key = f"recovery_attempts_user_{user.pk}"
+                if cache.get(attempt_key, 0) >= 5:
+                    error_msg = "Too many recovery attempts. Please try again in 15 minutes."
+                elif not (is_key_valid or is_pin_valid):
+                    if cache.add(attempt_key, 1, timeout=900):
+                        attempts = 1
+                    else:
+                        try:
+                            attempts = cache.incr(attempt_key)
+                        except ValueError:
+                            cache.set(attempt_key, 1, timeout=900)
+                            attempts = 1
+                    if attempts >= 5:
+                        error_msg = "Too many recovery attempts. Please try again in 15 minutes."
+                    else:
+                        error_msg = "Invalid recovery key or emergency PIN. Contact support with your User ID for help."
                 else:
+                    cache.delete(f"recovery_attempts_user_{user.pk}")
                     # 3. Validated! Reset password
                     user.set_password(new_password)
                     user.save()
@@ -145,7 +156,7 @@ def recover_account_view(request):
                         except Exception:
                             pass
 
-                    # 5. Rotate Recovery Key & clear emergency PIN (Invalidates compromised key)
+                    # Rotate the recovery key and clear the emergency PIN.
                     chars = string.ascii_uppercase + string.digits
                     c1 = ''.join(secrets.choice(chars) for _ in range(4))
                     c2 = ''.join(secrets.choice(chars) for _ in range(4))

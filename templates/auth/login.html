@@ -34,7 +34,7 @@
             <div class="form-group">
                 <label for="{{ field.id_for_label }}">
                     {% if field.name == 'username' %}
-                        Username, Email, or Unique ID
+                        Username, Email, or User ID
                     {% else %}
                         {{ field.label }}
                     {% endif %}
@@ -51,7 +51,7 @@
             
             <div style="display: flex; justify-content: flex-end; margin-bottom: 16px; margin-top: -6px;">
                 <a href="{% url 'recover_account' %}" style="font-size: 0.82rem; color: #f59e0b; text-decoration: none; font-weight: 600;">
-                    Forgot password or hacked?
+                    Forgot password?
                 </a>
             </div>
 

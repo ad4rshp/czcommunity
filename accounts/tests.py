@@ -2,6 +2,7 @@ from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.contrib.sessions.models import Session
+from django.core.cache import cache
 from django.utils import timezone
 from profiles.models import Profile
 
@@ -14,6 +15,7 @@ class UniqueIDAndRecoveryTestCase(TestCase):
         )
         # Profile is created via post_save signal
         self.profile = self.user.profile
+        cache.clear()
 
     def test_unique_id_and_recovery_key_generated(self):
         """Verifies Unique ID and Recovery Key are created upon user registration."""
@@ -109,3 +111,23 @@ class UniqueIDAndRecoveryTestCase(TestCase):
 
         # New password works
         self.assertIsNotNone(authenticate(username='testhero', password='EmergencyNewPass123!'))
+
+    def test_recovery_locks_after_five_invalid_secrets(self):
+        cache.clear()
+        old_password = 'InitialPassword123!'
+        for _ in range(5):
+            self.client.post('/accounts/recover/', {
+                'identifier': self.profile.unique_id,
+                'recovery_secret': 'WRONG-SECRET',
+                'new_password': 'AttemptedPassword123!',
+                'confirm_password': 'AttemptedPassword123!',
+            })
+
+        response = self.client.post('/accounts/recover/', {
+            'identifier': self.profile.unique_id,
+            'recovery_secret': self.profile.recovery_key,
+            'new_password': 'AttemptedPassword123!',
+            'confirm_password': 'AttemptedPassword123!',
+        })
+        self.assertContains(response, 'Too many recovery attempts', status_code=200)
+        self.assertIsNotNone(authenticate(username='testhero', password=old_password))

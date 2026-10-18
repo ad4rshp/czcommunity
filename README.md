@@ -132,8 +132,12 @@ Set these in your production server `.env` or system environment:
 | `DJANGO_SECRET_KEY` | Strong random secret key | `your-secure-50-character-secret` |
 | `DJANGO_DEBUG` | Set to `False` in production | `False` |
 | `DJANGO_ALLOWED_HOSTS` | Comma-separated domain names | `chillzone.example.com,www.chillzone.example.com` |
+| `WEBSOCKET_ALLOWED_ORIGINS` | Comma-separated browser origins allowed to open WebSockets | `https://chillzone.example.com,https://www.chillzone.example.com` |
+| `CHANNEL_REDIS_URL` | Redis URL for cross-worker WebSocket delivery and shared rate limits | `redis://localhost:6379/0` *(Optional for a single worker)* |
 | `SECURE_SSL_REDIRECT` | Enforces HTTPS | `True` |
 | `USE_S3` | Set to `True` for AWS S3 file storage | `True` *(Optional)* |
+
+`DJANGO_SECRET_KEY` is required whenever `DJANGO_DEBUG=False`. Configure the WebSocket origins for every custom production domain; the defaults cover local development and the repository's listed domains.
 
 ---
 

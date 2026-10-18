@@ -25,7 +25,7 @@ class Profile(models.Model):
     dm_setting = models.CharField(max_length=20, choices=DM_CHOICES, default='everyone')
     status_setting = models.CharField(max_length=20, choices=STATUS_CHOICES, default='online')
     manual_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='online')
-    unique_id = models.CharField(max_length=24, unique=True, null=True, blank=True, db_index=True)
+    unique_id = models.CharField(max_length=24, unique=True, null=True, blank=True, db_index=True, verbose_name='User ID')
     recovery_key = models.CharField(max_length=64, blank=True, default="", db_index=True)
     emergency_pin = models.CharField(max_length=12, blank=True, default="")
     emergency_pin_expires_at = models.DateTimeField(null=True, blank=True)
@@ -59,7 +59,7 @@ class Profile(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.user.username}'s Profile ({self.unique_id or 'No UID'})"
+        return f"{self.user.username}'s Profile ({self.unique_id or 'No User ID'})"
 
     def get_avatar_url(self):
         try:

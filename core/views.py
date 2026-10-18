@@ -1,3 +1,5 @@
+import re
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
@@ -20,12 +22,7 @@ def home(request):
         return redirect('friends')
     from django.contrib.auth.models import User
     count = User.objects.count()
-    if count >= 1000:
-        users_count = f"{count:,}+"
-    elif count >= 100:
-        users_count = f"{count}+"
-    else:
-        users_count = "1,500+"
+    users_count = f"{count:,}"
     return render(request, 'home/index.html', {'users_count': users_count})
 
 def community_dashboard(request):
@@ -43,6 +40,14 @@ from django.http import HttpResponseForbidden
 @login_required
 def community_settings(request):
     from chat.models import Community, ChannelCategory, Role, AuditLog, CommunityMember, CommunityBan
+    from chat.roles import (
+        can_manage_role,
+        ensure_everyone_role,
+        is_role_administrator,
+        manageable_roles,
+        next_role_position,
+        role_management_limit,
+    )
     
     slug = request.GET.get('c')
     if slug:
@@ -52,6 +57,8 @@ def community_settings(request):
         
     if not community:
         return redirect('create_community')
+
+    everyone_role = ensure_everyone_role(community)
         
     membership = CommunityMember.objects.filter(community=community, user=request.user).first()
     is_owner = (request.user == community.owner)
@@ -65,7 +72,9 @@ def community_settings(request):
     
     config = DashboardConfig.load()
     categories = ChannelCategory.objects.filter(community=community).prefetch_related('channels') if community else []
-    roles = Role.objects.filter(community=community)
+    role_admin = is_role_administrator(request.user, community, membership)
+    roles = list(manageable_roles(request.user, community, membership))
+    roles.sort(key=lambda role: (role.name.casefold() != '@everyone', -role.position, role.name.casefold()))
     audit_logs = AuditLog.objects.filter(community=community).select_related('user')[:50]
     
     current_tab = request.GET.get('tab', 'overview')
@@ -82,8 +91,15 @@ def community_settings(request):
             if not name:
                 messages.error(request, "Server name cannot be blank.")
                 return redirect(f'/community/settings/?c={community.slug}&tab=overview')
+            if len(name) > 100:
+                messages.error(request, "Server names must be 100 characters or fewer.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=overview')
+            description = (request.POST.get('description') or '').strip()
+            if len(description) > 500:
+                messages.error(request, "Server descriptions must be 500 characters or fewer.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=overview')
             community.name = name
-            community.description = request.POST.get('description', '').strip()
+            community.description = description
             if 'icon' in request.FILES:
                 icon_file = request.FILES['icon']
                 if icon_file.size > 1 * 1024 * 1024:
@@ -120,9 +136,18 @@ def community_settings(request):
             if not name:
                 messages.error(request, "Role name cannot be blank.")
                 return redirect(f'/community/settings/?c={community.slug}&tab=roles')
-            from django.db.models import Max
-            max_pos = Role.objects.filter(community=community).aggregate(Max('position'))['position__max'] or 0
-            Role.objects.create(community=community, name=name, color=color, position=max_pos + 1)
+            if len(name) > 50:
+                messages.error(request, "Role names must be 50 characters or fewer.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=roles')
+            if name.casefold() == '@everyone' or Role.objects.filter(
+                community=community, name__iexact=name
+            ).exists():
+                messages.error(request, "That role name is reserved or already in use.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=roles')
+            if not re.fullmatch(r'#[0-9a-fA-F]{6}', color):
+                color = '#99AAB5'
+            position = next_role_position(community, request.user, membership)
+            Role.objects.create(community=community, name=name, color=color, position=position)
             AuditLog.objects.create(community=community, user=request.user, action=f"Created role: {name}")
             messages.success(request, f"Role '{name}' created successfully!")
             return redirect(f'/community/settings/?c={community.slug}&tab=roles')
@@ -133,13 +158,25 @@ def community_settings(request):
                 return redirect(f'/community/settings/?c={community.slug}&tab=roles')
             role_id = request.POST.get('role_id')
             role = Role.objects.filter(id=role_id, community=community).first()
+            if not role or not can_manage_role(request.user, community, membership, role):
+                messages.error(request, "You cannot edit that role at your current role level.")
+                return redirect(f'/community/settings/?c={community.slug}&tab=roles')
             if role:
-                if role.name != '@everyone' and request.POST.get('name'):
-                    role.name = request.POST.get('name').strip()
+                if role.name.casefold() != '@everyone' and request.POST.get('name'):
+                    new_name = request.POST.get('name').strip()
+                    if not new_name or new_name.casefold() == '@everyone' or Role.objects.filter(
+                        community=community, name__iexact=new_name
+                    ).exclude(id=role.id).exists():
+                        messages.error(request, "That role name is reserved or already in use.")
+                        return redirect(f'/community/settings/?c={community.slug}&tab=roles')
+                    role.name = new_name[:50]
                 if request.POST.get('color'):
-                    role.color = request.POST.get('color')
-                role.display_separately = request.POST.get('display_separately') == 'on'
-                role.allow_mention = request.POST.get('allow_mention') == 'on'
+                    requested_color = request.POST.get('color')
+                    if re.fullmatch(r'#[0-9a-fA-F]{6}', requested_color):
+                        role.color = requested_color
+                is_everyone_role = role.name.casefold() == '@everyone'
+                role.display_separately = not is_everyone_role and request.POST.get('display_separately') == 'on'
+                role.allow_mention = not is_everyone_role and request.POST.get('allow_mention') == 'on'
                 role.MODERATE_MEMBERS = request.POST.get('MODERATE_MEMBERS') == 'on'
                 role.MANAGE_ROLES = request.POST.get('MANAGE_ROLES') == 'on'
                 role.MANAGE_NICKNAMES = request.POST.get('MANAGE_NICKNAMES') == 'on'
@@ -153,11 +190,25 @@ def community_settings(request):
                 role.MANAGE_CHANNELS = request.POST.get('MANAGE_CHANNELS') == 'on'
                 role.KICK_MEMBERS = request.POST.get('KICK_MEMBERS') == 'on'
                 role.BAN_MEMBERS = request.POST.get('BAN_MEMBERS') == 'on'
-                role.ADMINISTRATOR = request.POST.get('ADMINISTRATOR') == 'on'
+                if is_everyone_role:
+                    role.ADMINISTRATOR = False
+                elif role_admin:
+                    role.ADMINISTRATOR = request.POST.get('ADMINISTRATOR') == 'on'
+                elif request.POST.get('ADMINISTRATOR') == 'on':
+                    messages.error(request, "Only an owner or administrator can grant Administrator.")
+                    return redirect(f'/community/settings/?c={community.slug}&tab=roles')
                 
                 # Allow position updates if provided
                 if request.POST.get('position'):
-                    role.position = int(request.POST.get('position'))
+                    try:
+                        position = int(request.POST.get('position'))
+                    except (TypeError, ValueError):
+                        messages.error(request, "Invalid role position.")
+                        return redirect(f'/community/settings/?c={community.slug}&tab=roles')
+                    if not role_admin and position >= role_management_limit(membership):
+                        messages.error(request, "You can only place roles below your highest role.")
+                        return redirect(f'/community/settings/?c={community.slug}&tab=roles')
+                    role.position = position
                     
                 role.save()
                 AuditLog.objects.create(community=community, user=request.user, action=f"Updated permissions for role: {role.name}")
@@ -170,11 +221,13 @@ def community_settings(request):
                 return redirect(f'/community/settings/?c={community.slug}&tab=roles')
             role_id = request.POST.get('role_id')
             role = Role.objects.filter(id=role_id, community=community).first()
-            if role and role.name != '@everyone':
+            if role and role.name.casefold() != '@everyone' and can_manage_role(request.user, community, membership, role):
                 name = role.name
                 role.delete()
                 AuditLog.objects.create(community=community, user=request.user, action=f"Deleted role: {name}")
                 messages.success(request, f"Role '{name}' deleted.")
+            elif role:
+                messages.error(request, "You cannot delete that role at your current role level.")
             return redirect(f'/community/settings/?c={community.slug}&tab=roles')
             
         elif action == 'create_invite':
@@ -276,7 +329,7 @@ def community_settings(request):
             AuditLog.objects.create(
                 community=community,
                 user=request.user,
-                action=f"Banned user '{target.username}' (UID: {uid})",
+                action=f"Banned user '{target.username}' (User ID: {uid})",
                 details=f"Reason: {reason or 'No reason provided'}"
             )
             messages.success(request, f"User '{target.username}' ({uid}) has been banned from {community.name}.")
@@ -297,7 +350,7 @@ def community_settings(request):
             deleted_count, _ = CommunityBan.objects.filter(community=community, user=target).delete()
             uid = getattr(target.profile, 'unique_id', target.id)
             if deleted_count > 0:
-                AuditLog.objects.create(community=community, user=request.user, action=f"Unbanned user '{target.username}' (UID: {uid})")
+                AuditLog.objects.create(community=community, user=request.user, action=f"Unbanned user '{target.username}' (User ID: {uid})")
                 messages.success(request, f"User '{target.username}' ({uid}) has been unbanned from {community.name}.")
             else:
                 messages.info(request, f"User '{target.username}' was not banned.")
@@ -326,6 +379,8 @@ def community_settings(request):
         'community': community,
         'categories': categories,
         'roles': roles,
+        'everyone_role': everyone_role,
+        'can_grant_administrator': role_admin,
         'audit_logs': audit_logs,
         'invites': invites,
         'bans': bans,
@@ -334,7 +389,8 @@ def community_settings(request):
 
 @login_required
 def create_community(request):
-    from chat.models import Community, CommunityMember, Role, Channel, ChannelCategory, AuditLog
+    from chat.models import Community, CommunityMember, Channel, ChannelCategory, AuditLog
+    from chat.roles import ensure_member_default_role
     from django.contrib import messages
     from .models import DashboardConfig
     
@@ -372,8 +428,8 @@ def create_community(request):
             cat = ChannelCategory.objects.create(community=community, name="General", slug=f"general-{str(uuid.uuid4())[:8]}")
             Channel.objects.create(category=cat, name="general", slug=f"general-{str(uuid.uuid4())[:8]}")
             
-            Role.objects.create(community=community, name="@everyone", color="#99AAB5")
-            CommunityMember.objects.create(community=community, user=request.user)
+            owner_member = CommunityMember.objects.create(community=community, user=request.user)
+            ensure_member_default_role(owner_member)
             AuditLog.objects.create(community=community, user=request.user, action="Created community server")
             messages.success(request, f"Server '{community.name}' created successfully!")
             return redirect(f"/community/chat/?c={community.slug}")
@@ -409,11 +465,10 @@ def create_community(request):
                             'is_official_member': is_official_member
                         })
 
+                    from chat.roles import ensure_member_default_role
                     member, created = CommunityMember.objects.get_or_create(community=community, user=request.user)
+                    ensure_member_default_role(member)
                     if created:
-                        everyone_role = Role.objects.filter(community=community, name="@everyone").first()
-                        if everyone_role:
-                            member.roles.add(everyone_role)
                         invite.uses += 1
                         invite.save()
                         AuditLog.objects.create(community=community, user=request.user, action=f"{request.user.username} joined via invite code '{invite_code}'")
@@ -434,10 +489,9 @@ def create_community(request):
                     messages.error(request, f"You are banned from {official_comm.name}.")
                     return redirect('home')
 
+                from chat.roles import ensure_member_default_role
                 member, created = CommunityMember.objects.get_or_create(community=official_comm, user=request.user)
-                everyone_role = Role.objects.filter(community=official_comm, name="@everyone").first()
-                if everyone_role:
-                    member.roles.add(everyone_role)
+                ensure_member_default_role(member)
                 messages.success(request, f"Welcome to {official_comm.name}!")
                 return redirect(f"/community/chat/?c={official_comm.slug}")
             elif config.official_invite_link:
@@ -506,6 +560,8 @@ def community_notification_settings(request, community_slug):
     
     community = get_object_or_404(Community, slug=community_slug)
     member, _ = CommunityMember.objects.get_or_create(community=community, user=request.user)
+    from chat.roles import ensure_member_default_role
+    ensure_member_default_role(member)
     
     if request.method == 'POST':
         level = request.POST.get('notification_level', 'all')

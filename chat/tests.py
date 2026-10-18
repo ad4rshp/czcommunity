@@ -1,8 +1,19 @@
 from django.test import TestCase, Client, override_settings
 from django.contrib.auth.models import User
 from django.urls import reverse
+from asgiref.sync import async_to_sync
 from chat.models import Community, ChannelCategory, Channel, CommunityMember, Role, CommunityInvite, CommunityBan
+from chat.models import ChannelPermission, DirectMessageSession, Message
 from chat.forms import ChannelForm, CategoryForm
+from chat.permissions import (
+    can_send_dm,
+    can_user_perform_channel_action,
+    can_user_view_channel,
+    get_dm_session_for_user,
+)
+from chat.services import ChatService
+from accounts.models import Block
+from profiles.models import Friendship
 
 class SecurityAndRoutingTests(TestCase):
     def setUp(self):
@@ -26,6 +37,22 @@ class SecurityAndRoutingTests(TestCase):
         
         self.client_member = Client()
         self.client_member.login(username='regular_member', password='password123')
+
+    def test_async_message_creation_loads_profile_for_display_names(self):
+        earlier = Message.objects.create(
+            channel=self.channel, author=self.owner, content='Earlier message'
+        )
+
+        message, payload = async_to_sync(ChatService.create_message)(
+            self.channel.slug,
+            self.owner,
+            'Message payload should be created',
+            reply_to_id=earlier.id,
+        )
+
+        self.assertIsNotNone(message)
+        self.assertEqual(payload['author_display_name'], self.owner.username)
+        self.assertEqual(payload['reply_to']['author_display_name'], self.owner.username)
 
     @override_settings(DEBUG=False)
     def test_p0_production_404_page_does_not_leak_internals(self):
@@ -314,3 +341,98 @@ class SecurityAndRoutingTests(TestCase):
         member_obj.refresh_from_db()
         self.assertEqual(member_obj.nickname, '')
 
+
+class PermissionBoundaryRegressionTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(username='privacy_owner', password='password123')
+        self.member = User.objects.create_user(username='privacy_member', password='password123')
+        self.stranger = User.objects.create_user(username='privacy_stranger', password='password123')
+        self.community = Community.objects.create(name='Private Hub', slug='private-hub', owner=self.owner)
+        self.category = ChannelCategory.objects.create(name='Private Category', community=self.community)
+        self.channel = Channel.objects.create(
+            name='staff-room', slug='staff-room', category=self.category,
+            channel_type='text', is_private=True,
+        )
+        self.everyone = Role.objects.create(
+            community=self.community, name='@everyone', VIEW_CHANNEL=True,
+            SEND_MESSAGES=True, EMBED_LINKS=True, ATTACH_FILES=True,
+        )
+        self.member_record = CommunityMember.objects.create(
+            community=self.community, user=self.member,
+        )
+
+    def test_everyone_cannot_grant_administrator_even_if_malformed(self):
+        self.everyone.ADMINISTRATOR = True
+        self.everyone.save(update_fields=['ADMINISTRATOR'])
+        duplicate_default = Role.objects.create(
+            community=self.community, name='@Everyone', ADMINISTRATOR=True,
+        )
+        self.member_record.roles.add(duplicate_default)
+
+        self.assertFalse(self.member_record.has_permission('ADMINISTRATOR'))
+        self.everyone.refresh_from_db()
+        self.assertFalse(self.everyone.ADMINISTRATOR)
+
+    def test_private_channel_requires_explicit_view_override(self):
+        self.assertFalse(can_user_view_channel(self.member, self.channel))
+
+        client = Client()
+        client.force_login(self.member)
+        response = client.get(reverse('chat_channel', kwargs={'channel_slug': self.channel.slug}))
+        self.assertEqual(response.status_code, 403)
+
+        ChannelPermission.objects.create(
+            channel=self.channel, role=self.everyone, view_channel=True,
+        )
+        self.assertTrue(can_user_view_channel(self.member, self.channel))
+
+        response = client.get(reverse('chat_channel', kwargs={'channel_slug': self.channel.slug}))
+        self.assertEqual(response.status_code, 200)
+
+    def test_channel_action_override_denies_community_permission(self):
+        ChannelPermission.objects.create(
+            channel=self.channel, role=self.everyone,
+            view_channel=True, send_messages=False,
+        )
+        self.assertFalse(can_user_perform_channel_action(
+            self.member, self.channel, 'send_messages', 'SEND_MESSAGES'
+        ))
+
+    def test_message_search_excludes_private_channels_without_access(self):
+        Message.objects.create(channel=self.channel, author=self.owner, content='private-note')
+        client = Client()
+        client.force_login(self.member)
+        url = reverse('search_messages') + f'?c={self.community.slug}&q=private-note'
+        self.assertEqual(client.get(url).json()['count'], 0)
+
+    def test_member_specific_deny_overrides_role_allow(self):
+        ChannelPermission.objects.create(
+            channel=self.channel, role=self.everyone, view_channel=True,
+        )
+        ChannelPermission.objects.create(
+            channel=self.channel, user=self.member, view_channel=False,
+        )
+        self.assertFalse(can_user_view_channel(self.member, self.channel))
+
+    def test_dm_session_requires_participant_and_honors_recipient_controls(self):
+        session = DirectMessageSession.objects.create(user1=self.owner, user2=self.member)
+        self.assertEqual(get_dm_session_for_user(session.id, self.member), session)
+        self.assertIsNone(get_dm_session_for_user(session.id, self.stranger))
+        self.assertTrue(can_send_dm(session, self.owner))
+
+        self.member.profile.dm_setting = 'friends'
+        self.member.profile.save(update_fields=['dm_setting'])
+        self.assertFalse(can_send_dm(session, self.owner))
+        Friendship.objects.create(user1=self.owner, user2=self.member)
+        self.assertTrue(can_send_dm(session, self.owner))
+
+        Block.objects.create(blocker=self.member, blocked=self.owner)
+        self.assertFalse(can_send_dm(session, self.owner))
+
+    def test_embed_urls_only_allow_http_schemes(self):
+        self.assertIsNone(ChatService.clean_embed_data({
+            'type': 'gif', 'url': 'javascript:alert(1)',
+        }))
+        self.assertEqual(ChatService.clean_embed_data({
+            'type': 'gif', 'url': 'https://cdn.example.test/clip.gif',
+        }), {'type': 'gif', 'url': 'https://cdn.example.test/clip.gif'})

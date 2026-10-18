@@ -2,14 +2,14 @@
 {% load static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/profiles.css' %}">
+<link rel="stylesheet" href="{% static 'css/profiles.css' %}?v=2">
 {% endblock %}
 
 {% block content %}
 <div class="profile-container">
     <div class="premium-profile-card">
         <!-- Banner with glowing gradient -->
-        <div class="profile-banner" style="background: linear-gradient(135deg, {% if profile_user.id|divisibleby:2 %}#c26176 0%, #a24b61{% elif profile_user.id|divisibleby:3 %}#5b7290 0%, #3b4a5d{% elif profile_user.id|divisibleby:5 %}#6d5b90 0%, #4b3b5d{% else %}#2b2d31 0%, #1e1f22{% endif %} 100%);">
+        <div class="profile-banner {% if community and membership %}server-profile-banner{% endif %}">
             <!-- Top Right Action Buttons -->
             <div class="banner-actions">
                 {% if community and can_change_nickname and request.user == profile_user %}
@@ -50,6 +50,10 @@
             
             <div class="profile-name-section">
                 <!-- Large Display Name -->
+                <div class="profile-context-label">
+                    <i class="ph-fill {% if community and membership %}ph-users-three{% else %}ph-user-circle{% endif %}"></i>
+                    {% if community and membership %}Server profile · {{ community.name }}{% else %}Main profile{% endif %}
+                </div>
                 <h1 class="profile-display-name">{% if membership and membership.nickname %}{{ membership.nickname }}{% elif profile_user.display_name %}{{ profile_user.display_name }}{% else %}{{ profile_user.username }}{% endif %}</h1>
                 
                 <!-- Smaller Username & Status Pill -->

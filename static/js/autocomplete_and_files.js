@@ -24,8 +24,13 @@ document.addEventListener('DOMContentLoaded', () => {
             msgInput.placeholder = "Uploading...";
             
             try {
+                const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+                const csrfCookie = document.cookie.split(';').map(value => value.trim())
+                    .find(value => value.startsWith('csrftoken='));
+                const csrfToken = csrfInput?.value || (csrfCookie ? decodeURIComponent(csrfCookie.substring(10)) : '');
                 const response = await fetch(uploadUrl, {
                     method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
                     body: formData
                 });
                 if (response.ok) {
