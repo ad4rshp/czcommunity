@@ -9,6 +9,7 @@ from django.contrib.sessions.models import Session
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils import timezone
 from accounts.models import Report, Block
 from chat.models import Community, Channel, Message, DirectMessage, AuditLog
@@ -259,6 +260,7 @@ def handle_admin_dashboard_action(request):
         
     action_type = request.POST.get('action_type')
     redirect_tab = request.POST.get('redirect_tab', 'overview')
+    admin_base = reverse('admin:index')
     
     if action_type == 'update_official_server':
         config = DashboardConfig.load()
@@ -279,7 +281,7 @@ def handle_admin_dashboard_action(request):
         config.official_invite_link = request.POST.get('official_invite_link', '').strip()
         config.save()
         messages.success(request, "Official server onboarding & invite settings saved.")
-        return redirect(f"/admin/?tab=overview")
+        return redirect(f"{admin_base}?tab=overview")
     
     elif action_type == 'toggle_maintenance':
         config = DashboardConfig.load()
@@ -326,13 +328,13 @@ def handle_admin_dashboard_action(request):
             messages.success(request, f"Report #{report.id} ({report.reason}) marked as RESOLVED.")
         except Report.DoesNotExist:
             messages.error(request, f"Report #{report_id} not found.")
-        return redirect(f"/admin/?tab=moderation")
+        return redirect(f"{admin_base}?tab=moderation")
 
     elif action_type == 'ban_user':
         user_identifier = request.POST.get('user_identifier') or request.POST.get('user_id')
         if not user_identifier:
             messages.error(request, "Please enter a username or User ID to ban.")
-            return redirect(f"/admin/?tab={redirect_tab}")
+            return redirect(f"{admin_base}?tab={redirect_tab}")
             
         target = None
         ident_str = str(user_identifier).strip()
@@ -354,13 +356,13 @@ def handle_admin_dashboard_action(request):
             target.save()
             uid = getattr(target, 'profile', None) and target.profile.unique_id
             messages.warning(request, f"User '{target.username}' (User ID: {uid or 'None'}) has been BANNED / SUSPENDED.")
-        return redirect(f"/admin/?tab={redirect_tab}")
+        return redirect(f"{admin_base}?tab={redirect_tab}")
 
     elif action_type == 'unban_user':
         user_identifier = request.POST.get('user_identifier') or request.POST.get('user_id')
         if not user_identifier:
             messages.error(request, "Please enter a username or User ID to restore.")
-            return redirect(f"/admin/?tab={redirect_tab}")
+            return redirect(f"{admin_base}?tab={redirect_tab}")
             
         target = None
         ident_str = str(user_identifier).strip()
@@ -379,7 +381,7 @@ def handle_admin_dashboard_action(request):
             target.is_active = True
             target.save()
             messages.success(request, f"User '{target.username}' has been RESTORED (Active).")
-        return redirect(f"/admin/?tab={redirect_tab}")
+        return redirect(f"{admin_base}?tab={redirect_tab}")
 
     elif action_type == 'issue_emergency_pin':
         user_id = request.POST.get('user_id')
@@ -392,7 +394,7 @@ def handle_admin_dashboard_action(request):
             messages.success(request, f"🔑 Generated Emergency Recovery PIN for @{target.username} (User ID: {target.profile.unique_id}): {pin} (Valid for 2 hours). Share this with the user to recover their account.")
         except User.DoesNotExist:
             messages.error(request, "User not found.")
-        return redirect(f"/admin/?tab={redirect_tab}")
+        return redirect(f"{admin_base}?tab={redirect_tab}")
 
     elif action_type == 'force_terminate_sessions':
         user_id = request.POST.get('user_id')
@@ -410,7 +412,7 @@ def handle_admin_dashboard_action(request):
             messages.success(request, f"Terminated {purged} active sessions across all devices for @{target.username}.")
         except User.DoesNotExist:
             messages.error(request, "User not found.")
-        return redirect(f"/admin/?tab={redirect_tab}")
+        return redirect(f"{admin_base}?tab={redirect_tab}")
 
     elif action_type == 'delete_message':
         msg_id = request.POST.get('message_id')
@@ -430,6 +432,6 @@ def handle_admin_dashboard_action(request):
                 messages.success(request, f"Message #{msg_id} in #{channel_name} was PERMANENTLY DELETED.")
             except Message.DoesNotExist:
                 messages.error(request, f"Message #{msg_id} not found.")
-        return redirect(f"/admin/?tab={redirect_tab}")
+        return redirect(f"{admin_base}?tab={redirect_tab}")
 
-    return redirect(f"/admin/?tab={redirect_tab}")
+    return redirect(f"{admin_base}?tab={redirect_tab}")

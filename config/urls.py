@@ -24,7 +24,7 @@ from chat import views as chat_views
 from django.http import JsonResponse
 urlpatterns = [
     path('.well-known/appspecific/com.chrome.devtools.json', lambda r: JsonResponse({})),
-    path('admin/', admin.site.urls),
+    path('czcontrol/', admin.site.urls),
     path('friends/', profiles_views.friends_list, name='friends'),
     path('settings/', profiles_views.profile_edit, name='global_settings'),
     path('dm/<str:username>/', chat_views.dm_view, name='dm_chat'),
