@@ -51,12 +51,18 @@ else:
     ALLOWED_HOSTS = [
         'localhost', 
         '127.0.0.1', 
+        'testserver',
         'czcommunity-production.up.railway.app',
+        '.railway.app',
+        '.up.railway.app',
         'czcommunity.com', 
         'www.czcommunity.com',
         'chillzone.com',
         'www.chillzone.com',
     ]
+    railway_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN')
+    if railway_domain and railway_domain not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(railway_domain)
 
 websocket_origins_env = os.environ.get('WEBSOCKET_ALLOWED_ORIGINS')
 if websocket_origins_env:

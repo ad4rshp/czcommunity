@@ -39,7 +39,7 @@ def register_view(request):
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user)
+            login(request, user, backend='accounts.backends.EmailOrUsernameOrUIDBackend')
             
             # Check if user opted in to join the official server
             join_official = form.cleaned_data.get('join_official', True)

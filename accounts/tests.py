@@ -1,10 +1,11 @@
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.contrib.sessions.models import Session
 from django.core.cache import cache
 from django.utils import timezone
 from profiles.models import Profile
+from captcha.models import CaptchaStore
 
 class UniqueIDAndRecoveryTestCase(TestCase):
     def setUp(self):
@@ -131,3 +132,21 @@ class UniqueIDAndRecoveryTestCase(TestCase):
         })
         self.assertContains(response, 'Too many recovery attempts', status_code=200)
         self.assertIsNotNone(authenticate(username='testhero', password=old_password))
+
+    def test_user_registration_success_and_login(self):
+        """Verifies new user registration logs in user without 500 or multi-backend error."""
+        captcha = CaptchaStore.objects.create(challenge='ABCD', response='ABCD')
+        response = self.client.post('/register/', {
+            'username': 'newuser123',
+            'email': 'newuser123@example.com',
+            'password1': 'StrongP@ssw0rd99!',
+            'password2': 'StrongP@ssw0rd99!',
+            'captcha_0': captcha.hashkey,
+            'captcha_1': 'abcd',
+            'tos_agreed': True,
+            'join_official': True,
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(User.objects.filter(username='newuser123').exists())
+        self.assertEqual(int(self.client.session['_auth_user_id']), User.objects.get(username='newuser123').id)
+
